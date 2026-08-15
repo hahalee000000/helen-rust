@@ -22,6 +22,8 @@ impl LlmResponse {
 }
 
 /// `LLMRuntime` — abstract interface mapping to Helen's llm statements.
+/// Full signature mirrors `helen/runtime/llm_runtime.py` (M5).
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub trait LlmRuntime {
     /// `llm if` — route to one of the branches by description.
     fn route(
@@ -35,7 +37,55 @@ pub trait LlmRuntime {
         &mut self,
         prompt: &str,
         tools: &[serde_json::Value],
+        model: Option<&str>,
+        temperature: f64,
+        max_turns: usize,
+        max_tokens: Option<u64>,
+        history: &[serde_json::Value],
+        system_prompt: Option<&str>,
+        dispatch_fn: Option<&dyn Fn(&str, &serde_json::Value) -> String>,
+        thinking_enabled: bool,
+        reasoning_effort: Option<&str>,
     ) -> Result<LlmResponse, ExceptionValue>;
+    /// Streaming `llm act` — event callback; returns false to stop.
+    fn act_stream(
+        &mut self,
+        prompt: &str,
+        model: Option<&str>,
+        temperature: f64,
+        system_prompt: Option<&str>,
+        tools: &[serde_json::Value],
+        max_turns: usize,
+        history: &[serde_json::Value],
+        dispatch_fn: Option<&dyn Fn(&str, &serde_json::Value) -> String>,
+        on_event: &mut dyn FnMut(serde_json::Value) -> bool,
+        thinking_enabled: bool,
+        reasoning_effort: Option<&str>,
+    ) -> Result<(), ExceptionValue> {
+        // Default: wrap act() and emit a single content event (Python
+        // `LLMRuntime.act_stream` default implementation parity).
+        let response = self.act(
+            prompt,
+            tools,
+            model,
+            temperature,
+            max_turns,
+            None,
+            history,
+            system_prompt,
+            dispatch_fn,
+            thinking_enabled,
+            reasoning_effort,
+        )?;
+        if let Some(text) = &response.text {
+            if !text.is_empty()
+                && !on_event(serde_json::json!({"type": "content", "content": text}))
+            {
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A recorded `route()` call: (description, branch names, context).
@@ -100,6 +150,15 @@ impl LlmRuntime for MockLlmRuntime {
         &mut self,
         prompt: &str,
         tools: &[serde_json::Value],
+        _model: Option<&str>,
+        _temperature: f64,
+        _max_turns: usize,
+        _max_tokens: Option<u64>,
+        _history: &[serde_json::Value],
+        _system_prompt: Option<&str>,
+        _dispatch_fn: Option<&dyn Fn(&str, &serde_json::Value) -> String>,
+        _thinking_enabled: bool,
+        _reasoning_effort: Option<&str>,
     ) -> Result<LlmResponse, ExceptionValue> {
         self.act_history
             .borrow_mut()

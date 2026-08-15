@@ -1,1 +1,20 @@
-//! helen-runtime — placeholder crate. Implemented in a later milestone (M0 scaffold).
+//! helen-runtime — M5: LLM runtime (providers, HTTP client, config, prompt
+//! building, model capabilities, token counting, probe).
+//!
+//! Byte-faithful port of `helen/runtime/{llm_runtime,provider_protocol,
+//! config,prompt_builder,model_capabilities,token_utils,http_llm,probe}.py`.
+//! The interpreter keeps its own `MockLlmRuntime` (deterministic tests); this
+//! crate provides the production runtime used when the interpreter is built
+//! with real-provider support.
+
+pub mod calc;
+pub mod config;
+pub mod http_llm;
+pub mod llm;
+pub mod model_caps;
+pub mod prompt;
+pub mod provider;
+pub mod token;
+pub mod tools;
+
+pub use tools::tools_dispatch;

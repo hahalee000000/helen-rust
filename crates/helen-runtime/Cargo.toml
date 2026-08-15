@@ -5,4 +5,16 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Helen language Rust reimplementation — helen-runtime (M0 stub)"
+description = "Helen language Rust reimplementation — helen-runtime (M5 LLM runtime)"
+
+[dependencies]
+helen-core = { path = "../helen-core" }
+serde_json.workspace = true
+serde.workspace = true
+regex.workspace = true
+ureq.workspace = true
+chrono.workspace = true
+indexmap.workspace = true
+rand.workspace = true
+
+[dev-dependencies]

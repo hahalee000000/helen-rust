@@ -186,20 +186,6 @@ fn arg_opt_int(args: &[Value], i: usize) -> Result<Option<BigInt>, ExceptionValu
     }
 }
 
-/// Optional float-or-int argument coerced to f64 (Python numeric default None).
-fn arg_opt_f64(args: &[Value], i: usize) -> Result<Option<f64>, ExceptionValue> {
-    match args.get(i) {
-        Some(Value::Int(n)) => Ok(n.to_f64()),
-        Some(Value::Float(f)) => Ok(Some(*f)),
-        Some(Value::Null) | None => Ok(None),
-        Some(v) => Err(ExceptionValue::new(
-            "RuntimeError",
-            format!("expected number, got {}", v.type_name()),
-            None,
-        )),
-    }
-}
-
 fn err_expected<T>(what: &str, got: &Value) -> Result<T, ExceptionValue> {
     Err(ExceptionValue::new(
         "RuntimeError",
@@ -499,8 +485,7 @@ fn str_pad_left(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exception
     if s.len() >= width {
         return Ok(Value::Str(Rc::from(s.to_string().as_str())));
     }
-    let fill = std::iter::repeat_n(pad_char, width - s.len())
-        .collect::<String>();
+    let fill = std::iter::repeat_n(pad_char, width - s.len()).collect::<String>();
     Ok(Value::Str(Rc::from(format!("{fill}{s}").as_str())))
 }
 
@@ -512,8 +497,7 @@ fn str_pad_right(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exceptio
     if s.len() >= width {
         return Ok(Value::Str(Rc::from(s.to_string().as_str())));
     }
-    let fill = std::iter::repeat_n(pad_char, width - s.len())
-        .collect::<String>();
+    let fill = std::iter::repeat_n(pad_char, width - s.len()).collect::<String>();
     Ok(Value::Str(Rc::from(format!("{s}{fill}").as_str())))
 }
 
@@ -2608,7 +2592,6 @@ fn data_csv_save(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exceptio
 // ---------------------------------------------------------------------------
 
 fn time_now(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    
     let now = chrono::Local::now();
     Ok(Value::Str(Rc::from(
         now.format("%Y-%m-%dT%H:%M:%S").to_string().as_str(),
