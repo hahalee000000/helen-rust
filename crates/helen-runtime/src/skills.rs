@@ -56,19 +56,31 @@ fn home_dir() -> Option<PathBuf> {
 }
 
 /// Find the skill root directory that contains `name/SKILL.md`.
+///
+/// Mirrors the Python reference (`helen/runtime/tools.py#_load_skill`), which
+/// walks each skill directory tree recursively with `os.walk` and matches any
+/// directory whose basename equals `name` and contains a `SKILL.md`. Search
+/// priority is by directory order (project → user → bundled); within one
+/// base directory the first match in depth-first order wins.
 fn find_skill_root(name: &str, dirs: &[PathBuf]) -> Option<PathBuf> {
     for base in dirs {
         if !base.is_dir() {
             continue;
         }
-        if let Ok(entries) = std::fs::read_dir(base) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir()
-                    && entry.file_name().to_string_lossy() == name
-                    && path.join("SKILL.md").is_file()
-                {
-                    return Some(path);
+        let mut stack = vec![base.clone()];
+        while let Some(dir) = stack.pop() {
+            if dir.file_name().map(|n| n == name).unwrap_or(false) && dir.join("SKILL.md").is_file()
+            {
+                return Some(dir);
+            }
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                // Push children so nested category dirs (e.g.
+                // skills/software-development/<name>/) are searched.
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        stack.push(path);
+                    }
                 }
             }
         }
