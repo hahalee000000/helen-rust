@@ -1,4 +1,10 @@
 file,rust_exit,py_exit,rust_codes,py_codes,match
+tests/programs/pytest/agent/test_get_cwd_fallback_without_env.helen,2,2,E0341 E0332,E0341 E0332,True
+tests/programs/pytest/agent/test_get_cwd_with_env_var.helen,2,2,E0341 E0332,E0341 E0332,True
+tests/programs/pytest/agent/test_get_cwd_with_trailing_backslash.helen,2,2,E0341 E0332,E0341 E0332,True
+tests/programs/pytest/agent/test_get_home_prefers_home_env.helen,2,2,E0341 E0332,E0341 E0332,True
+tests/programs/pytest/agent/test_get_home_returns_nonempty.helen,2,2,E0341 E0332,E0341 E0332,True
+tests/programs/pytest/agent/test_get_home_uses_userprofile_on_windows.helen,2,2,E0341 E0332,E0341 E0332,True
 tests/programs/authored/agent_decl.helen,0,0,,,True
 tests/programs/authored/arithmetic.helen,0,0,,,True
 tests/programs/authored/bigint.helen,0,0,,,True
@@ -6,14 +12,14 @@ tests/programs/authored/closures.helen,0,0,,,True
 tests/programs/authored/control_flow.helen,0,0,,,True
 tests/programs/authored/dicts.helen,0,0,,,True
 tests/programs/authored/display_parity.helen,0,0,,,True
-tests/programs/authored/error_lex.helen,0,0,,,True
-tests/programs/authored/error_runtime.helen,0,0,,,True
+tests/programs/authored/error_lex.helen,1,1,E0301 E0301,E0301 E0301,True
+tests/programs/authored/error_runtime.helen,3,3,,,True
 tests/programs/authored/error_semantic.helen,2,2,E0332,E0332,True
 tests/programs/authored/exceptions.helen,0,0,,,True
 tests/programs/authored/float_precision.helen,0,0,,,True
 tests/programs/authored/functions.helen,0,0,,,True
 tests/programs/authored/hello.helen,0,0,,,True
-tests/programs/authored/imports_stdlib.helen,2,2,E0341;E0332,E0341;E0332,True
+tests/programs/authored/imports_stdlib.helen,2,2,E0341 E0332,E0341 E0332,True
 tests/programs/authored/lists.helen,0,0,,,True
 tests/programs/authored/llm_act_basic.helen,0,0,,,True
 tests/programs/authored/llm_act_streaming.helen,0,0,,,True
@@ -21,24 +27,28 @@ tests/programs/authored/llm_if_basic.helen,0,0,,,True
 tests/programs/authored/logical_ops.helen,0,0,,,True
 tests/programs/authored/match_stmt.helen,0,0,,,True
 tests/programs/authored/operator_precedence.helen,0,0,,,True
-tests/programs/authored/pipe_chain.helen,2,2,E0332;E0332;E0332,E0332;E0332;E0332,True
+tests/programs/authored/pipe_chain.helen,2,2,E0332 E0332 E0332,E0332 E0332 E0332,True
 tests/programs/authored/protocol_impl.helen,2,2,E0332,E0332,True
-tests/programs/authored/shared_store.helen,2,2,E0332;E0332,E0332;E0332,True
+tests/programs/authored/shared_store.helen,1,1,E0301 E0301,E0301 E0301,True
 tests/programs/authored/spawn_expr.helen,2,2,E0332,E0332,True
 tests/programs/authored/strings.helen,0,0,,,True
 tests/programs/authored/try_catch.helen,0,0,,,True
 tests/programs/authored/type_conversion.helen,0,0,,,True
-tests/programs/pytest/agent/test_get_cwd_fallback_without_env.helen,2,2,E0341;E0332,E0341;E0332,True
-tests/programs/pytest/agent/test_get_cwd_with_env_var.helen,2,2,E0341;E0332,E0341;E0332,True
-tests/programs/pytest/agent/test_get_cwd_with_trailing_backslash.helen,2,2,E0341;E0332,E0341;E0332,True
-tests/programs/pytest/agent/test_get_home_prefers_home_env.helen,2,2,E0341;E0332,E0341;E0332,True
-tests/programs/pytest/agent/test_get_home_returns_nonempty.helen,2,2,E0341;E0332,E0341;E0332,True
-tests/programs/pytest/agent/test_get_home_uses_userprofile_on_windows.helen,2,2,E0341;E0332,E0341;E0332,True
+tests/programs/display/big_int_edge.helen,0,0,,,True
+tests/programs/display/deep_nesting.helen,1,1,E0301 E0301 E0301 E0301 E0301 E0301 E0301,E0301 E0301 E0301 E0301 E0301 E0301 E0301,True
+tests/programs/display/dict_ordering.helen,1,1,E0301 E0301 E0301,E0301 E0301 E0301,True
+tests/programs/display/empty_inputs.helen,1,1,E0301 E0301 E0301 E0301 E0301 E0301,E0301 E0301 E0301 E0301 E0301 E0301,True
+tests/programs/display/error_embedding.helen,3,3,,,True
+tests/programs/display/float_thresholds.helen,0,0,,,True
+tests/programs/display/nan_inf.helen,0,0,,,True
+tests/programs/display/negative_indices.helen,0,0,,,True
+tests/programs/display/nested_containers.helen,1,1,E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301,E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301 E0301,True
+tests/programs/display/unicode.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_llm_act_sees_resumed_history_via_interpreter_session_id.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_llm_act_sees_resumed_history_via_spawn_resume.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_multiple_shared_let_visible.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_python_module_accessible_in_spawned_agent.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_resume_loads_history_end_to_end.helen,2,2,E0354;E0332;E0332;E0332;E0332,E0354;E0332;E0332;E0332;E0332,True
+tests/programs/pytest/interpreter/test_resume_loads_history_end_to_end.helen,2,2,E0354 E0332 E0332 E0332 E0332,E0354 E0332 E0332 E0332 E0332,True
 tests/programs/pytest/interpreter/test_resume_nonexistent_session_is_graceful.helen,2,2,E0332,E0332,True
 tests/programs/pytest/interpreter/test_resume_returns_same_session_id.helen,2,2,E0332,E0332,True
 tests/programs/pytest/interpreter/test_shared_let_mutable_in_spawned_agent.helen,0,0,,,True

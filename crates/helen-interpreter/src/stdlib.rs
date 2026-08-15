@@ -1581,7 +1581,18 @@ fn math_pow(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValu
             ))
         }
     };
-    Ok(Value::Float(base.powf(exp)))
+    let result = base.powf(exp);
+    // Parity with Python `math.pow`: raising a finite base to a finite
+    // exponent whose result overflows raises OverflowError (surfaced as
+    // RuntimeError here); `inf`/`nan` inputs pass through unchecked.
+    if base.is_finite() && exp.is_finite() && !result.is_finite() {
+        return Err(ExceptionValue::new(
+            "RuntimeError",
+            "Python OverflowError: math range error".to_string(),
+            None,
+        ));
+    }
+    Ok(Value::Float(result))
 }
 
 /// Python `round(value, ndigits)` — banker's rounding (round-half-even),
@@ -3437,12 +3448,27 @@ fn system_env_get(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Excepti
 fn system_env_set(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let key = arg_str(args, 0)?;
     let value = arg_str(args, 1)?;
+    // Python parity: `os.environ[key] = value` raises
+    // `OSError: [Errno 22] Invalid argument` for keys that are empty,
+    // contain '=' or NUL — never panic (std::env::set_var panics on these).
+    if key.is_empty() || key.contains('=') || key.contains('\0') {
+        return Err(ExceptionValue::new(
+            "RuntimeError",
+            "Python OSError: [Errno 22] Invalid argument".to_string(),
+            None,
+        ));
+    }
     unsafe { std::env::set_var(key, value) };
     Ok(Value::Str(Rc::from(format!("Set {key}={value}").as_str())))
 }
 
 fn system_env_delete(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let key = arg_str(args, 0)?;
+    // Python parity: `_env_delete` guards with `if key in os.environ` —
+    // missing/invalid keys return "Variable {key} not found" (never panics).
+    if key.is_empty() || key.contains('=') || key.contains('\0') {
+        return Ok(Value::Str(Rc::from(format!("Variable {key} not found").as_str())));
+    }
     unsafe { std::env::remove_var(key) };
     Ok(Value::Str(Rc::from(format!("Deleted {key}").as_str())))
 }

@@ -1,0 +1,14 @@
+import std.core.*
+
+main {
+    // Unicode display parity (Task 13.4 authored edge cases)
+    print("héllo wörld")
+    print("你好，世界")
+    print("日本語テスト")
+    print("emoji: 🚀🎉")
+    print("mixed: abc 中文 123")
+    print(["中文", "日本語", {"ключ": "значение"}])
+    print({"你好": "世界"})
+    let s = "héllo"
+    print(s + "!" + s)
+}

@@ -11,3 +11,6 @@ description = "Core primitives for the Helen language: source spans, error codes
 thiserror.workspace = true
 num-bigint.workspace = true
 ryu.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

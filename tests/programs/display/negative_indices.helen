@@ -1,0 +1,15 @@
+import std.core.*
+
+main {
+    // Negative indices / out-of-range semantics (Task 13.4)
+    let a = [10, 20, 30, 40]
+    print(a[0])
+    print(a[3])
+    print(a[len(a) - 1])
+    print(a[-1])
+    print(a[-4])
+    let d = {"x": 1, "y": 2}
+    print(d["x"])
+    print(d.keys())
+    print(d.values())
+}

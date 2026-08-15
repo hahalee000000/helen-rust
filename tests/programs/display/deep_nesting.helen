@@ -1,0 +1,16 @@
+import std.core.*
+
+main {
+    // Deep nesting — display of deeply nested containers
+    let deep = [1, [2, [3, [4, [5, [6, [7, [8]]]]]]]]
+    print(deep)
+    let deep_dict = {"l1": {"l2": {"l3": {"l4": {"l5": "end"}}}}}
+    print(deep_dict)
+    // Wide nesting
+    print([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+    print({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9})
+    // Empty containers
+    print([])
+    print({})
+    print([[], {}, [[]]])
+}

@@ -9,3 +9,6 @@ description = "Helen language Rust reimplementation — helen-parser (Pratt pars
 
 [dependencies]
 helen-core = { path = "../helen-core" }
+
+[dev-dependencies]
+proptest.workspace = true

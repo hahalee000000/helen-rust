@@ -1,0 +1,17 @@
+import std.core.*
+import std.math.*
+
+main {
+    // NaN/Inf display (Task 13.4): only reachable through float ops
+    // that don't overflow (pow raises OverflowError in both)
+    print(sqrt(4.0))
+    // float overflow: pow(10,400) raises in both — covered by error parity
+    try {
+        print(pow(10, 400))
+    } catch RuntimeError e {
+        print("overflow-caught")
+    }
+    print(pow(2, 53))
+    print(pow(10, 16))
+    print(pow(0.5, 400))
+}

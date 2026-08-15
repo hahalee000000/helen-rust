@@ -1,0 +1,29 @@
+import std.core.*
+
+main {
+    // List/dict churn benchmark
+    let lst = []
+    let i = 0
+    while i < 10000 {
+        lst.append(i)
+        i = i + 1
+    }
+    print(len(lst))
+    let d = {}
+    let j = 0
+    while j < 5000 {
+        d[str(j)] = j
+        j = j + 1
+    }
+    print(len(d))
+    let sum = 0
+    for v in lst {
+        sum = sum + v
+    }
+    print(sum)
+    let dsum = 0
+    for key in d.keys() {
+        dsum = dsum + d[key]
+    }
+    print(dsum)
+}

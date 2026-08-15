@@ -1,0 +1,26 @@
+import std.core.*
+
+main {
+    // String operations benchmark
+    let s = ""
+    let i = 0
+    while i < 2000 {
+        s = s + "x"
+        i = i + 1
+    }
+    print(len(s))
+    let parts = ""
+    let j = 0
+    while j < 500 {
+        parts = parts + "abc" + str(j)
+        j = j + 1
+    }
+    print(len(parts))
+    let joined = ""
+    let k = 0
+    while k < 200 {
+        joined = joined + "héllo"
+        k = k + 1
+    }
+    print(len(joined))
+}

@@ -1,0 +1,13 @@
+import std.core.*
+
+main {
+    // Nested containers with bools/nulls/strings (Task 13.4 display parity)
+    print([1, "a", true, null, 2.5])
+    print({"a": 1, "b": [1, 2, null], "c": {"d": false}})
+    print([[1, 2], [3, [4, [5]]]])
+    print({"list": [{"k": "v"}, {"k2": null}], "n": 0})
+    print(["", " ", "nested \"quotes\"", 'single'])
+    print([true, false, null, [null, [true]]])
+    print({"empty": [], "nested_empty": {"a": {}}})
+    print(1.5e-05)
+}

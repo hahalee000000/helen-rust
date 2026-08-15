@@ -1,0 +1,19 @@
+import std.core.*
+import std.math.*
+
+main {
+    // Big-int arithmetic (num-bigint cost tracking, D3)
+    let a = 99999999999999999999999999
+    let b = 123456789012345678901234567890
+    let i = 0
+    while i < 5000 {
+        a = a * 3
+        b = b + 1
+        if a > pow(10, 40) {
+            a = a % pow(10, 30)
+        }
+        i = i + 1
+    }
+    print(a)
+    print(b)
+}

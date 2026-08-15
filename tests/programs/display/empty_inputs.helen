@@ -1,0 +1,18 @@
+import std.core.*
+
+main {
+    // Empty inputs / edge programs (Task 13.4 authored edge cases)
+    let empty_str = ""
+    print(empty_str)
+    let empty_list = []
+    print(len(empty_list))
+    let zero = 0
+    print(zero)
+    print(zero * 100)
+    print(zero / 1)
+    print(1 - 1)
+    print(2 ** 0)
+    print(0 ** 0)
+    print(100 % 1)
+    print(-0)
+}

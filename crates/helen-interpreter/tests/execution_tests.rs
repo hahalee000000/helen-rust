@@ -442,3 +442,31 @@ fn expr_call_defined_function() {
     let (r, _) = run_src("fn sq(x) {\n x * x\n}\nmain {\n sq(6)\n}");
     assert_eq!(r.unwrap(), Some(int(36)));
 }
+
+#[test]
+fn env_delete_empty_key_no_panic() {
+    // Python parity: `_env_delete` guards with `if key in os.environ`;
+    // an empty key returns "Variable  not found" — the Rust port must
+    // never panic (std::env::remove_var panics on empty/invalid keys).
+    let (r, out) = run_src("import std.core.*\nimport std.system.*\nmain {\n env_delete(\"\")\n}");
+    assert_eq!(out, "");
+    // The message contains the key and "not found" (Python: "Variable  not found").
+    if let Ok(Some(Value::Str(s))) = r.clone() {
+        let s = s.to_string();
+        assert!(s.contains("not found"), "msg: {s}");
+    }
+}
+
+#[test]
+fn env_set_empty_key_raises() {
+    // Python parity: `os.environ[''] = x` raises OSError → RuntimeError
+    // with "Python OSError: [Errno 22] Invalid argument". Rust must raise,
+    // not panic.
+    let e = run_err("import std.core.*\nimport std.system.*\nmain {\n env_set(\"\", \"x\")\n}");
+    assert_eq!(err_class(&e), "RuntimeError");
+    assert!(
+        e.message.contains("OSError") && e.message.contains("Invalid argument"),
+        "msg: {}",
+        e.message
+    );
+}

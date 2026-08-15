@@ -1,0 +1,17 @@
+import std.core.*
+
+main {
+    // Dict ordering: insertion order preserved (Python dict semantics)
+    let d = {"z": 1, "a": 2, "m": 3}
+    print(d)
+    d["b"] = 4
+    print(d)
+    let e = {"x": [3, 2, 1], "y": {"nested": "deep"}}
+    print(e)
+    print({"a": 1, "a": 2})
+    let f = {"k1": 10}
+    f["k2"] = 20
+    f["k1"] = 99
+    print(f)
+    print({"nums": [1, 2, 3], "floats": [1.5, 2.5]})
+}

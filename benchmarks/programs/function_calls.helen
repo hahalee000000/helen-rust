@@ -1,0 +1,18 @@
+import std.core.*
+
+main {
+    // Function call overhead benchmark
+    fn add(a, b) {
+        return a + b
+    }
+    fn double(x) {
+        return add(x, x)
+    }
+    let result = 0
+    let i = 0
+    while i < 20000 {
+        result = double(result) + add(i, 1)
+        i = i + 1
+    }
+    print(result % 1000000007)
+}

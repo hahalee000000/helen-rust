@@ -1,0 +1,16 @@
+import std.core.*
+import std.math.*
+
+main {
+    // Big integers beyond i64 (Task 13.4 authored edge cases)
+    print(99999999999999999999999999 * 2)
+    print(123456789012345678901234567890 + 1)
+    print(123456789012345678901234567890 * 10)
+    print(99999999999999999999999999 + 99999999999999999999999999)
+    print(pow(2, 100))
+    print(pow(2, 200))
+    print(pow(10, 40) - 1)
+    print(-pow(2, 130))
+    print(123456789012345678901234567890123456789 % 7)
+    print(pow(2, 100) / 2)
+}

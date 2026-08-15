@@ -1,0 +1,24 @@
+import std.core.*
+
+main {
+    // Error-message embedding in display (Task 13.4)
+    let lst = [1, 2, 3]
+    // InvalidIndex: Python renders "... index out of range" — parity checked via error-diff
+    try {
+        let x = lst[10]
+        print(x)
+    } catch IndexError e {
+        print("caught")
+    }
+    // Dict missing key path
+    try {
+        let d = {"a": 1}
+        print(d["missing"])
+    } catch KeyError e {
+        print("key-caught")
+    }
+    // Nested container display with a string containing control chars
+    let s = "line1\nline2"
+    print([s, "tab\there", "unicode: héllo wörld"])
+    print({"msg": "error: \"boom\" at line 3"})
+}
