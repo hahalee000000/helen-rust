@@ -199,3 +199,34 @@ git commit + push origin/main
   appended (name-filtered) after built-ins; dispatch falls back to
   `dispatch_mcp_tool`. `_ensure_mcp_initialized` reads `cwd/.mcp.json` lazily —
   the same hook the agent tool loop hits on first tool resolution.
+
+## M10 — Python FFI lessons (Value::Native + pyo3 + custom providers)
+
+- **pyo3 0.23 Bound API**: `call_method(name, (arg,), kwargs)` with a Rust 1-tuple
+  of `Py<PyAny>` silently drops the arg — build args with `PyTuple::new(py, [x.bind(py)])`
+  and call `obj.call_method(name, tuple, Some(&kw))`. `call_method1(name, (a,))` is fine
+  (tuple is the expected Target = PyTuple).
+- **eval-based subclass detection is a trap**: `eval("issubclass(dict['X'], B) ...")`
+  — `dict` resolves to the builtin `dict` type, so `dict['X']` is PEP-585 generic
+  subscription → `types.GenericAlias`, `issubclass` returns False silently. Use Rust-side
+  `PyType::is_subclass(&Bound<PyAny>)` instead (pyo3 0.23 — NOT `is_subclass_of`).
+- **Registry stores classes; adapters hold instances**: Python `_PROTOCOL_NAME_MAP`
+  stores the class; `detect_protocol` returns `protocol_class()`. The Rust adapter must
+  `val.call0()` to instantiate before delegating, else you get
+  `TypeError: MyProtocol() takes no arguments` (calling the class) or
+  `'MyProtocol' object is not callable` (calling the instance without a method name).
+- **`Value::Native(NativeHandle)` integration**: 9 exhaustive match sites (truthy,
+  type_name, python_str, python_repr, PartialEq identity, Hash identity, clone,
+  call, access/index/assign). `NativeObject: Send + Sync + 'static` — `'static` bound
+  required so `Arc<dyn NativeObject>` is `Send + Sync`; `as_any()` must be a required
+  method (default impl can't coerce `&dyn Trait` → `&dyn Any`).
+- **Import hook**: interpreter `import_file` falls back to a global
+  `register_python_import_hook` when `ResolvedImport::Python`; alias = last dotted
+  component of the import name; `.py` suffix stripped; error message matches Python:
+  `Cannot import Python module '{name}': {e}`.
+- **Feature-gated crate pattern**: `helen-ffi` in workspace with `python-ffi` feature
+  (default off) — default `cargo build`/`test`/`clippy` unaffected; pyo3 fetched only
+  when the feature is on. `helen-rust` binary gates `helen_ffi::install()` the same way.
+- **Class `__dict__` is a mappingproxy**: `PyAnyMethods::get_item` on it returns
+  `PyResult<Bound>` (raises KeyError), unlike `PyDictMethods::get_item` which returns
+  `PyResult<Option<Bound>>` — don't `.flatten()` the former.
