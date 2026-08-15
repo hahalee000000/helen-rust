@@ -77,7 +77,8 @@ fi
 
 # 9. Coverage gate (D6/D8) — skip in fast modes.
 if [[ "$MODE" == "full" ]] && command -v cargo-llvm-cov >/dev/null 2>&1; then
-  step "coverage" timeout 900 cargo llvm-cov --no-clean --workspace --exclude helen-lsp --exclude helen-ffi --exclude helen-python-bridge --hide-functions
+  step "coverage" timeout 900 cargo llvm-cov --no-clean --workspace \
+    --exclude helen-lsp --exclude helen-ffi --exclude helen-python-bridge
 fi
 
 echo ""
