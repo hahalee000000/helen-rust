@@ -1926,10 +1926,45 @@ impl Interpreter {
         };
         // M3: no agent context -> empty tools list.
         let response = self.llm_runtime.act(&prompt, &[])?;
-        match response.text {
-            Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
-            None => Ok(Value::Null),
+
+        let has_streaming = la.on_chunk.is_some() || la.on_complete.is_some();
+        if !has_streaming {
+            return match response.text {
+                Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
+                None => Ok(Value::Null),
+            };
         }
+
+        // Streaming path (Python `_visit_llm_act_streaming` with the default
+        // `act_stream`, which wraps `act()` and yields the full text as a
+        // single content event):
+        //   on_chunk(text)  — if it returns `false`, stop (interrupted)
+        //   on_complete()   — called with NO args, only if not interrupted
+        //   return joined text (for a single event: the text itself)
+        let mut full_text = String::new();
+        let mut interrupted = false;
+        if let Some(text) = &response.text {
+            if !text.is_empty() {
+                full_text.push_str(text);
+                if let Some(oc) = &la.on_chunk {
+                    let chunk_fn = self.eval_expr(oc)?;
+                    let chunk_result =
+                        self.call_value(chunk_fn, vec![Value::Str(Rc::from(text.as_str()))])?;
+                    // Python checks `chunk_result is False` (identity), so
+                    // only a literal `false` interrupts — not 0/""/None.
+                    if matches!(chunk_result, Value::Bool(false)) {
+                        interrupted = true;
+                    }
+                }
+            }
+        }
+        if !interrupted {
+            if let Some(oc) = &la.on_complete {
+                let done_fn = self.eval_expr(oc)?;
+                self.call_value(done_fn, vec![])?;
+            }
+        }
+        Ok(Value::Str(Rc::from(full_text.as_str())))
     }
 
     // ------------------------------------------------------------------
@@ -3037,5 +3072,51 @@ mod m3_tests {
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "42\n");
+    }
+
+    // ------------------------------------------------------------------
+    // Task 3.6b: `llm act` streaming callbacks (intended HLD semantics —
+    // see wiki/rust/migration-notes.md; Python's path is broken upstream)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn llm_act_streaming_dispatches_chunk_and_complete() {
+        // on_chunk receives the full text (one content event from the
+        // default act_stream); on_complete() fires with no args; the
+        // expression evaluates to the text.
+        let mock = MockLlmRuntime::with_act_text("story");
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nmain {\n    let r = llm act \"Hi\" on_chunk fn(chunk: str) { print(\"C:\" + chunk) } on_complete fn() { print(\"DONE\") }\n    print(\"RET:\" + r)\n}\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "C:story\nDONE\nRET:story\n");
+    }
+
+    #[test]
+    fn llm_act_streaming_chunk_false_interrupts() {
+        // on_chunk returning literal `false` interrupts: on_complete is
+        // skipped, return value is the partial text.
+        let mock = MockLlmRuntime::with_act_text("story");
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nmain {\n    let r = llm act \"Hi\" on_chunk fn(chunk: str) { print(\"C:\" + chunk) return false } on_complete fn() { print(\"DONE\") }\n    print(\"RET:\" + r)\n}\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "C:story\nRET:story\n");
+    }
+
+    #[test]
+    fn llm_act_streaming_empty_text_returns_empty_string() {
+        // Python: no content events (mock text="") → on_chunk never fires
+        // but on_complete DOES (only skipped when interrupted); joined text
+        // is "" (not Null).
+        let mock = MockLlmRuntime::new(None, None);
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nmain {\n    let r = llm act \"Hi\" on_chunk fn(chunk: str) { print(chunk) } on_complete fn() { print(\"DONE\") }\n    print(\"[\" + r + \"]\")\n}\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "DONE\n[]\n");
     }
 }
