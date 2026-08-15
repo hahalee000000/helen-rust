@@ -116,3 +116,17 @@ sources are skipped and counted in the manifest).
       manifest and surface as `exit_code: 2` in `golden/interpreter.jsonl`
       (4 of 18) until scaffolding is captured in a later milestone.
 - [x] `rust-toolchain.toml`, `.gitignore`, workspace `Cargo.toml` committed.
+
+## M13 Tier B (subprocess drop-in swap)
+
+`scripts/diff-tier-b.sh <suite...>` runs the Python pytest suites that invoke
+`helen` via subprocess against the Rust binary (PATH prepend, D10).
+
+| Suite | Result | Notes |
+|---|---|---|
+| language | 100/100 | module import, closures, patterns, pipe, struct methods |
+| agent | 170/172 | 2 pre-existing Python-side failures (`TestStdlibWrappers::test_debug*` — `helen.stdlib._debug` returns '' in this env; fails identically against the Python `helen`, not a parity bug) |
+| cli | 64/64 | golden output parity |
+| ffi | 64/64 + 1 skip | subprocess parts |
+
+Any suite test that imports `helen.*` internals for its *assertions* is Tier C.
