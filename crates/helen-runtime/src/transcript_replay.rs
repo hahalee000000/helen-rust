@@ -22,11 +22,17 @@ impl TranscriptReplay {
     pub fn load(session_id: &str, session_dir: &Path) -> Result<Self, String> {
         let session_path = session_dir.join(session_id);
         if !session_path.exists() {
-            return Err(format!("Session directory not found: {}", session_path.display()));
+            return Err(format!(
+                "Session directory not found: {}",
+                session_path.display()
+            ));
         }
         let jsonl_path = session_path.join("transcript.jsonl");
         if !jsonl_path.exists() {
-            return Err(format!("No transcript file found in {}", session_path.display()));
+            return Err(format!(
+                "No transcript file found in {}",
+                session_path.display()
+            ));
         }
 
         let store = crate::transcript::TranscriptStore::load_from_backend(
@@ -116,7 +122,11 @@ impl TranscriptReplay {
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let haystack = if case_sensitive { content } else { content.to_lowercase() };
+            let haystack = if case_sensitive {
+                content
+            } else {
+                content.to_lowercase()
+            };
             if haystack.contains(&search_query) {
                 results.push(i);
             }
@@ -129,7 +139,11 @@ impl TranscriptReplay {
         let mut roles: HashMap<String, usize> = HashMap::new();
         let mut agents: HashMap<String, usize> = HashMap::new();
         for msg in &self.messages {
-            let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+            let role = msg
+                .get("role")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
             *roles.entry(role).or_insert(0) += 1;
             if let Some(agent) = msg.get("agent_name").and_then(|v| v.as_str()) {
                 if !agent.is_empty() {
@@ -148,7 +162,10 @@ impl TranscriptReplay {
 
     /// `format_message` — one-line display with role/agent/content.
     pub fn format_message(&self, msg: &Value) -> String {
-        let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let role = msg
+            .get("role")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         let agent = msg.get("agent_name").and_then(|v| v.as_str()).unwrap_or("");
         let content = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
         let truncated: String = content.chars().take(200).collect();
@@ -214,7 +231,10 @@ mod tests {
         make_session(&dir, "s1");
         let mut r = TranscriptReplay::load("s1", &dir).unwrap();
         assert_eq!(r.len(), 3);
-        assert!(r.current_message().unwrap()["content"].as_str().unwrap().contains("msg 0"));
+        assert!(r.current_message().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .contains("msg 0"));
         assert!(r.next().is_some());
         assert_eq!(r.current_index, 1);
         assert!(r.next().is_some());

@@ -3463,6 +3463,19 @@ mod m3_tests {
     use super::*;
     use helen_core::lexer::Scanner;
 
+    /// Serialize MCP-touching tests: the runtime MCP registry is a process
+    /// global (Python `tools._mcp_registry`), so parallel tests must not
+    /// observe each other's MCP state.
+    fn with_mcp_clean<T>(f: impl FnOnce() -> T) -> T {
+        use std::sync::{Mutex, OnceLock};
+        static MCP_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        let _g = MCP_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+        helen_runtime::shutdown_mcp();
+        let r = f();
+        helen_runtime::shutdown_mcp();
+        r
+    }
+
     fn run_src(src: &str) -> (Result<Option<Value>, ExceptionValue>, String) {
         let mut scanner = Scanner::new(src, "t.helen");
         let tokens = scanner.scan_all();
@@ -4087,11 +4100,12 @@ main {
 
     #[test]
     fn dispatch_routes_agent_function_and_tool_registry() {
-        // Directly exercise dispatch_agent_tool: agent Helen function first,
-        // then the built-in registry (calculate). The agent is invoked via a
-        // normal agent call so its functions{} are registered as tools.
-        let mock = MockLlmRuntime::with_act_text("ok");
-        let src = r#"import std.core.*
+        with_mcp_clean(|| {
+            // Directly exercise dispatch_agent_tool: agent Helen function first,
+            // then the built-in registry (calculate). The agent is invoked via a
+            // normal agent call so its functions{} are registered as tools.
+            let mock = MockLlmRuntime::with_act_text("ok");
+            let src = r#"import std.core.*
 agent A {
     prompt "p"
     functions {
@@ -4107,28 +4121,29 @@ main {
     A()
 }
 "#;
-        let (r, _out, mock) = run_src_with_mock(src, mock);
-        assert!(r.is_ok(), "{r:?}");
-        let hist = mock.act_history.borrow();
-        assert_eq!(hist.len(), 1);
-        // The allowlist only contains skill tools (no `tools` declaration),
-        // but the dispatch closure is wired — exercise it via a direct call
-        // through a fresh interpreter with the agent registered.
-        let mut scanner = Scanner::new(src, "t.helen");
-        let tokens = scanner.scan_all();
-        let mut parser = helen_parser::Parser::new(tokens);
-        let program = parser.parse();
-        let mut interp = Interpreter::new();
-        let r = interp.interpret(&program);
-        assert!(r.is_ok(), "{r:?}");
-        // Built-in registry dispatch works.
-        let calc =
-            interp.dispatch_agent_tool("calculate", &serde_json::json!({"expression": "6*7"}));
-        let v: serde_json::Value = serde_json::from_str(&calc).unwrap();
-        assert_eq!(v["result"], 42);
-        // Unknown tool falls through to the registry error.
-        let unknown = interp.dispatch_agent_tool("nope", &serde_json::json!({}));
-        assert!(unknown.contains("Unknown tool"));
+            let (r, _out, mock) = run_src_with_mock(src, mock);
+            assert!(r.is_ok(), "{r:?}");
+            let hist = mock.act_history.borrow();
+            assert_eq!(hist.len(), 1);
+            // The allowlist only contains skill tools (no `tools` declaration),
+            // but the dispatch closure is wired — exercise it via a direct call
+            // through a fresh interpreter with the agent registered.
+            let mut scanner = Scanner::new(src, "t.helen");
+            let tokens = scanner.scan_all();
+            let mut parser = helen_parser::Parser::new(tokens);
+            let program = parser.parse();
+            let mut interp = Interpreter::new();
+            let r = interp.interpret(&program);
+            assert!(r.is_ok(), "{r:?}");
+            // Built-in registry dispatch works.
+            let calc =
+                interp.dispatch_agent_tool("calculate", &serde_json::json!({"expression": "6*7"}));
+            let v: serde_json::Value = serde_json::from_str(&calc).unwrap();
+            assert_eq!(v["result"], 42);
+            // Unknown tool falls through to the registry error.
+            let unknown = interp.dispatch_agent_tool("nope", &serde_json::json!({}));
+            assert!(unknown.contains("Unknown tool"));
+        });
     }
 
     #[test]
@@ -4365,8 +4380,7 @@ main {
 
     #[test]
     fn session_stdlib_set_dir_list_delete() {
-        let dir = std::env::temp_dir()
-            .join(format!("helen_sess_stdlib_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("helen_sess_stdlib_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let dir_display = dir.display();
         // Pre-create a session dir + transcript via the manager directly.
@@ -4391,8 +4405,7 @@ print(len(sessions))    // 1: only sessions with transcripts count
 
     #[test]
     fn session_delete_and_cleanup_work() {
-        let dir = std::env::temp_dir()
-            .join(format!("helen_sess_del_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("helen_sess_del_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let dir_display = dir.display();
         // Pre-create two sessions with transcripts.
@@ -4415,8 +4428,84 @@ print(len(remaining))
         let (r, out) = run_src(&src);
         assert!(r.is_ok(), "session delete failed: {:?}", r.err());
         let lines: Vec<&str> = out.trim().lines().collect();
-        assert_eq!(lines[0], "true");  // delete_session(s2)
-        assert_eq!(lines[1], "1");     // cleanup deleted s1
-        assert_eq!(lines[2], "0");     // nothing remains
+        assert_eq!(lines[0], "true"); // delete_session(s2)
+        assert_eq!(lines[1], "1"); // cleanup deleted s1
+        assert_eq!(lines[2], "0"); // nothing remains
+    }
+
+    // M9: MCP integration — a fixture MCP server is discovered and its tools
+    // appear in the agent tool registry (DoD 9.1).
+    #[test]
+    fn agent_tools_allowlist_resolves_mcp_tool_schemas() {
+        with_mcp_clean(|| {
+            // Point MCP at the fixture mock server (same as runtime crate tests).
+            let fixture = concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../helen-runtime/tests/fixtures/mock_mcp_server.py"
+            );
+            let config = serde_json::json!({
+                "mcpServers": {
+                    "mock": {
+                        "command": "python3",
+                        "args": [fixture],
+                    }
+                }
+            });
+            let dir = std::env::temp_dir().join(format!("mcp_agent_{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let config_path = dir.join(".mcp.json");
+            std::fs::write(&config_path, serde_json::to_string(&config).unwrap()).unwrap();
+
+            // Initialize MCP.
+            helen_runtime::initialize_mcp(&config_path);
+
+            // Agent with `tools = ["echo", "add"]` → the llm act call receives the
+            // MCP tool schemas (merged into the tool registry, Python parity).
+            let mock = MockLlmRuntime::with_act_text("ok");
+            let src = r#"import std.core.*
+agent M {
+    prompt "use mcp"
+    tools = ["echo", "add"]
+    main {
+        llm act "call echo"
+    }
+}
+main {
+    M()
+}
+"#;
+            let (r, _out, mock) = run_src_with_mock(src, mock);
+            assert!(r.is_ok(), "{r:?}");
+            let hist = mock.act_history.borrow();
+            assert_eq!(hist.len(), 1);
+            let names: Vec<&str> = hist[0]
+                .1
+                .iter()
+                .filter_map(|t| t["function"]["name"].as_str())
+                .collect();
+            assert!(
+                names.contains(&"echo"),
+                "MCP 'echo' schema missing from tool list: {names:?}"
+            );
+            assert!(
+                names.contains(&"add"),
+                "MCP 'add' schema missing from tool list: {names:?}"
+            );
+            // Always-on skill tools still present.
+            assert!(names.contains(&"load_skill"));
+
+            // Dispatch an MCP tool through the agent dispatch path.
+            let mut scanner = Scanner::new(src, "t.helen");
+            let tokens = scanner.scan_all();
+            let mut parser = helen_parser::Parser::new(tokens);
+            let program = parser.parse();
+            let mut interp = Interpreter::new();
+            let r = interp.interpret(&program);
+            assert!(r.is_ok(), "{r:?}");
+            let echo =
+                interp.dispatch_agent_tool("echo", &serde_json::json!({"message": "from helen"}));
+            let v: serde_json::Value = serde_json::from_str(&echo).unwrap();
+            assert_eq!(v["output"], "Echo: from helen");
+        });
     }
 }

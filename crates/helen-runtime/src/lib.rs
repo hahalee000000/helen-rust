@@ -18,6 +18,7 @@ pub mod fuzzy_match;
 pub mod history;
 pub mod http_llm;
 pub mod llm;
+pub mod mcp;
 pub mod memory;
 pub mod model_caps;
 pub mod observability;
@@ -35,5 +36,8 @@ pub mod validator;
 pub mod working_memory;
 
 pub use session::SessionManager;
-pub use tools::{dispatch_tool, get_tool_schemas, tools_dispatch};
+pub use tools::{
+    dispatch_mcp_tool, dispatch_tool, ensure_mcp_initialized, get_mcp_tool_schemas,
+    get_tool_schemas, initialize_mcp, shutdown_mcp, tools_dispatch,
+};
 pub use transcript::{BoundaryMarker, Item, JsonlBackend, Message, SessionMeta, TranscriptStore};

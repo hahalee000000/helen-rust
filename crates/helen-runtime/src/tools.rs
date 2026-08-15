@@ -5,14 +5,23 @@
 //!   web_search, web_fetch, read_file, write_file, shell_exec, calculate,
 //!   patch_file, find_files, search_files, load_skill, list_skill_references.
 
+use crate::mcp::MCPToolRegistry;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 pub mod fuzzy {
     pub use crate::fuzzy_match::*;
 }
 pub mod skills {
     pub use crate::skills::*;
+}
+
+/// Global MCP tool registry (Python `_mcp_registry` in tools.py).
+static MCP_REGISTRY: OnceLock<Mutex<Option<MCPToolRegistry>>> = OnceLock::new();
+
+fn mcp_registry() -> &'static Mutex<Option<MCPToolRegistry>> {
+    MCP_REGISTRY.get_or_init(|| Mutex::new(None))
 }
 
 /// Registered tool: name + OpenAI schema + handler.
@@ -58,6 +67,10 @@ pub fn all_tools() -> Vec<HelenTool> {
 }
 
 /// Python `get_tool_schemas(names)` — schemas for the given names.
+///
+/// Python parity: after built-in tools, MCP tool schemas are appended.
+/// When `names` is provided, only MCP tools whose name is in `names`
+/// are included (Python: `if schema["function"]["name"] in tool_names`).
 pub fn get_tool_schemas(names: &[String]) -> Vec<Value> {
     let mut out = Vec::new();
     for name in names {
@@ -65,17 +78,90 @@ pub fn get_tool_schemas(names: &[String]) -> Vec<Value> {
             out.push(tool_schema(&t));
         }
     }
+
+    // Add MCP tools (Python `get_mcp_tool_schemas()` + name filter).
+    let mcp_schemas = get_mcp_tool_schemas();
+    for schema in mcp_schemas {
+        let sname = schema["function"]["name"].as_str().unwrap_or("");
+        if names.iter().any(|n| n == sname) {
+            out.push(schema);
+        }
+    }
     out
 }
 
 /// Python `dispatch_tool(name, args)` — execute a tool by name.
+///
+/// Checks built-in tools first, then falls back to MCP tools
+/// (Python: `dispatch_mcp_tool(name, args)`).
 pub fn dispatch_tool(name: &str, args: &Value) -> String {
     match get_tool(name) {
         Some(tool) => {
             let handler = tool.handler;
             handler(args)
         }
+        None => dispatch_mcp_tool(name, args),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MCP integration (Python tools.py `_mcp_registry` lifecycle)
+// ---------------------------------------------------------------------------
+
+/// Python `_ensure_mcp_initialized()` — lazily initialize MCP from
+/// `Path.cwd() / ".mcp.json"` if it exists. Safe to call multiple times.
+pub fn ensure_mcp_initialized() {
+    let mut guard = mcp_registry().lock().unwrap();
+    if guard.is_none() {
+        let config_path = std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(".mcp.json");
+        if config_path.exists() {
+            let mut registry = MCPToolRegistry::new();
+            registry.initialize(&config_path);
+            *guard = Some(registry);
+        }
+    }
+}
+
+/// Python `initialize_mcp(config_path)` — initialize MCP servers.
+/// Idempotent (no-op if already initialized).
+pub fn initialize_mcp(config_path: &Path) {
+    let mut guard = mcp_registry().lock().unwrap();
+    if guard.is_some() {
+        return;
+    }
+    let mut registry = MCPToolRegistry::new();
+    registry.initialize(config_path);
+    *guard = Some(registry);
+}
+
+/// Python `get_mcp_tool_schemas()` — MCP tool schemas (OpenAI format).
+pub fn get_mcp_tool_schemas() -> Vec<Value> {
+    ensure_mcp_initialized();
+    let mut guard = mcp_registry().lock().unwrap();
+    match guard.as_mut() {
+        Some(registry) => registry.get_tool_schemas(),
+        None => Vec::new(),
+    }
+}
+
+/// Python `dispatch_mcp_tool(name, args)` — dispatch a tool call to MCP.
+/// Returns an error JSON string if MCP is not available.
+pub fn dispatch_mcp_tool(name: &str, args: &Value) -> String {
+    ensure_mcp_initialized();
+    let mut guard = mcp_registry().lock().unwrap();
+    match guard.as_mut() {
+        Some(registry) => registry.dispatch(name, args.clone()),
         None => json!({"error": format!("Unknown tool: {name}")}).to_string(),
+    }
+}
+
+/// Python `shutdown_mcp()` — shut down all MCP servers and reset.
+pub fn shutdown_mcp() {
+    let mut guard = mcp_registry().lock().unwrap();
+    if let Some(mut registry) = guard.take() {
+        registry.shutdown();
     }
 }
 

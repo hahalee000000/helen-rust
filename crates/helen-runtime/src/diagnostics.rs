@@ -109,7 +109,8 @@ pub fn error_suggestion_registry() -> HashMap<String, RegistryEntry> {
                 },
                 Rule {
                     pattern: "key .* not found".into(),
-                    suggestion: "字典键不存在。检查键名是否正确，或用 get() 方法提供默认值。".into(),
+                    suggestion: "字典键不存在。检查键名是否正确，或用 get() 方法提供默认值。"
+                        .into(),
                 },
             ],
         },

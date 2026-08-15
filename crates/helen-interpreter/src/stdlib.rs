@@ -4065,9 +4065,7 @@ fn impl_list_sessions(i: &mut Interpreter, args: &[Value]) -> Result<Value, Exce
             Value::Str(Rc::from("message_count")),
             Value::Int(s.message_count.into()),
         );
-        items.push(Value::Map(Rc::new(RefCell::new(
-            m.into_iter().collect(),
-        ))));
+        items.push(Value::Map(Rc::new(RefCell::new(m.into_iter().collect()))));
     }
     let _ = args; // scope filter: both dirs merged in Python; we use the configured one.
     Ok(Value::List(Rc::new(RefCell::new(items))))
@@ -4108,7 +4106,10 @@ fn impl_get_session_meta(i: &mut Interpreter, args: &[Value]) -> Result<Value, E
     };
     let mgr = i.session_manager.lock().unwrap();
     if session_id.is_empty() || !mgr.session_exists(&session_id) {
-        return Ok(make_str_map(&[("status", "error"), ("error", "Session not found")]));
+        return Ok(make_str_map(&[
+            ("status", "error"),
+            ("error", "Session not found"),
+        ]));
     }
     // Metadata lives in the transcript's first line; without a transcript
     // store we return a minimal stub (M8 transcript integration fills this).

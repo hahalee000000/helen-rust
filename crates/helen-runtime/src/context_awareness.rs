@@ -23,7 +23,9 @@ pub struct ContextAwareness {
 
 impl Default for ContextAwareness {
     fn default() -> Self {
-        Self { max_tokens: crate::token::DEFAULT_CONTEXT_WINDOW as u64 }
+        Self {
+            max_tokens: crate::token::DEFAULT_CONTEXT_WINDOW as u64,
+        }
     }
 }
 
@@ -132,7 +134,10 @@ mod tests {
     fn budget_tag_injected() {
         let a = ContextAwareness::new(Some(8000));
         let out = a.inject_budget_tag("You are helpful.");
-        assert!(out.contains("<budget:token_budget>8000</budget:token_budget>"), "{out}");
+        assert!(
+            out.contains("<budget:token_budget>8000</budget:token_budget>"),
+            "{out}"
+        );
         // Idempotent
         let again = a.inject_budget_tag(&out);
         assert_eq!(again, out);
@@ -152,7 +157,12 @@ mod tests {
         let a = ContextAwareness::new(Some(208));
         let msgs = vec![json!({"role": "user", "content": "a".repeat(400)})];
         let w = a.build_usage_warning(&msgs).unwrap();
-        assert!(w.contains("<system_warning>Token usage: 104/208; 50% used; 104 remaining</system_warning>"), "{w}");
+        assert!(
+            w.contains(
+                "<system_warning>Token usage: 104/208; 50% used; 104 remaining</system_warning>"
+            ),
+            "{w}"
+        );
     }
 
     #[test]

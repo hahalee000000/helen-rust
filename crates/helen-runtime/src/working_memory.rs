@@ -10,11 +10,8 @@ use crate::token::{estimate_tokens_simple, is_cjk_char};
 pub const RESPONSE_BUFFER_RATIO: f64 = 0.10;
 
 /// Three-channel budget: system 10% / working 45% / history 35%.
-pub const THREE_CHANNEL_BUDGET: &[(&str, f64)] = &[
-    ("system", 0.10),
-    ("working", 0.45),
-    ("history", 0.35),
-];
+pub const THREE_CHANNEL_BUDGET: &[(&str, f64)] =
+    &[("system", 0.10), ("working", 0.45), ("history", 0.35)];
 
 /// Convert token budget to character budget (CJK-aware).
 pub fn tokens_to_chars(text: &str, token_budget: usize) -> usize {
@@ -101,8 +98,16 @@ impl WorkingMemory {
         if !self.error_history.is_empty() {
             let mut body: Vec<String> = Vec::new();
             for e in self.error_history.iter().rev().take(3).rev() {
-                let cmd = if e.command.is_empty() { "unknown".to_string() } else { e.command.clone() };
-                let err: String = if e.error.is_empty() { "unknown".to_string() } else { e.error.clone() };
+                let cmd = if e.command.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    e.command.clone()
+                };
+                let err: String = if e.error.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    e.error.clone()
+                };
                 let err: String = err.chars().take(100).collect();
                 body.push(format!("- Command: {cmd}"));
                 body.push(format!("  Error: {err}"));
@@ -153,11 +158,15 @@ impl WorkingMemory {
         let section_text = |i: usize| -> String {
             format!("{}\n{}", sections[i].0.join("\n"), sections[i].1.join("\n"))
         };
-        let mut total_tokens: usize = included.iter().map(|i| estimate_tokens_simple(&section_text(*i))).sum();
+        let mut total_tokens: usize = included
+            .iter()
+            .map(|i| estimate_tokens_simple(&section_text(*i)))
+            .sum();
 
         while total_tokens > effective_budget && included.len() > 1 {
             let dropped = included.pop().unwrap();
-            total_tokens = total_tokens.saturating_sub(estimate_tokens_simple(&section_text(dropped)));
+            total_tokens =
+                total_tokens.saturating_sub(estimate_tokens_simple(&section_text(dropped)));
         }
 
         // If even the highest-priority section alone exceeds budget,
@@ -200,9 +209,16 @@ impl WorkingMemory {
     }
 
     /// Update working memory based on a tool call and its result.
-    pub fn update_from_tool_call(&mut self, tool_call: &serde_json::Value, tool_result: &serde_json::Value) {
+    pub fn update_from_tool_call(
+        &mut self,
+        tool_call: &serde_json::Value,
+        tool_result: &serde_json::Value,
+    ) {
         let tool_name = tool_call.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        let args = tool_call.get("args").cloned().unwrap_or(serde_json::Value::Null);
+        let args = tool_call
+            .get("args")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
 
         match tool_name {
             "read_file" => {
@@ -300,7 +316,8 @@ impl WorkingMemory {
         let decision_tokens = estimate_list_tokens(&self.recent_decisions);
         let todo_tokens = estimate_list_tokens(&self.pending_todos);
 
-        let mut total_tokens = task_tokens + error_tokens + file_tokens + decision_tokens + todo_tokens;
+        let mut total_tokens =
+            task_tokens + error_tokens + file_tokens + decision_tokens + todo_tokens;
         if total_tokens <= self.max_tokens {
             return;
         }
@@ -316,7 +333,8 @@ impl WorkingMemory {
 
         // Phase 2: Evict recent_decisions
         let mut decision_t = decision_tokens;
-        while decision_t > 0 && total_tokens > self.max_tokens && !self.recent_decisions.is_empty() {
+        while decision_t > 0 && total_tokens > self.max_tokens && !self.recent_decisions.is_empty()
+        {
             let removed = self.recent_decisions.remove(0);
             let t = removed.chars().count() / 4;
             decision_t = decision_t.saturating_sub(t);
@@ -443,7 +461,9 @@ mod tests {
     fn to_context_drops_low_priority_sections() {
         let mut m = wm();
         for i in 0..10 {
-            m.add_todo(&format!("todo item number {i} with a very long description to consume budget"));
+            m.add_todo(&format!(
+                "todo item number {i} with a very long description to consume budget"
+            ));
         }
         m.max_tokens = 200; // Tight budget
         let ctx = m.to_context(Some(200));
@@ -513,17 +533,44 @@ mod tests {
         let m = wm();
         let history = vec![
             crate::transcript::Message::new(
-                "user", serde_json::Value::String("hi".into()), Vec::new(), None,
-                String::new(), None, 50, false, false, None, String::new(), String::new(), Vec::new()),
+                "user",
+                serde_json::Value::String("hi".into()),
+                Vec::new(),
+                None,
+                String::new(),
+                None,
+                50,
+                false,
+                false,
+                None,
+                String::new(),
+                String::new(),
+                Vec::new(),
+            ),
             crate::transcript::Message::new(
-                "assistant", serde_json::Value::String("hello".into()), Vec::new(), None,
-                String::new(), None, 50, false, false, None, String::new(), String::new(), Vec::new()),
+                "assistant",
+                serde_json::Value::String("hello".into()),
+                Vec::new(),
+                None,
+                String::new(),
+                None,
+                50,
+                false,
+                false,
+                None,
+                String::new(),
+                String::new(),
+                Vec::new(),
+            ),
         ];
         let msgs = build_three_channel_context("sys", &m, &history, Some(10000));
         assert!(msgs.len() >= 3);
         assert_eq!(msgs[0]["role"].as_str().unwrap(), "system");
         // Working memory message contains [Working Memory]
-        assert!(msgs[1]["content"].as_str().unwrap().contains("[Working Memory]"));
+        assert!(msgs[1]["content"]
+            .as_str()
+            .unwrap()
+            .contains("[Working Memory]"));
         // Last message is the assistant history
         assert_eq!(msgs.last().unwrap()["role"].as_str().unwrap(), "assistant");
     }
@@ -556,6 +603,10 @@ mod parity_tests {
         let ctx = m.to_context(None);
         let expected = "## Current Task\nPort runtime modules to Rust\n\n## Recent Errors\n- Command: cargo build\n  Error: error[E0308]\n\n## Active Files\n- src/a.rs\n\n## Recent Decisions\n- Use indexmap\n\n## Pending TODOs\n- [ ] Write tests\n";
         assert_eq!(ctx, expected, "to_context(None) byte parity with Python");
-        assert_eq!(m.to_context(Some(200)), expected, "to_context(200) byte parity with Python");
+        assert_eq!(
+            m.to_context(Some(200)),
+            expected,
+            "to_context(200) byte parity with Python"
+        );
     }
 }

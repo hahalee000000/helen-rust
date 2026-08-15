@@ -152,7 +152,11 @@ impl Default for CallStackTracker {
 
 impl CallStackTracker {
     pub fn new(max_depth: usize) -> Self {
-        Self { stack: Vec::new(), max_depth, enabled: false }
+        Self {
+            stack: Vec::new(),
+            max_depth,
+            enabled: false,
+        }
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -202,7 +206,10 @@ impl CallStackTracker {
         let n = self.stack.len();
         for (i, frame) in self.stack.iter().rev().enumerate() {
             let prefix = if i < n - 1 { "  " } else { "-> " };
-            lines.push(format!("{prefix}{} in {}", frame.location, frame.function_name));
+            lines.push(format!(
+                "{prefix}{} in {}",
+                frame.location, frame.function_name
+            ));
         }
         lines.join("\n")
     }
@@ -252,7 +259,11 @@ impl Default for ExecutionTracer {
 
 impl ExecutionTracer {
     pub fn new(max_entries: usize) -> Self {
-        Self { entries: Vec::new(), max_entries, enabled: false }
+        Self {
+            entries: Vec::new(),
+            max_entries,
+            enabled: false,
+        }
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -415,7 +426,10 @@ impl ErrorSnapshot {
                 match t {
                     "call" => lines.push(format!("  → {loc} call {func}")),
                     "return" => {
-                        let ret = data.get("return_value").cloned().unwrap_or_else(|| json!(""));
+                        let ret = data
+                            .get("return_value")
+                            .cloned()
+                            .unwrap_or_else(|| json!(""));
                         lines.push(format!("  ← {loc} return {func} → {ret}"));
                     }
                     _ => lines.push(format!("  [{t}] {loc} {func}")),
@@ -476,7 +490,10 @@ impl LlmAuditEntry {
         result.insert("prompt".into(), json!(truncate(&self.prompt, 500)));
         result.insert("tokens_in".into(), json!(self.tokens_in));
         result.insert("tokens_out".into(), json!(self.tokens_out));
-        result.insert("duration_ms".into(), json!((self.duration_ms * 100.0).round() / 100.0));
+        result.insert(
+            "duration_ms".into(),
+            json!((self.duration_ms * 100.0).round() / 100.0),
+        );
         if let Some(resp) = &self.response {
             result.insert("response".into(), json!(truncate(resp, 500)));
         }
@@ -500,13 +517,21 @@ pub struct LlmAuditLog {
 
 impl Default for LlmAuditLog {
     fn default() -> Self {
-        Self { entries: Vec::new(), max_entries: 1000, enabled: true }
+        Self {
+            entries: Vec::new(),
+            max_entries: 1000,
+            enabled: true,
+        }
     }
 }
 
 impl LlmAuditLog {
     pub fn new(max_entries: usize) -> Self {
-        Self { entries: Vec::new(), max_entries, enabled: true }
+        Self {
+            entries: Vec::new(),
+            max_entries,
+            enabled: true,
+        }
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -573,7 +598,14 @@ impl ObservabilityManager {
         // Extract exception context for diagnostics (known attributes).
         let mut exc_ctx = Map::new();
         if let Some(ctx) = exception_context {
-            for attr in ["tokens_used", "tokens_limit", "agent_name", "agent_args", "cause", "errors"] {
+            for attr in [
+                "tokens_used",
+                "tokens_limit",
+                "agent_name",
+                "agent_args",
+                "cause",
+                "errors",
+            ] {
                 if let Some(v) = ctx.get(attr) {
                     exc_ctx.insert(attr.to_string(), v.clone());
                 }
@@ -690,7 +722,12 @@ mod tests {
         }
         assert_eq!(log.entries().len(), 2);
         let d = log.entries()[0].to_dict();
-        assert!(d.get("prompt").unwrap().as_str().unwrap().ends_with("[truncated]"));
+        assert!(d
+            .get("prompt")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .ends_with("[truncated]"));
         assert_eq!(d.get("duration_ms").unwrap().as_f64().unwrap(), 1.25);
     }
 
@@ -707,7 +744,10 @@ mod tests {
             None,
         );
         let text = snap.format_text(true);
-        assert!(text.contains("Error: RuntimeError: division by zero"), "{text}");
+        assert!(
+            text.contains("Error: RuntimeError: division by zero"),
+            "{text}"
+        );
         assert!(text.contains("Location: a.helen:7:3"), "{text}");
         assert!(text.contains("Category: RuntimeGenericError"), "{text}");
         assert!(text.contains("Suggestion:"), "{text}");

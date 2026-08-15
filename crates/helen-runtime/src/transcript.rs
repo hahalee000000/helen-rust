@@ -239,15 +239,48 @@ impl BoundaryMarker {
 
     pub fn from_dict(data: &serde_json::Value) -> Self {
         BoundaryMarker {
-            uuid: data.get("uuid").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            anchor_uuid: data.get("anchor_uuid").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            head_uuid: data.get("head_uuid").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            tail_uuid: data.get("tail_uuid").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            summary: data.get("summary").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            layer: data.get("layer").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-            timestamp: data.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            original_token_count: data.get("original_token_count").and_then(|v| v.as_i64()).unwrap_or(0),
-            compressed_token_count: data.get("compressed_token_count").and_then(|v| v.as_i64()).unwrap_or(0),
+            uuid: data
+                .get("uuid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            anchor_uuid: data
+                .get("anchor_uuid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            head_uuid: data
+                .get("head_uuid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            tail_uuid: data
+                .get("tail_uuid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            summary: data
+                .get("summary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            layer: data
+                .get("layer")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            timestamp: data
+                .get("timestamp")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
+            original_token_count: data
+                .get("original_token_count")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0),
+            compressed_token_count: data
+                .get("compressed_token_count")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0),
         }
     }
 }
@@ -306,16 +339,51 @@ impl SessionMeta {
             argv: data
                 .get("argv")
                 .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
                 .unwrap_or_default(),
-            timestamp: data.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            helen_version: data.get("helen_version").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            python_version: data.get("python_version").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            platform: data.get("platform").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            cwd: data.get("cwd").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            session_id: data.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            session_scope: data.get("session_scope").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            parent_session_id: data.get("parent_session_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            timestamp: data
+                .get("timestamp")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
+            helen_version: data
+                .get("helen_version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            python_version: data
+                .get("python_version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            platform: data
+                .get("platform")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            cwd: data
+                .get("cwd")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            session_id: data
+                .get("session_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            session_scope: data
+                .get("session_scope")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            parent_session_id: data
+                .get("parent_session_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
         }
     }
 }
@@ -388,8 +456,12 @@ pub fn message_to_dict(m: &Message) -> serde_json::Value {
     }
     // v1.24: Visibility tracking (only include if non-empty, for compactness).
     if !m.visible_to_invocation_ids.is_empty() {
-        d["visible_to_invocation_ids"] =
-            serde_json::Value::Array(m.visible_to_invocation_ids.iter().map(|s| serde_json::Value::String(s.clone())).collect());
+        d["visible_to_invocation_ids"] = serde_json::Value::Array(
+            m.visible_to_invocation_ids
+                .iter()
+                .map(|s| serde_json::Value::String(s.clone()))
+                .collect(),
+        );
     }
     d
 }
@@ -397,11 +469,13 @@ pub fn message_to_dict(m: &Message) -> serde_json::Value {
 /// Reconstruct a Message from a dict (Python `_item_from_dict` parity).
 pub fn message_from_dict(data: &serde_json::Value) -> Message {
     let get_str = |k: &str| -> String {
-        data.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string()
+        data.get(k)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
     };
-    let get_i64 = |k: &str, default: i64| -> i64 {
-        data.get(k).and_then(|v| v.as_i64()).unwrap_or(default)
-    };
+    let get_i64 =
+        |k: &str, default: i64| -> i64 { data.get(k).and_then(|v| v.as_i64()).unwrap_or(default) };
     Message {
         role: data
             .get("role")
@@ -426,8 +500,14 @@ pub fn message_from_dict(data: &serde_json::Value) -> Message {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         priority: get_i64("priority", 50),
-        compressed: data.get("compressed").and_then(|v| v.as_bool()).unwrap_or(false),
-        pinned: data.get("pinned").and_then(|v| v.as_bool()).unwrap_or(false),
+        compressed: data
+            .get("compressed")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        pinned: data
+            .get("pinned")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
         uuid: get_str("uuid"),
         agent_name: data
             .get("agent_name")
@@ -438,7 +518,11 @@ pub fn message_from_dict(data: &serde_json::Value) -> Message {
         visible_to_invocation_ids: data
             .get("visible_to_invocation_ids")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .unwrap_or_default(),
     }
 }
@@ -827,7 +911,8 @@ impl TranscriptStore {
             return;
         }
         // Find all UUIDs referenced by in-memory BoundaryMarkers.
-        let mut protected_uuids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut protected_uuids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for item in &self.transcript {
             if let Item::Boundary(b) = item {
                 protected_uuids.insert(b.head_uuid.clone());
@@ -900,7 +985,8 @@ impl TranscriptStore {
             return result;
         }
         // Build set of compressed UUIDs.
-        let mut compressed_uuids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut compressed_uuids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         let mut summaries: Vec<(String, String)> = Vec::new(); // (anchor_uuid, summary)
         for (head_uuid, tail_uuid, anchor_uuid, summary) in &compressed_ranges {
             let head_idx = self.uuid_index.get(head_uuid).copied();
@@ -916,7 +1002,8 @@ impl TranscriptStore {
         }
         // Build the effective view.
         let mut result: Vec<Message> = Vec::new();
-        let mut added_summaries: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut added_summaries: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for item in &self.transcript {
             match item {
                 Item::Boundary(_) => continue,
@@ -999,7 +1086,9 @@ impl TranscriptStore {
                     d.as_object_mut().unwrap().remove("agent_name");
                     d.as_object_mut().unwrap().remove("invocation_id");
                     d.as_object_mut().unwrap().remove("parent_invocation_id");
-                    d.as_object_mut().unwrap().remove("visible_to_invocation_ids");
+                    d.as_object_mut()
+                        .unwrap()
+                        .remove("visible_to_invocation_ids");
                     d
                 }
                 Item::Boundary(b) => b.to_dict(),
@@ -1173,10 +1262,14 @@ mod tests {
         assert_eq!(store2.get_message_count(), 2);
         assert_eq!(store2.get_boundary_count(), 1);
         // Message content round-trips through JSON (UTF-8).
-        let items = store2.transcript.iter().filter_map(|i| match i {
-            Item::Message(m) => Some(m.clone()),
-            _ => None,
-        }).collect::<Vec<_>>();
+        let items = store2
+            .transcript
+            .iter()
+            .filter_map(|i| match i {
+                Item::Message(m) => Some(m.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         assert_eq!(items[0].content, "hello");
         assert_eq!(items[1].content, "world 世界");
     }
@@ -1231,7 +1324,15 @@ mod tests {
         store.append(&mut m2, true);
         let mut m3 = user_msg("q2", "m3");
         store.append(&mut m3, true);
-        store.record_compression("m1", "m2", "m3", "earlier stuff", "context_collapse", 100, 10);
+        store.record_compression(
+            "m1",
+            "m2",
+            "m3",
+            "earlier stuff",
+            "context_collapse",
+            100,
+            10,
+        );
 
         let view = store.read_view();
         assert_eq!(view.len(), 3);
@@ -1317,7 +1418,9 @@ mod tests {
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].uuid(), "q2");
         // Limit.
-        let res = backend2.query(None, None, None, None, None, Some(1), 0).unwrap();
+        let res = backend2
+            .query(None, None, None, None, None, Some(1), 0)
+            .unwrap();
         assert_eq!(res.len(), 1);
     }
 }

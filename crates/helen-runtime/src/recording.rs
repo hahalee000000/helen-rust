@@ -45,12 +45,22 @@ impl CassetteEntry {
         Some(Self {
             seq: data.get("seq")?.as_u64()?,
             timestamp: data.get("timestamp")?.as_f64()?,
-            agent_name: data.get("agent_name").and_then(|v| v.as_str()).map(String::from),
-            model: data.get("model").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            agent_name: data
+                .get("agent_name")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            model: data
+                .get("model")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
             request: data.get("request").cloned().unwrap_or_else(|| json!({})),
             response: data.get("response").cloned().unwrap_or_else(|| json!({})),
             usage: data.get("usage").cloned().unwrap_or_else(|| json!({})),
-            duration_ms: data.get("duration_ms").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            duration_ms: data
+                .get("duration_ms")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
             tool_calls: data
                 .get("tool_calls")
                 .and_then(|v| v.as_array().cloned())
@@ -72,12 +82,19 @@ impl CassetteWriter {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        Ok(Self { path: path.to_path_buf(), file: None, seq: 0 })
+        Ok(Self {
+            path: path.to_path_buf(),
+            file: None,
+            seq: 0,
+        })
     }
 
     pub fn open(&mut self) -> std::io::Result<()> {
         if self.file.is_none() {
-            let f = OpenOptions::new().create(true).append(true).open(&self.path)?;
+            let f = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&self.path)?;
             self.file = Some(f);
         }
         Ok(())
@@ -132,7 +149,10 @@ pub struct CassetteReader {
 
 impl CassetteReader {
     pub fn new(path: &Path) -> Self {
-        let mut r = Self { path: path.to_path_buf(), entries: Vec::new() };
+        let mut r = Self {
+            path: path.to_path_buf(),
+            entries: Vec::new(),
+        };
         r.load();
         r
     }
@@ -141,7 +161,9 @@ impl CassetteReader {
         if !self.path.exists() {
             return;
         }
-        let Ok(f) = std::fs::File::open(&self.path) else { return };
+        let Ok(f) = std::fs::File::open(&self.path) else {
+            return;
+        };
         let reader = BufReader::new(f);
         for (line_num, line) in reader.lines().enumerate() {
             let Ok(line) = line else { continue };
@@ -201,13 +223,23 @@ pub struct ReplayLlmRuntime {
 
 impl ReplayLlmRuntime {
     pub fn new(cassette_path: &Path) -> Self {
-        Self { cassette: CassetteReader::new(cassette_path), current_seq: u64::MAX }
+        Self {
+            cassette: CassetteReader::new(cassette_path),
+            current_seq: u64::MAX,
+        }
     }
 
     /// Replay next interaction. Returns (text, tool_calls) like LLMResponse.
     pub fn act(&mut self) -> Result<(String, Vec<Value>), String> {
-        let next_seq = if self.current_seq == u64::MAX { 0 } else { self.current_seq + 1 };
-        let entry = self.cassette.get_entry(next_seq).or_else(|| self.cassette.get_next_entry(self.current_seq));
+        let next_seq = if self.current_seq == u64::MAX {
+            0
+        } else {
+            self.current_seq + 1
+        };
+        let entry = self
+            .cassette
+            .get_entry(next_seq)
+            .or_else(|| self.cassette.get_next_entry(self.current_seq));
         let Some(entry) = entry else {
             return Err(format!(
                 "No more recorded interactions in cassette. Used {} of {} entries.",
@@ -216,7 +248,12 @@ impl ReplayLlmRuntime {
             ));
         };
         self.current_seq = entry.seq;
-        let text = entry.response.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let text = entry
+            .response
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let tool_calls = entry
             .response
             .get("tool_calls")
@@ -228,7 +265,11 @@ impl ReplayLlmRuntime {
 
 /// Convenience: JSON-Line round-trip used by tests and the interpreter.
 pub fn cassette_to_list(path: &Path) -> Vec<Value> {
-    CassetteReader::new(path).entries().iter().map(CassetteEntry::to_dict).collect()
+    CassetteReader::new(path)
+        .entries()
+        .iter()
+        .map(CassetteEntry::to_dict)
+        .collect()
 }
 
 /// `RecordingHook` — trait mirroring Python's Protocol for LLM recording.
@@ -246,7 +287,9 @@ pub struct CassetteRecordingHook {
 
 impl CassetteRecordingHook {
     pub fn new(path: &Path) -> std::io::Result<Self> {
-        Ok(Self { _writer: std::sync::Mutex::new(CassetteWriter::new(path)?) })
+        Ok(Self {
+            _writer: std::sync::Mutex::new(CassetteWriter::new(path)?),
+        })
     }
 }
 
@@ -308,8 +351,28 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("c.jsonl");
         let mut w = CassetteWriter::new(&path).unwrap();
-        w.write_entry(&json!({}), &json!({"content": "resp1", "tool_calls": []}), &json!({}), 1.0, None, "m", None, None).unwrap();
-        w.write_entry(&json!({}), &json!({"content": "resp2", "tool_calls": []}), &json!({}), 1.0, None, "m", None, None).unwrap();
+        w.write_entry(
+            &json!({}),
+            &json!({"content": "resp1", "tool_calls": []}),
+            &json!({}),
+            1.0,
+            None,
+            "m",
+            None,
+            None,
+        )
+        .unwrap();
+        w.write_entry(
+            &json!({}),
+            &json!({"content": "resp2", "tool_calls": []}),
+            &json!({}),
+            1.0,
+            None,
+            "m",
+            None,
+            None,
+        )
+        .unwrap();
         w.close();
 
         let mut r = ReplayLlmRuntime::new(&path);

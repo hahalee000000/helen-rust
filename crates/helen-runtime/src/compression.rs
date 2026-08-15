@@ -68,7 +68,10 @@ pub fn calculate_usage_ratio(history: &[Message], max_tokens: usize) -> f64 {
 /// Extract file references from content (Python regex parity).
 fn extract_file_refs(text: &str) -> Vec<String> {
     let mut refs: Vec<String> = Vec::new();
-    let re = regex::Regex::new(r"[\w./-]+\.(?:py|js|ts|json|yaml|yml|md|txt|helen|rs|go|java|c|cpp|h|hpp)").unwrap();
+    let re = regex::Regex::new(
+        r"[\w./-]+\.(?:py|js|ts|json|yaml|yml|md|txt|helen|rs|go|java|c|cpp|h|hpp)",
+    )
+    .unwrap();
     for caps in re.captures_iter(text) {
         let s = caps[0].to_string();
         if !refs.contains(&s) {
@@ -91,7 +94,10 @@ fn budget_reduction(history: &[Message]) -> Vec<Message> {
         }
         let content_text = crate::transcript::message_text_parts(&msg.content).0;
         if msg.role == "tool" && content_text.len() > BUDGET_REDUCTION_MAX_CHARS {
-            let tool_id = msg.tool_call_id.clone().unwrap_or_else(|| "unknown".to_string());
+            let tool_id = msg
+                .tool_call_id
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
             let preview: String = content_text.chars().take(200).collect();
             let mut copy = msg.clone();
             copy.content = serde_json::Value::String(format!(
@@ -168,7 +174,10 @@ fn microcompact(history: &[Message], keep_recent: usize) -> Vec<Message> {
         }
         let msg = &result[*idx];
         if !msg.compressed {
-            let tool_id = msg.tool_call_id.clone().unwrap_or_else(|| "unknown".to_string());
+            let tool_id = msg
+                .tool_call_id
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
             let mut copy = msg.clone();
             copy.content = serde_json::Value::String(format!("[Tool result cleared: {tool_id}]"));
             copy.compressed = true;
@@ -212,7 +221,10 @@ fn context_collapse(history: &[Message]) -> Vec<Message> {
         return history.to_vec();
     }
 
-    let mut timeline_parts = vec![format!("[Context Collapse: {} turns archived as timeline]", old_msgs.len())];
+    let mut timeline_parts = vec![format!(
+        "[Context Collapse: {} turns archived as timeline]",
+        old_msgs.len()
+    )];
 
     let block_size = 10usize;
     for i in (0..old_msgs.len()).step_by(block_size) {
@@ -227,7 +239,10 @@ fn context_collapse(history: &[Message]) -> Vec<Message> {
         timeline_parts.push(stats);
     }
 
-    timeline_parts.push(format!("[Preserved: last {} turns for continuity]", recent_msgs.len()));
+    timeline_parts.push(format!(
+        "[Preserved: last {} turns for continuity]",
+        recent_msgs.len()
+    ));
     let summary_text = timeline_parts.join("\n");
 
     let summary_msg = Message::new(
@@ -276,7 +291,11 @@ fn summarize_block(block: &[&Message], start_idx: usize, end_idx: usize) -> Opti
     for msg in block {
         if msg.role == "assistant" && !msg.tool_calls.is_empty() {
             for tc in &msg.tool_calls {
-                let name = tc.get("name").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                let name = tc
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
                 if let Some(e) = tool_counts.iter_mut().find(|(n, _)| *n == name) {
                     e.1 += 1;
                 } else {
@@ -287,7 +306,11 @@ fn summarize_block(block: &[&Message], start_idx: usize, end_idx: usize) -> Opti
     }
     if !tool_counts.is_empty() {
         tool_counts.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
-        let mut top: Vec<String> = tool_counts.iter().take(3).map(|(n, c)| format!("{n}({c})")).collect();
+        let mut top: Vec<String> = tool_counts
+            .iter()
+            .take(3)
+            .map(|(n, c)| format!("{n}({c})"))
+            .collect();
         top.sort();
         parts.push(format!("Tools: {}", top.join(", ")));
     }
@@ -296,14 +319,30 @@ fn summarize_block(block: &[&Message], start_idx: usize, end_idx: usize) -> Opti
     for msg in block {
         if msg.role == "user" {
             let text = crate::transcript::message_text_parts(&msg.content).0;
-            let first_line: String = text.split('\n').next().unwrap_or("").chars().take(60).collect::<String>().trim().to_string();
+            let first_line: String = text
+                .split('\n')
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(60)
+                .collect::<String>()
+                .trim()
+                .to_string();
             if !first_line.is_empty() && !user_intents.contains(&first_line) {
                 user_intents.push(first_line);
             }
         }
     }
     if !user_intents.is_empty() {
-        parts.push(format!("Tasks: {}", user_intents.iter().take(2).cloned().collect::<Vec<_>>().join("; ")));
+        parts.push(format!(
+            "Tasks: {}",
+            user_intents
+                .iter()
+                .take(2)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
     }
 
     if parts.len() > 1 {
@@ -332,7 +371,11 @@ fn extract_global_stats(old_msgs: &[&Message]) -> Option<String> {
     let errors = old_msgs
         .iter()
         .filter(|m| {
-            m.role == "tool" && crate::transcript::message_text_parts(&m.content).0.to_lowercase().contains("error")
+            m.role == "tool"
+                && crate::transcript::message_text_parts(&m.content)
+                    .0
+                    .to_lowercase()
+                    .contains("error")
         })
         .count();
     if errors > 0 {
@@ -411,7 +454,11 @@ fn structural_auto_compact(
     for msg in old_msgs {
         if msg.role == "assistant" && !msg.tool_calls.is_empty() {
             for tc in &msg.tool_calls {
-                let name = tc.get("name").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                let name = tc
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
                 if let Some(e) = tool_counts.iter_mut().find(|(n, _)| *n == name) {
                     e.1 += 1;
                 } else {
@@ -422,7 +469,11 @@ fn structural_auto_compact(
     }
     if !tool_counts.is_empty() {
         tool_counts.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
-        let mut top: Vec<String> = tool_counts.iter().take(5).map(|(n, c)| format!("{n}({c})")).collect();
+        let mut top: Vec<String> = tool_counts
+            .iter()
+            .take(5)
+            .map(|(n, c)| format!("{n}({c})"))
+            .collect();
         top.sort();
         summary_parts.push(format!("Tools: {}", top.join(", ")));
     }
@@ -431,20 +482,40 @@ fn structural_auto_compact(
     for msg in old_msgs {
         if msg.role == "user" {
             let text = crate::transcript::message_text_parts(&msg.content).0;
-            let first_line: String = text.split('\n').next().unwrap_or("").chars().take(100).collect::<String>().trim().to_string();
+            let first_line: String = text
+                .split('\n')
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(100)
+                .collect::<String>()
+                .trim()
+                .to_string();
             if !first_line.is_empty() && !user_intents.contains(&first_line) {
                 user_intents.push(first_line);
             }
         }
     }
     if !user_intents.is_empty() {
-        summary_parts.push(format!("Tasks: {}", user_intents.iter().take(3).cloned().collect::<Vec<_>>().join("; ")));
+        summary_parts.push(format!(
+            "Tasks: {}",
+            user_intents
+                .iter()
+                .take(3)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
     }
 
     let errors = old_msgs
         .iter()
         .filter(|m| {
-            m.role == "tool" && crate::transcript::message_text_parts(&m.content).0.to_lowercase().contains("error")
+            m.role == "tool"
+                && crate::transcript::message_text_parts(&m.content)
+                    .0
+                    .to_lowercase()
+                    .contains("error")
         })
         .count();
     if errors > 0 {
@@ -670,7 +741,8 @@ impl CacheAwareCompressor {
 
         let cache_zone_end = self.identify_cache_zone(history);
         let initial_tokens: usize = history.iter().map(|m| m.token_count()).sum();
-        let (compressed, mut stats) = self.apply_cache_aware_compression(history, cache_zone_end, max_tokens);
+        let (compressed, mut stats) =
+            self.apply_cache_aware_compression(history, cache_zone_end, max_tokens);
         let final_tokens: usize = compressed.iter().map(|m| m.token_count()).sum();
         stats.tokens_saved = initial_tokens.saturating_sub(final_tokens);
         (compressed, stats)
@@ -883,7 +955,10 @@ impl ReactiveCompactor {
         let old_msgs = &conv_msgs[..conv_msgs.len() - self.preserve_recent];
         let recent_msgs = &conv_msgs[conv_msgs.len() - self.preserve_recent..];
 
-        let mut timeline_parts = vec![format!("[Reactive Compaction: {} turns archived as timeline]", old_msgs.len())];
+        let mut timeline_parts = vec![format!(
+            "[Reactive Compaction: {} turns archived as timeline]",
+            old_msgs.len()
+        )];
 
         for i in (0..old_msgs.len()).step_by(STRUCTURAL_BLOCK_SIZE) {
             let end = (i + STRUCTURAL_BLOCK_SIZE).min(old_msgs.len());
@@ -929,7 +1004,11 @@ impl ReactiveCompactor {
             }
             if !tool_counts.is_empty() {
                 tool_counts.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
-                let mut top: Vec<String> = tool_counts.iter().take(3).map(|(n, c)| format!("{n}({c})")).collect();
+                let mut top: Vec<String> = tool_counts
+                    .iter()
+                    .take(3)
+                    .map(|(n, c)| format!("{n}({c})"))
+                    .collect();
                 top.sort();
                 block_parts.push(format!("Tools: {}", top.join(", ")));
             }
@@ -938,7 +1017,15 @@ impl ReactiveCompactor {
             for msg in block {
                 if msg.get("role").and_then(|v| v.as_str()) == Some("user") {
                     if let Some(content) = msg.get("content").and_then(|v| v.as_str()) {
-                        let first_line: String = content.split('\n').next().unwrap_or("").chars().take(60).collect::<String>().trim().to_string();
+                        let first_line: String = content
+                            .split('\n')
+                            .next()
+                            .unwrap_or("")
+                            .chars()
+                            .take(60)
+                            .collect::<String>()
+                            .trim()
+                            .to_string();
                         if !first_line.is_empty() && !user_intents.contains(&first_line) {
                             user_intents.push(first_line);
                         }
@@ -946,7 +1033,15 @@ impl ReactiveCompactor {
                 }
             }
             if !user_intents.is_empty() {
-                block_parts.push(format!("Tasks: {}", user_intents.iter().take(2).cloned().collect::<Vec<_>>().join("; ")));
+                block_parts.push(format!(
+                    "Tasks: {}",
+                    user_intents
+                        .iter()
+                        .take(2)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                ));
             }
 
             if block_parts.len() > 1 {
@@ -956,14 +1051,25 @@ impl ReactiveCompactor {
 
         // Global stats
         let mut stats_parts = vec!["[Global]".to_string()];
-        let user_turns = old_msgs.iter().filter(|m| m.get("role").and_then(|v| v.as_str()) == Some("user")).count();
-        let assistant_turns = old_msgs.iter().filter(|m| m.get("role").and_then(|v| v.as_str()) == Some("assistant")).count();
+        let user_turns = old_msgs
+            .iter()
+            .filter(|m| m.get("role").and_then(|v| v.as_str()) == Some("user"))
+            .count();
+        let assistant_turns = old_msgs
+            .iter()
+            .filter(|m| m.get("role").and_then(|v| v.as_str()) == Some("assistant"))
+            .count();
         stats_parts.push(format!("Turns: {user_turns}u/{assistant_turns}a"));
 
         let total_tool_calls: usize = old_msgs
             .iter()
             .filter(|m| m.get("role").and_then(|v| v.as_str()) == Some("assistant"))
-            .map(|m| m.get("tool_calls").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0))
+            .map(|m| {
+                m.get("tool_calls")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0)
+            })
             .sum();
         if total_tool_calls > 0 {
             stats_parts.push(format!("Tool calls: {total_tool_calls}"));
@@ -973,7 +1079,11 @@ impl ReactiveCompactor {
             .iter()
             .filter(|m| {
                 m.get("role").and_then(|v| v.as_str()) == Some("tool")
-                    && m.get("content").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains("error")
+                    && m.get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_lowercase()
+                        .contains("error")
             })
             .count();
         if errors > 0 {
@@ -984,7 +1094,10 @@ impl ReactiveCompactor {
             timeline_parts.push(stats_parts.join(" "));
         }
 
-        timeline_parts.push(format!("[Preserved: last {} turns for continuity]", recent_msgs.len()));
+        timeline_parts.push(format!(
+            "[Preserved: last {} turns for continuity]",
+            recent_msgs.len()
+        ));
         let summary_text = timeline_parts.join("\n");
 
         let mut result: Vec<serde_json::Value> = system_msgs.iter().map(|m| (*m).clone()).collect();
@@ -1017,7 +1130,11 @@ mod tests {
         )
     }
 
-    fn tool_msg(content: impl Into<String>, tool_call_id: impl Into<String>, pinned: bool) -> Message {
+    fn tool_msg(
+        content: impl Into<String>,
+        tool_call_id: impl Into<String>,
+        pinned: bool,
+    ) -> Message {
         Message::new(
             "tool",
             serde_json::Value::String(content.into()),
@@ -1054,7 +1171,11 @@ mod tests {
         ];
         let out = budget_reduction(&history);
         assert!(out[1].compressed);
-        assert!(out[1].content.as_str().unwrap().starts_with("[Tool result cleared: t1, 5000 chars]"));
+        assert!(out[1]
+            .content
+            .as_str()
+            .unwrap()
+            .starts_with("[Tool result cleared: t1, 5000 chars]"));
         // Pinned is preserved
         let pinned = tool_msg(&big, "t2", true);
         let history2 = vec![pinned];
@@ -1085,7 +1206,7 @@ mod tests {
         let out = microcompact(&history, MICROCOMPACT_KEEP_RECENT);
         let cleared = out.iter().filter(|m| m.compressed).count();
         assert_eq!(cleared, 5); // 10 - keep_recent 5
-        // Last 5 preserved
+                                // Last 5 preserved
         assert!(!out[9].compressed);
     }
 
@@ -1098,7 +1219,12 @@ mod tests {
         }
         let out = context_collapse(&history);
         assert!(out.len() < history.len());
-        let summary = out.iter().find(|m| m.content.as_str().map(|s| s.contains("[Context Collapse:")).unwrap_or(false));
+        let summary = out.iter().find(|m| {
+            m.content
+                .as_str()
+                .map(|s| s.contains("[Context Collapse:"))
+                .unwrap_or(false)
+        });
         assert!(summary.is_some(), "timeline summary must exist");
         assert!(out[0].role == "system");
     }
@@ -1158,12 +1284,17 @@ mod tests {
         let mut messages = vec![serde_json::json!({"role": "system", "content": "sys"})];
         for i in 0..20 {
             messages.push(serde_json::json!({"role": "user", "content": format!("question {i}")}));
-            messages.push(serde_json::json!({"role": "assistant", "content": format!("answer {i}")}));
+            messages
+                .push(serde_json::json!({"role": "assistant", "content": format!("answer {i}")}));
         }
         let (out, layer) = r.check_and_compact(&messages, 100);
         assert_eq!(layer.as_deref(), Some("reactive_structural"));
         assert!(out.len() < messages.len());
-        assert!(out.iter().any(|m| m.get("content").and_then(|v| v.as_str()).map(|s| s.contains("[Reactive Compaction:")).unwrap_or(false)));
+        assert!(out.iter().any(|m| m
+            .get("content")
+            .and_then(|v| v.as_str())
+            .map(|s| s.contains("[Reactive Compaction:"))
+            .unwrap_or(false)));
 
         // Per-turn: second call returns None (already triggered)
         let (out2, layer2) = r.check_and_compact(&messages, 100);

@@ -212,7 +212,9 @@ fn validate_property(value: &Value, schema: &Value, prop_name: &str) -> Value {
 
 /// Convenience: returns true if `output` is valid per `contract`.
 pub fn is_valid(output: &str, contract: Option<&Value>) -> bool {
-    validate_output(output, contract)["valid"].as_bool().unwrap_or(false)
+    validate_output(output, contract)["valid"]
+        .as_bool()
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -259,7 +261,10 @@ mod tests {
         let schema = json!({"type": "object"});
         let r = validate_output("[1,2]", Some(&schema));
         assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("Expected type 'object'"));
+        assert!(r["violation"]
+            .as_str()
+            .unwrap()
+            .contains("Expected type 'object'"));
     }
 
     #[test]
@@ -279,10 +284,15 @@ mod tests {
             "type": "object",
             "properties": {"n": {"type": "number", "min": 0, "max": 10}}
         });
-        assert!(validate_output(r#"{"n": 5}"#, Some(&schema))["valid"].as_bool().unwrap());
+        assert!(validate_output(r#"{"n": 5}"#, Some(&schema))["valid"]
+            .as_bool()
+            .unwrap());
         let r = validate_output(r#"{"n": 20}"#, Some(&schema));
         assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("greater than maximum 10"));
+        assert!(r["violation"]
+            .as_str()
+            .unwrap()
+            .contains("greater than maximum 10"));
     }
 
     #[test]
@@ -291,23 +301,36 @@ mod tests {
             "type": "object",
             "properties": {"name": {"type": "string", "minLength": 2, "maxLength": 5}}
         });
-        assert!(validate_output(r#"{"name": "abc"}"#, Some(&schema))["valid"].as_bool().unwrap());
+        assert!(
+            validate_output(r#"{"name": "abc"}"#, Some(&schema))["valid"]
+                .as_bool()
+                .unwrap()
+        );
         let r = validate_output(r#"{"name": "x"}"#, Some(&schema));
         assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("less than minimum 2"));
+        assert!(r["violation"]
+            .as_str()
+            .unwrap()
+            .contains("less than minimum 2"));
     }
 
     #[test]
     fn unknown_contract_type() {
         let r = validate_output("x", Some(&json!("yaml")));
         assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("Unknown contract type"));
+        assert!(r["violation"]
+            .as_str()
+            .unwrap()
+            .contains("Unknown contract type"));
     }
 
     #[test]
     fn invalid_contract_value() {
         let r = validate_output("x", Some(&json!(42)));
         assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("Invalid contract type"));
+        assert!(r["violation"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid contract type"));
     }
 }

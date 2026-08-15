@@ -24,7 +24,9 @@ pub struct InMemoryProvider {
 
 impl InMemoryProvider {
     pub fn new() -> Self {
-        InMemoryProvider { data: BTreeMap::new() }
+        InMemoryProvider {
+            data: BTreeMap::new(),
+        }
     }
 }
 
@@ -155,8 +157,10 @@ mod tests {
 
     #[test]
     fn file_provider_persists() {
-        let path = std::env::temp_dir()
-            .join(format!("helen_mem_{}.json", crate::transcript::generate_uuid()));
+        let path = std::env::temp_dir().join(format!(
+            "helen_mem_{}.json",
+            crate::transcript::generate_uuid()
+        ));
         let path_s = path.to_string_lossy().to_string();
 
         {
@@ -176,8 +180,10 @@ mod tests {
 
     #[test]
     fn file_provider_corruption_returns_empty() {
-        let path = std::env::temp_dir()
-            .join(format!("helen_mem_bad_{}.json", crate::transcript::generate_uuid()));
+        let path = std::env::temp_dir().join(format!(
+            "helen_mem_bad_{}.json",
+            crate::transcript::generate_uuid()
+        ));
         fs::write(&path, "{not valid json").unwrap();
         let m = FileMemoryProvider::new(&path.to_string_lossy());
         assert_eq!(m.size(), 0);
@@ -186,8 +192,10 @@ mod tests {
 
     #[test]
     fn file_provider_creates_parent_dirs() {
-        let dir = std::env::temp_dir()
-            .join(format!("helen_mem_dir_{}", crate::transcript::generate_uuid()));
+        let dir = std::env::temp_dir().join(format!(
+            "helen_mem_dir_{}",
+            crate::transcript::generate_uuid()
+        ));
         let path = dir.join("sub").join("mem.json");
         let path_s = path.to_string_lossy().to_string();
         {

@@ -70,7 +70,12 @@ impl CoverageTracker {
         if p.is_absolute() {
             Some(f.to_string())
         } else {
-            Some(p.canonicalize().unwrap_or_else(|_| p.to_path_buf()).to_string_lossy().to_string())
+            Some(
+                p.canonicalize()
+                    .unwrap_or_else(|_| p.to_path_buf())
+                    .to_string_lossy()
+                    .to_string(),
+            )
         }
     }
 
@@ -78,7 +83,9 @@ impl CoverageTracker {
         if !self.enabled {
             return;
         }
-        let Some(file_path) = Self::abs_path(file) else { return };
+        let Some(file_path) = Self::abs_path(file) else {
+            return;
+        };
         if !self.check_limit() {
             return;
         }
@@ -98,7 +105,9 @@ impl CoverageTracker {
         if !self.enabled {
             return;
         }
-        let Some(file_path) = Self::abs_path(file) else { return };
+        let Some(file_path) = Self::abs_path(file) else {
+            return;
+        };
         if !self.check_limit() {
             return;
         }
@@ -119,7 +128,9 @@ impl CoverageTracker {
         if !self.enabled {
             return;
         }
-        let Some(file_path) = Self::abs_path(file) else { return };
+        let Some(file_path) = Self::abs_path(file) else {
+            return;
+        };
         if !self.check_limit() {
             return;
         }
@@ -150,13 +161,19 @@ impl CoverageTracker {
     }
 
     pub fn register_function(&mut self, file: Option<&str>, start_line: u32, func_name: &str) {
-        let Some(file_path) = Self::abs_path(file) else { return };
+        let Some(file_path) = Self::abs_path(file) else {
+            return;
+        };
         let fc = self.get_file(&file_path);
-        fc.functions.entry((func_name.to_string(), start_line)).or_insert(0);
+        fc.functions
+            .entry((func_name.to_string(), start_line))
+            .or_insert(0);
     }
 
     pub fn register_branch(&mut self, file: Option<&str>, start_line: u32, branch_ids: &[i64]) {
-        let Some(file_path) = Self::abs_path(file) else { return };
+        let Some(file_path) = Self::abs_path(file) else {
+            return;
+        };
         let fc = self.get_file(&file_path);
         for bid in branch_ids {
             fc.branches.entry((start_line, *bid)).or_insert(0);
@@ -338,11 +355,15 @@ impl CoverageTracker {
             ),
             format!(
                 "  Functions: {}/{}  ({}%)",
-                summary["functions"]["covered"], summary["functions"]["total"], summary["functions"]["percent"]
+                summary["functions"]["covered"],
+                summary["functions"]["total"],
+                summary["functions"]["percent"]
             ),
             format!(
                 "  Branches:  {}/{}  ({}%)",
-                summary["branches"]["covered"], summary["branches"]["total"], summary["branches"]["percent"]
+                summary["branches"]["covered"],
+                summary["branches"]["total"],
+                summary["branches"]["percent"]
             ),
             String::new(),
         ];
@@ -350,16 +371,24 @@ impl CoverageTracker {
         if !self.files.is_empty() {
             lines.push("Files:".into());
             lines.push(format!("  {:<40} {:>10} {:>10}", "File", "Lines", "Funcs"));
-            lines.push(format!("  {} {} {}", "-".repeat(40), "-".repeat(10), "-".repeat(10)));
+            lines.push(format!(
+                "  {} {} {}",
+                "-".repeat(40),
+                "-".repeat(10),
+                "-".repeat(10)
+            ));
             let mut files: Vec<(&String, &CoverageCount)> = self.files.iter().collect();
             files.sort_by_key(|(p, _)| p.to_string());
             for (file_path, fc) in files {
                 let mut display_path = file_path.clone();
-                if let Ok(rel) = std::path::Path::new(file_path).strip_prefix(std::env::current_dir().unwrap_or_default()) {
+                if let Ok(rel) = std::path::Path::new(file_path)
+                    .strip_prefix(std::env::current_dir().unwrap_or_default())
+                {
                     display_path = rel.to_string_lossy().to_string();
                 }
                 if display_path.chars().count() > 40 {
-                    display_path = format!("...{}", &display_path[display_path.chars().count() - 37..]);
+                    display_path =
+                        format!("...{}", &display_path[display_path.chars().count() - 37..]);
                 }
                 let line_total = fc.lines.len();
                 let line_covered = fc.lines.values().filter(|c| **c > 0).count();
@@ -420,9 +449,15 @@ impl CoverageTracker {
              <p>Branches: {}/{} ({}%)</p>\
              <table border='1'><tr><th>File</th><th>Lines</th><th>Funcs</th></tr>{rows}</table>\
              </body></html>",
-            summary["lines"]["covered"], summary["lines"]["total"], summary["lines"]["percent"],
-            summary["functions"]["covered"], summary["functions"]["total"], summary["functions"]["percent"],
-            summary["branches"]["covered"], summary["branches"]["total"], summary["branches"]["percent"],
+            summary["lines"]["covered"],
+            summary["lines"]["total"],
+            summary["lines"]["percent"],
+            summary["functions"]["covered"],
+            summary["functions"]["total"],
+            summary["functions"]["percent"],
+            summary["branches"]["covered"],
+            summary["branches"]["total"],
+            summary["branches"]["percent"],
         )
     }
 
@@ -448,9 +483,15 @@ impl CoverageTracker {
             }
         }
         for (p, src) in &other.source_files {
-            self.source_files.entry(p.clone()).or_insert_with(|| src.clone());
+            self.source_files
+                .entry(p.clone())
+                .or_insert_with(|| src.clone());
         }
-        self.total_counters = self.files.values().map(|fc| fc.lines.len() + fc.functions.len() + fc.branches.len()).sum();
+        self.total_counters = self
+            .files
+            .values()
+            .map(|fc| fc.lines.len() + fc.functions.len() + fc.branches.len())
+            .sum();
     }
 }
 
@@ -488,11 +529,10 @@ mod tests {
     fn source_registered_lines_skip_comments() {
         let mut t = CoverageTracker::new(100);
         t.set_enabled(true);
-        t.register_source("/tmp/b.helen", vec![
-            "// comment".into(),
-            String::new(),
-            "let x = 1".into(),
-        ]);
+        t.register_source(
+            "/tmp/b.helen",
+            vec!["// comment".into(), String::new(), "let x = 1".into()],
+        );
         t.record_line(Some("/tmp/b.helen"), 3);
         let s = t.get_summary();
         assert_eq!(s["lines"]["total"], 1);

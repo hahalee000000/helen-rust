@@ -226,7 +226,11 @@ impl SessionManager {
             });
         }
         // Sort by modification time (newest first).
-        sessions.sort_by(|a, b| b.modified_at.partial_cmp(&a.modified_at).unwrap_or(std::cmp::Ordering::Equal));
+        sessions.sort_by(|a, b| {
+            b.modified_at
+                .partial_cmp(&a.modified_at)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         sessions
     }
 
@@ -271,10 +275,8 @@ mod tests {
     use super::*;
 
     fn tmp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "helen_session_test_{}_{name}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("helen_session_test_{}_{name}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -339,7 +341,7 @@ mod tests {
         assert!(m.delete_session(&id));
         assert!(!m.session_exists(&id));
         assert!(!m.delete_session(&id)); // Already gone.
-        // Cleanup keeps only the most recent N (deterministic mtime order).
+                                         // Cleanup keeps only the most recent N (deterministic mtime order).
         let id_a = m.create_session(None);
         fs::write(m.get_session_path(&id_a), "a\n").unwrap();
         std::thread::sleep(std::time::Duration::from_millis(20));

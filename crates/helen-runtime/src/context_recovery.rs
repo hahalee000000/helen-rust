@@ -21,10 +21,20 @@ pub struct RecoveryResult {
 
 impl RecoveryResult {
     fn failed(strategy: &str, messages: Vec<Value>) -> Self {
-        Self { messages, strategy: strategy.into(), success: false, tokens_reduced: 0 }
+        Self {
+            messages,
+            strategy: strategy.into(),
+            success: false,
+            tokens_reduced: 0,
+        }
     }
     fn success(strategy: &str, messages: Vec<Value>, tokens_reduced: usize) -> Self {
-        Self { messages, strategy: strategy.into(), success: true, tokens_reduced }
+        Self {
+            messages,
+            strategy: strategy.into(),
+            success: true,
+            tokens_reduced,
+        }
     }
 }
 
@@ -46,7 +56,11 @@ impl Default for PromptTooLongRecovery {
 }
 
 impl PromptTooLongRecovery {
-    pub fn new(max_tokens: Option<usize>, llm_client: Option<()>, max_recovery_attempts: Option<usize>) -> Self {
+    pub fn new(
+        max_tokens: Option<usize>,
+        llm_client: Option<()>,
+        max_recovery_attempts: Option<usize>,
+    ) -> Self {
         Self {
             max_tokens: max_tokens.unwrap_or(crate::token::DEFAULT_CONTEXT_WINDOW),
             llm_client,
@@ -62,14 +76,16 @@ impl PromptTooLongRecovery {
         // Step 1: Context Collapse recovery.
         let result = self.context_collapse_recovery(messages);
         if result.success && self.is_smaller(&result.messages, messages) {
-            let reduced = initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
+            let reduced =
+                initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
             return RecoveryResult::success("context_collapse", result.messages, reduced);
         }
 
         // Step 2: Reactive structural compaction.
         let result = self.reactive_structural_recovery(messages, effective_max);
         if result.success && self.is_smaller(&result.messages, messages) {
-            let reduced = initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
+            let reduced =
+                initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
             return RecoveryResult::success("reactive_structural", result.messages, reduced);
         }
 
@@ -77,7 +93,8 @@ impl PromptTooLongRecovery {
         if self.llm_client.is_some() {
             let result = self.reactive_semantic_recovery(messages, effective_max);
             if result.success && self.is_smaller(&result.messages, messages) {
-                let reduced = initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
+                let reduced =
+                    initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
                 return RecoveryResult::success("reactive_semantic", result.messages, reduced);
             }
         }
@@ -85,7 +102,8 @@ impl PromptTooLongRecovery {
         // Step 4: Aggressive trim (last resort).
         let result = self.aggressive_trim(messages);
         if result.success && self.is_smaller(&result.messages, messages) {
-            let reduced = initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
+            let reduced =
+                initial_tokens.saturating_sub(self.estimate_total_tokens(&result.messages));
             return RecoveryResult::success("aggressive_trim", result.messages, reduced);
         }
 
@@ -118,7 +136,9 @@ impl PromptTooLongRecovery {
         )];
 
         let block_size = 10usize;
-        let file_re = Regex::new(r"[\w./-]+\.(?:py|js|ts|json|yaml|yml|md|txt|helen|rs|go|java|c|cpp|h|hpp)").unwrap();
+        let file_re =
+            Regex::new(r"[\w./-]+\.(?:py|js|ts|json|yaml|yml|md|txt|helen|rs|go|java|c|cpp|h|hpp)")
+                .unwrap();
         for (i, block) in old_msgs.chunks(block_size).enumerate() {
             let start_idx = i * block_size;
             let end_idx = start_idx + block.len();
@@ -137,7 +157,15 @@ impl PromptTooLongRecovery {
             }
             file_refs.sort();
             if !file_refs.is_empty() {
-                block_parts.push(format!("Files: {}", file_refs.iter().take(3).cloned().collect::<Vec<_>>().join(", ")));
+                block_parts.push(format!(
+                    "Files: {}",
+                    file_refs
+                        .iter()
+                        .take(3)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
             }
 
             // Tool usage.
@@ -177,7 +205,15 @@ impl PromptTooLongRecovery {
             for msg in block {
                 if msg.get("role").and_then(|r| r.as_str()) == Some("user") {
                     if let Some(content) = msg.get("content").and_then(|v| v.as_str()) {
-                        let first_line = content.split('\n').next().unwrap_or("").chars().take(60).collect::<String>().trim().to_string();
+                        let first_line = content
+                            .split('\n')
+                            .next()
+                            .unwrap_or("")
+                            .chars()
+                            .take(60)
+                            .collect::<String>()
+                            .trim()
+                            .to_string();
                         if !first_line.is_empty() && !user_intents.contains(&first_line) {
                             user_intents.push(first_line);
                         }
@@ -185,7 +221,15 @@ impl PromptTooLongRecovery {
                 }
             }
             if !user_intents.is_empty() {
-                block_parts.push(format!("Tasks: {}", user_intents.iter().take(2).cloned().collect::<Vec<_>>().join("; ")));
+                block_parts.push(format!(
+                    "Tasks: {}",
+                    user_intents
+                        .iter()
+                        .take(2)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                ));
             }
 
             if block_parts.len() > 1 {
@@ -203,7 +247,11 @@ impl PromptTooLongRecovery {
     }
 
     /// Step 2: reactive structural compaction (aggressive thresholds).
-    fn reactive_structural_recovery(&self, messages: &[Value], max_tokens: usize) -> RecoveryResult {
+    fn reactive_structural_recovery(
+        &self,
+        messages: &[Value],
+        max_tokens: usize,
+    ) -> RecoveryResult {
         let mut compactor = crate::compression::ReactiveCompactor::new(
             Some(0.0), // Always trigger
             None,
@@ -293,8 +341,14 @@ mod tests {
         // system(1) + summary(1) + last 4 recent conv messages.
         assert_eq!(result.messages.len(), 6);
         let summary = &result.messages[1];
-        assert!(summary["content"].as_str().unwrap().contains("Context Collapse Recovery"));
-        assert!(summary["content"].as_str().unwrap().contains("[Preserved: last 4 turns]"));
+        assert!(summary["content"]
+            .as_str()
+            .unwrap()
+            .contains("Context Collapse Recovery"));
+        assert!(summary["content"]
+            .as_str()
+            .unwrap()
+            .contains("[Preserved: last 4 turns]"));
     }
 
     #[test]
@@ -310,7 +364,10 @@ mod tests {
         let result = r.aggressive_trim(&msgs(5));
         assert!(result.success);
         assert_eq!(result.messages.len(), 1 + 2);
-        assert!(result.messages[1]["content"].as_str().unwrap().contains("message number 4"));
+        assert!(result.messages[1]["content"]
+            .as_str()
+            .unwrap()
+            .contains("message number 4"));
     }
 
     #[test]

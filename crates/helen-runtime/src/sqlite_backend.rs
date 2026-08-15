@@ -251,8 +251,9 @@ impl SqliteBackend {
         if let Some(agents) = agent_names {
             if !agents.is_empty() {
                 let placeholders = vec!["?"; agents.len()].join(",");
-                where_clauses
-                    .push(format!("json_extract(data, '$.agent_name') IN ({placeholders})"));
+                where_clauses.push(format!(
+                    "json_extract(data, '$.agent_name') IN ({placeholders})"
+                ));
                 for a in agents {
                     params_list.push(rusqlite::types::Value::Text(a.clone()));
                 }
@@ -272,8 +273,9 @@ impl SqliteBackend {
         if let Some(mtypes) = message_types {
             if !mtypes.is_empty() {
                 let placeholders = vec!["?"; mtypes.len()].join(",");
-                where_clauses
-                    .push(format!("json_extract(data, '$.message_type') IN ({placeholders})"));
+                where_clauses.push(format!(
+                    "json_extract(data, '$.message_type') IN ({placeholders})"
+                ));
                 for t in mtypes {
                     params_list.push(rusqlite::types::Value::Text(t.clone()));
                 }
@@ -297,7 +299,9 @@ impl SqliteBackend {
         if let Ok(rows) = rows {
             for row in rows.flatten() {
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(&row) {
-                    let Some(item) = Item::from_dict(&data) else { continue };
+                    let Some(item) = Item::from_dict(&data) else {
+                        continue;
+                    };
                     // Content regex filter (post-processing, Python parity).
                     if let Some(re) = content_regex {
                         if let Item::Message(m) = &item {
@@ -339,21 +343,27 @@ mod tests {
     #[test]
     fn python_fixture_roundtrip() {
         // Fixture written by Python `helen/runtime/transcript_store.py`.
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/python_session.db");
+        let fixture =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/python_session.db");
         assert!(fixture.exists(), "fixture missing: {}", fixture.display());
         let b = SqliteBackend::open(&fixture).unwrap();
         let items = b.load_all();
         assert_eq!(items.len(), 3);
-        let Item::Message(m1) = &items[0] else { panic!("first item must be message") };
+        let Item::Message(m1) = &items[0] else {
+            panic!("first item must be message")
+        };
         assert_eq!(m1.role, "user");
         assert_eq!(m1.uuid, "u1");
         assert_eq!(m1.agent_name.as_deref(), Some("agentA"));
         assert_eq!(m1.invocation_id, "inv1");
         assert_eq!(m1.priority, 90);
-        let Item::Message(m2) = &items[1] else { panic!("second item must be message") };
+        let Item::Message(m2) = &items[1] else {
+            panic!("second item must be message")
+        };
         assert!(m2.pinned);
-        let Item::Boundary(bm) = &items[2] else { panic!("third item must be boundary") };
+        let Item::Boundary(bm) = &items[2] else {
+            panic!("third item must be boundary")
+        };
         assert_eq!(bm.layer, "microcompact");
         assert_eq!(bm.summary, "[Compressed: 2 msgs]");
 
@@ -394,7 +404,9 @@ mod tests {
         b.update_pinned("x1", true);
         let items = b.load_all();
         assert_eq!(items.len(), 1);
-        let Item::Message(m2) = &items[0] else { panic!() };
+        let Item::Message(m2) = &items[0] else {
+            panic!()
+        };
         assert!(m2.pinned, "update_pinned must persist");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -425,9 +437,29 @@ mod tests {
             let item = Item::Message(m.clone());
             b.append(&item);
         }
-        let users = b.query(Some(&["user".to_string()]), None, None, None, None, None, None, None, 0);
+        let users = b.query(
+            Some(&["user".to_string()]),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            0,
+        );
         assert_eq!(users.len(), 2);
-        let agent1 = b.query(None, Some(&["agent1".to_string()]), None, None, None, None, None, None, 0);
+        let agent1 = b.query(
+            None,
+            Some(&["agent1".to_string()]),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            0,
+        );
         assert_eq!(agent1.len(), 1);
         let regex = b.query(None, None, None, None, None, Some("msg 1"), None, None, 0);
         assert_eq!(regex.len(), 1);

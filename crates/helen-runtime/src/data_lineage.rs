@@ -34,7 +34,10 @@ impl DataFlow {
             producer_uuid: data.get("producer_uuid")?.as_str()?.to_string(),
             consumer_uuid: data.get("consumer_uuid")?.as_str()?.to_string(),
             flow_type: data.get("flow_type")?.as_str()?.to_string(),
-            timestamp: data.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            timestamp: data
+                .get("timestamp")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
             metadata: data.get("metadata").cloned().unwrap_or_else(|| json!({})),
         })
     }
@@ -71,7 +74,9 @@ impl DataLineageTracker {
         if !jsonl_path.exists() {
             return;
         }
-        let Ok(content) = std::fs::read_to_string(&jsonl_path) else { return };
+        let Ok(content) = std::fs::read_to_string(&jsonl_path) else {
+            return;
+        };
         for line in content.lines() {
             let line = line.trim();
             if line.is_empty() {
@@ -132,7 +137,11 @@ impl DataLineageTracker {
             .filter(|f| f.consumer_uuid == consumer_uuid)
             .cloned()
             .collect();
-        flows.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal));
+        flows.sort_by(|a, b| {
+            a.timestamp
+                .partial_cmp(&b.timestamp)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         flows
     }
 
@@ -144,7 +153,11 @@ impl DataLineageTracker {
             .filter(|f| f.producer_uuid == producer_uuid)
             .cloned()
             .collect();
-        flows.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal));
+        flows.sort_by(|a, b| {
+            a.timestamp
+                .partial_cmp(&b.timestamp)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         flows
     }
 
@@ -153,7 +166,11 @@ impl DataLineageTracker {
         let mut nodes: BTreeSet<String> = BTreeSet::new();
         let mut edges: Vec<Value> = Vec::new();
         let mut flows = self.flows.clone();
-        flows.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal));
+        flows.sort_by(|a, b| {
+            a.timestamp
+                .partial_cmp(&b.timestamp)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         for f in &flows {
             nodes.insert(f.producer_uuid.clone());
             nodes.insert(f.consumer_uuid.clone());
@@ -184,7 +201,14 @@ mod tests {
     use super::*;
 
     fn tracker() -> (DataLineageTracker, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("helen_lineage_{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = std::env::temp_dir().join(format!(
+            "helen_lineage_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         (DataLineageTracker::new(&dir, "sess-1"), dir)
     }
@@ -192,7 +216,12 @@ mod tests {
     #[test]
     fn record_and_query_origin_consumers() {
         let (mut t, dir) = tracker();
-        t.record_flow("producer-a", "consumer-b", "channel", Some(&json!({"name": "ch1"})));
+        t.record_flow(
+            "producer-a",
+            "consumer-b",
+            "channel",
+            Some(&json!({"name": "ch1"})),
+        );
         t.record_flow("producer-x", "consumer-b", "agent_call", None);
         t.record_flow("producer-b", "consumer-c", "prompt", None);
 
@@ -224,7 +253,8 @@ mod tests {
 
     #[test]
     fn persists_across_reload() {
-        let dir = std::env::temp_dir().join(format!("helen_lineage_persist_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("helen_lineage_persist_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         {
             let mut t = DataLineageTracker::new(&dir, "sess-2");

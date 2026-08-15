@@ -153,13 +153,18 @@ impl HistoryManager {
     /// Available tokens for history (reserves 1000 buffer for response).
     pub fn check_budget(&self, system_tokens: usize, instruction_tokens: usize) -> usize {
         // Reserve: system prompt + instruction + 1000 for response buffer
-        let budget = self.max_tokens as i64 - system_tokens as i64 - instruction_tokens as i64 - 1000;
+        let budget =
+            self.max_tokens as i64 - system_tokens as i64 - instruction_tokens as i64 - 1000;
         budget.max(0) as usize
     }
 
     /// Trim history from oldest to newest to fit within budget.
     /// Never removes the system message if present.
-    pub fn trim_history(&self, history: &[crate::transcript::Message], budget: usize) -> Vec<crate::transcript::Message> {
+    pub fn trim_history(
+        &self,
+        history: &[crate::transcript::Message],
+        budget: usize,
+    ) -> Vec<crate::transcript::Message> {
         if history.is_empty() || budget == 0 {
             return Vec::new();
         }
@@ -462,10 +467,16 @@ impl HistoryManager {
             api_msg.insert("role".into(), serde_json::Value::String(msg.role.clone()));
             api_msg.insert("content".into(), msg.content.clone());
             if !msg.tool_calls.is_empty() {
-                api_msg.insert("tool_calls".into(), serde_json::Value::Array(msg.tool_calls.clone()));
+                api_msg.insert(
+                    "tool_calls".into(),
+                    serde_json::Value::Array(msg.tool_calls.clone()),
+                );
             }
             if let Some(tcid) = &msg.tool_call_id {
-                api_msg.insert("tool_call_id".into(), serde_json::Value::String(tcid.clone()));
+                api_msg.insert(
+                    "tool_call_id".into(),
+                    serde_json::Value::String(tcid.clone()),
+                );
             }
             messages.push(serde_json::Value::Object(api_msg));
         }
@@ -494,7 +505,10 @@ impl HistoryManager {
             "messages": messages,
         });
 
-        if let Err(e) = fs::write(filepath, serde_json::to_string_pretty(&data).unwrap_or_default()) {
+        if let Err(e) = fs::write(
+            filepath,
+            serde_json::to_string_pretty(&data).unwrap_or_default(),
+        ) {
             eprintln!("Failed to save history to {filepath}: {e}");
         }
     }
@@ -514,23 +528,46 @@ impl HistoryManager {
         for m in messages {
             out.push(crate::transcript::Message::new(
                 m.get("role").and_then(|v| v.as_str()).unwrap_or("user"),
-                m.get("content").cloned().unwrap_or(serde_json::Value::String(String::new())),
+                m.get("content")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::String(String::new())),
                 m.get("tool_calls")
                     .and_then(|v| v.as_array())
                     .cloned()
                     .unwrap_or_default(),
-                m.get("tool_call_id").and_then(|v| v.as_str()).map(String::from),
-                m.get("uuid").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                m.get("message_type").and_then(|v| v.as_str()).map(String::from),
+                m.get("tool_call_id")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                m.get("uuid")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                m.get("message_type")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
                 m.get("priority").and_then(|v| v.as_i64()).unwrap_or(50),
-                m.get("compressed").and_then(|v| v.as_bool()).unwrap_or(false),
+                m.get("compressed")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
                 m.get("pinned").and_then(|v| v.as_bool()).unwrap_or(false),
-                m.get("agent_name").and_then(|v| v.as_str()).map(String::from),
-                m.get("invocation_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                m.get("parent_invocation_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                m.get("agent_name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                m.get("invocation_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                m.get("parent_invocation_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
                 m.get("visible_to_invocation_ids")
                     .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_str().map(String::from))
+                            .collect()
+                    })
                     .unwrap_or_default(),
             ));
         }
@@ -580,7 +617,11 @@ impl HistoryManager {
                         .map(|n| n.to_lowercase().contains(tn_l.as_str()))
                         .unwrap_or(false)
                 });
-                if !in_tool_names && !message_text(&msg.content).to_lowercase().contains(tn_l.as_str()) {
+                if !in_tool_names
+                    && !message_text(&msg.content)
+                        .to_lowercase()
+                        .contains(tn_l.as_str())
+                {
                     continue;
                 }
             }
@@ -655,7 +696,10 @@ impl HistoryManager {
         lines.push(format!("║ {status} {bar} {percent:5.1}%            ║"));
         lines.push(format!("║ Tokens: {total:>8} / {window:>8}              ║"));
         lines.push(format!("║ Model:  {model:<30} ║"));
-        lines.push(format!("║ Messages: {:<27} ║", stats["message_count"].as_u64().unwrap_or(0)));
+        lines.push(format!(
+            "║ Messages: {:<27} ║",
+            stats["message_count"].as_u64().unwrap_or(0)
+        ));
 
         let by_role = &stats["by_role"];
         if by_role.is_object() && !by_role.as_object().unwrap().is_empty() {
@@ -668,7 +712,11 @@ impl HistoryManager {
                 .collect();
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
             for (role, tokens) in pairs {
-                let role_label: String = role.chars().take(15).map(|c| c.to_ascii_uppercase()).collect();
+                let role_label: String = role
+                    .chars()
+                    .take(15)
+                    .map(|c| c.to_ascii_uppercase())
+                    .collect();
                 lines.push(format!("║  {role_label:<16} {tokens:>8} tokens        ║"));
             }
         }
@@ -718,7 +766,10 @@ mod tests {
         assert_eq!(get_model_context_window(Some("qwen3.7-plus")), 131072);
         assert_eq!(get_model_context_window(Some("qwen3.7-plus-2024")), 131072);
         assert_eq!(get_model_context_window(Some("gpt-4o-mini")), 128000);
-        assert_eq!(get_model_context_window(Some("unknown-model")), DEFAULT_CONTEXT_WINDOW);
+        assert_eq!(
+            get_model_context_window(Some("unknown-model")),
+            DEFAULT_CONTEXT_WINDOW
+        );
         assert_eq!(get_model_context_window(None), DEFAULT_CONTEXT_WINDOW);
     }
 
@@ -768,7 +819,12 @@ mod tests {
     #[test]
     fn trim_history_keeps_recent_and_system() {
         let h = HistoryManager::new(None, Some(1000), None);
-        let history = vec![msg("system", "sys"), msg("user", "aaa"), msg("assistant", "bbb"), msg("user", "ccc")];
+        let history = vec![
+            msg("system", "sys"),
+            msg("user", "aaa"),
+            msg("assistant", "bbb"),
+            msg("user", "ccc"),
+        ];
         // Python-parity: budget 5 keeps system + 1 newest non-system only.
         let trimmed = h.trim_history(&history, 5);
         assert!(trimmed.len() < history.len());
@@ -799,14 +855,20 @@ mod tests {
     fn summarize_compress_produces_summary_message() {
         let h = HistoryManager::new(None, Some(2000), None);
         // Create enough messages to exceed budget (large contents)
-        let mut history = vec![msg("user", "x".repeat(300)), msg("assistant", "y".repeat(300))];
+        let mut history = vec![
+            msg("user", "x".repeat(300)),
+            msg("assistant", "y".repeat(300)),
+        ];
         for i in 0..6 {
             history.push(msg("user", format!("message number {i} ").repeat(50)));
             history.push(msg("assistant", format!("reply number {i} ").repeat(50)));
         }
         let out = h.enforce_limit(&history, 0.2); // tiny budget forces compression
         assert!(out.len() < history.len());
-        assert!(out.iter().any(|m| m.content.to_string().contains("[Previous conversation summary]")));
+        assert!(out.iter().any(|m| m
+            .content
+            .to_string()
+            .contains("[Previous conversation summary]")));
     }
 
     #[test]
@@ -815,7 +877,11 @@ mod tests {
         // MIN_RECENT_MESSAGES=5 walking from newest (i>=len-5 fails once 5
         // non-system collected), so the reference keeps ALL messages here.
         // Port must match that observable behavior exactly.
-        let h = HistoryManager::new(None, Some(3000), Some(COMPRESSION_MODE_TRUNCATE.to_string()));
+        let h = HistoryManager::new(
+            None,
+            Some(3000),
+            Some(COMPRESSION_MODE_TRUNCATE.to_string()),
+        );
         let mut history = vec![msg("system", "sys")];
         for i in 0..12 {
             history.push(msg("user", format!("message {i} ").repeat(40)));
@@ -839,7 +905,10 @@ mod tests {
     fn save_load_roundtrip() {
         let h = HistoryManager::new(Some("qwen3.7-plus".to_string()), None, None);
         let history = vec![msg("user", "hello world"), msg("assistant", "hi there")];
-        let path = std::env::temp_dir().join(format!("helen_history_{}.json", crate::transcript::generate_uuid()));
+        let path = std::env::temp_dir().join(format!(
+            "helen_history_{}.json",
+            crate::transcript::generate_uuid()
+        ));
         let path_s = path.to_string_lossy().to_string();
         h.save_to_file(&history, &path_s);
         let loaded = h.load_from_file(&path_s);
@@ -852,7 +921,11 @@ mod tests {
     #[test]
     fn search_filters() {
         let h = HistoryManager::new(None, None, None);
-        let history = vec![msg("user", "please fix the bug"), msg("tool", "result: fixed"), msg("assistant", "done")];
+        let history = vec![
+            msg("user", "please fix the bug"),
+            msg("tool", "result: fixed"),
+            msg("assistant", "done"),
+        ];
         let r = h.search(&history, Some("bug"), None, None, 10);
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].role, "user");
@@ -879,13 +952,30 @@ mod parity_tests {
     use crate::transcript::Message;
 
     fn msg(role: &str, content: &str) -> Message {
-        Message::new(role, serde_json::Value::String(content.to_string()), Vec::new(), None, String::new(), None, 50, false, false, None, String::new(), String::new(), Vec::new())
+        Message::new(
+            role,
+            serde_json::Value::String(content.to_string()),
+            Vec::new(),
+            None,
+            String::new(),
+            None,
+            50,
+            false,
+            false,
+            None,
+            String::new(),
+            String::new(),
+            Vec::new(),
+        )
     }
 
     #[test]
     fn summarize_compress_byte_parity_with_python() {
         let h = HistoryManager::new(None, Some(2000), None);
-        let mut history = vec![msg("user", &"x".repeat(300)), msg("assistant", &"y".repeat(300))];
+        let mut history = vec![
+            msg("user", &"x".repeat(300)),
+            msg("assistant", &"y".repeat(300)),
+        ];
         for i in 0..6 {
             history.push(msg("user", &format!("message number {i} ").repeat(50)));
             history.push(msg("assistant", &format!("reply number {i} ").repeat(50)));
@@ -906,13 +996,30 @@ mod exact_parity {
     use crate::transcript::Message;
 
     fn msg(role: &str, content: &str) -> Message {
-        Message::new(role, serde_json::Value::String(content.to_string()), Vec::new(), None, String::new(), None, 50, false, false, None, String::new(), String::new(), Vec::new())
+        Message::new(
+            role,
+            serde_json::Value::String(content.to_string()),
+            Vec::new(),
+            None,
+            String::new(),
+            None,
+            50,
+            false,
+            false,
+            None,
+            String::new(),
+            String::new(),
+            Vec::new(),
+        )
     }
 
     #[test]
     fn summary_matches_python_exactly() {
         let h = HistoryManager::new(None, Some(2000), None);
-        let mut history = vec![msg("user", &"x".repeat(300)), msg("assistant", &"y".repeat(300))];
+        let mut history = vec![
+            msg("user", &"x".repeat(300)),
+            msg("assistant", &"y".repeat(300)),
+        ];
         for i in 0..6 {
             history.push(msg("user", &format!("message number {i} ").repeat(50)));
             history.push(msg("assistant", &format!("reply number {i} ").repeat(50)));
