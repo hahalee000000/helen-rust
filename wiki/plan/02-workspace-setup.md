@@ -20,7 +20,7 @@ members = [
   "crates/helen-interpreter",
   "crates/helen-stdlib",
   "crates/helen-runtime",
-  "crates/helen-cli",
+  "crates/helen-rust",   # installable crates.io package "helen-rust" (binary: helen)
   "crates/helen-lsp",
   # "crates/helen-ffi",             # PyO3, feature-gated; add in M10
   # "crates/helen-python-bridge",   # maturin cdylib; add in M11

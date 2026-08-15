@@ -15,7 +15,7 @@ crates/helen-interpreter/tests/interpreter_tests.rs
 
 ## Task 3.1: Value model (D2, D3, D4, D5)
 
-**Step 1 — tests:** value coercion, equality (Python semantics: `1 == 1.0` true, `[1] == [1.0]` true), string length = code points, dict order preservation.
+**Step 1 — tests:** value coercion, equality (Python semantics: `1 == 1.0` true, `[1] == [1.0]` true), string length = byte length (UTF-8), byte-offset index/slice, dict order preservation.
 
 **Step 2 — implement:**
 
@@ -27,7 +27,7 @@ pub enum Value {
   Bool(bool),
   Int(i64),                  // D3: checked ops; overflow → OverflowError
   Float(f64),
-  Str(Rc<str>),              // UTF-8 bytes; index ops convert to code-point offsets (D4)
+  Str(Rc<str>),              // native UTF-8 bytes; byte-based len/index/slice (D4)
   List(Rc<RefCell<Vec<Value>>>),
   Map(Rc<RefCell<IndexMap<String, Value>>>),   // D5
   BuiltinFn(BuiltinFn),      // name, params, impl fn
@@ -49,7 +49,7 @@ impl Value {
 
 **Numeric semantics decision (open question from README):** check Python tests for `/` and `//`; implement `/` as float division (Python default) unless corpus says otherwise; implement `%` with Python's sign-of-divisor semantics.
 
-**String ops (D4 — highest-risk):** implement a helper `CodePointSlice` abstraction: `chars()`, `char_len()`, `slice_by_code_points(a,b)`, index by code point. All stdlib string functions in M4 must use it.
+**String ops (D4):** no wrapper type — strings are native `Rc<str>`. `len()` = `str.len()` (bytes); indexing `s[i]` = byte index validated at UTF-8 boundaries (mid-codepoint → error); slicing = byte ranges. ASCII behavior matches Python exactly; non-ASCII (CJK) semantics deliberately diverge — record each divergence in `wiki/rust/migration-notes.md`. M4 stdlib string fns use byte offsets.
 
 ## Task 3.2: Environment + snapshot isolation
 

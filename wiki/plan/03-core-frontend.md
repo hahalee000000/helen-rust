@@ -48,8 +48,8 @@ Use `phf` or `once_cell::sync::Lazy<HashMap<&str, TokenType>>` (phf preferred: z
 
 **Step 1 — write tests** covering: maximal munch, `"`/`'''`/`"""` strings + escapes, CJK identifiers, int/float numbers, all operators incl. `|>` `..` `->`, template `{{`/`}}`, comments, unterminated-string error E0xxx.
 
-**Step 2 — implement** `Lexer { source: Vec<char>, pos, line, col }`. Keys:
-- Operate on `Vec<char>` (UTF-8 decoded) so CJK identifiers and code-point math mirror Python exactly.
+**Step 2 — implement** `Lexer { source: &str, byte_pos, line, col }`, scanning with `char_indices()`. Keys:
+- Decode per-`char` via `char_indices()` so CJK identifiers (99 bilingual keywords) tokenize correctly; columns counted in chars to keep Python-identical diagnostics (lexer-only — runtime strings are byte-based, D4).
 - Keyword resolution: identifier scan → lookup in keyword map.
 - Template delimiters produce `TemplateStart`/`TemplateEnd`; text between is scanned as string-ish tokens (mirror `_string` handling).
 - Emit `LexError { code: &'static str, span, message }` with the **same error codes** as Python.

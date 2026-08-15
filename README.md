@@ -8,6 +8,7 @@ A complete reimplementation of the [Helen programming language](https://github.c
 
 - **All code and documentation in this repository are written in English.**
 - The only non-English text allowed is Helen source-level identifiers that are part of the language itself (e.g. Chinese keyword aliases like `智能体`/`agent`, `分生`/`spawn`), and stdlib locale data (`stdlib/locales/zh.py` equivalents).
+- String semantics: **native UTF-8 byte-based strings** (`len()` = bytes; byte-offset index/slice). Deliberate, documented deviation from Python's code-point `str` for non-ASCII — see design decision D4 in `wiki/plan/README.md`.
 - Code style follows `rustfmt` + `cargo clippy -- -D warnings`.
 
 ## Repository Layout
@@ -25,9 +26,9 @@ crates/
   helen-interpreter/# value model, environment, tree-walk execution
   helen-stdlib/     # 378 builtin functions
   helen-runtime/    # LLM runtime, agents, tools, skills, MCP, context
-  helen-cli/        # helen binary, REPL, formatter, docgen
+  helen-rust/       # crates.io package `helen-rust`, binary `helen` (CLI, REPL, docgen)
   helen-ffi/        # Python FFI (Helen → Python), PyO3, feature-gated
-  helen-python-bridge/  # Python Bridge (Python → Helen), PyO3 cdylib
+  helen-python-bridge/  # Python Bridge (Python → Helen), PyO3 cdylib; PyPI dist `helen-rust`
 helen-test/         # conformance harness + golden tests
 ```
 

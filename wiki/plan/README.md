@@ -50,8 +50,8 @@ helen-rust/
 │   ├── helen-runtime/             # llm, provider, tools, skills, transcript, history,
 │   │                              #   compression, memory, mcp, config, observability (dep: interpreter)
 │   ├── helen-ffi/                 # PyO3: Helen→Python (feature-gated, dep: interpreter, pyo3)
-│   ├── helen-python-bridge/       # PyO3 cdylib: Python→Helen (maturin, dep: interpreter, pyo3)
-│   ├── helen-cli/                 # binary `helen` (dep: all core crates + runtime)
+│   ├── helen-python-bridge/       # PyO3 cdylib: Python→Helen (maturin; PyPI dist `helen-rust`, module `helen_rust`)
+│   ├── helen-rust/                # crates.io package `helen-rust`, binary `helen` (dep: all core crates + runtime)
 │   └── helen-lsp/                 # LSP server (dep: core, parser, semantic)
 ├── tests/
 │   ├── conformance/               # differential harness (Rust + Python reference)
@@ -60,7 +60,7 @@ helen-rust/
     └── plan/                      # ← this plan
 ```
 
-Dependency direction is strictly **upward**: `helen-core` has no internal deps; nothing except `helen-ffi`/`helen-python-bridge`/`helen-cli` touches PyO3.
+Dependency direction is strictly **upward**: `helen-core` has no internal deps; nothing except `helen-ffi`/`helen-python-bridge`/`helen-rust` touches PyO3.
 
 ## 4. Key Design Decisions
 
@@ -69,7 +69,7 @@ Dependency direction is strictly **upward**: `helen-core` has no internal deps; 
 | D1 | **Sync tree-walk interpreter** in Rust; `spawn` → `std::thread`; LLM HTTP via blocking client | Mirrors Python exactly (sync interpreter + daemon threads + sync `httpx`); avoids async poison throughout |
 | D2 | **`Value` enum** with `Rc<RefCell<…>>` for mutable collections | Python object identity/sharing semantics; `snapshot()` = shallow scope-copy + `Rc` clone |
 | D3 | `Int(i64)` with checked arithmetic, overflow → `OverflowError` | Python ints are arbitrary-precision; i64 first, upgrade to `num-bigint` only if conformance corpus overflows |
-| D4 | Strings as **code-point indexed** (operate on `char_indices()`), `len()` = code-point count | Must match Python `str` semantics — **top compatibility risk** (see `04-…` risks) |
+| D4 | Strings are **native UTF-8 byte-based** `String`/`Rc<str>`: `len()` = byte length; index/slice by byte offsets with UTF-8 boundary validation; **no code-point-indexed wrapper** | Deliberate deviation from Python for non-ASCII (CJK); ASCII behavior identical. Simplifies value model + stdlib. Divergences tracked in `wiki/rust/migration-notes.md` (M14) |
 | D5 | `Map` backed by `indexmap::IndexMap` | Python dict insertion-order iteration |
 | D6 | Exceptions as a **value-carrying struct** (`class_name`, `message`, fields) matched by name in `catch` | Mirrors Python's class-based catch (`catch TypeError`), incl. predefined-exception whitelist |
 | D7 | Interpreter and semantic analyzer use **`match` over enum AST** instead of Python's Visitor OOP | Idiomatic Rust; visitor-trait only in `ast_printer`/analyzer where dispatch-by-type is needed |
@@ -121,14 +121,14 @@ M0 setup ──► M1 frontend ──► M3 interpreter ──► M6 agent runti
 2. `helen check`, `helen <file>`, `helen test`, REPL, and LSP feature-complete (feature matrix in `14-cli-lsp.md`).
 3. Python FFI: `import "numpy" as np` and `requests` examples from `examples/python_bridge` run unmodified.
 4. Python Bridge: `from translator import TranslatorAgent` works via import hook; sync + async + keyword-arg calls pass.
-5. `helen` on PyPI-equivalent install (`cargo install --path crates/helen-cli`) and `pip install helen-rust-bridge` both work.
+5. Installable packages are named **`helen-rust`** in both ecosystems — crates.io `helen-rust` (CLI binary `helen`) and PyPI wheel `helen-rust` (module `helen_rust`). `cargo install helen-rust` and `pip install helen-rust` both work.
 6. Benchmark suite (ported from `tests/performance/test_benchmarks.py`) shows parity or better vs. Python.
 
 ## 8. Risks & Open Questions
 
 | Risk | Mitigation |
 |---|---|
-| Python `str` semantics (code points, slicing, `%` formatting) | D4 + dedicated conformance corpus; early spike in M3 |
+| String divergence for non-ASCII (byte- vs code-point semantics) | D4: native UTF-8 strings; ASCII-only differential for string ops + expected-diff list for non-ASCII; `%` formatting ported byte-safely |
 | Arbitrary-precision ints | D3; corpus check in M13 |
 | Custom Python LLM providers in pure Rust | D8; FFI fallback + docs |
 | 378 stdlib functions — subtle behavioral differences | Differential corpus per stdlib module; port Python unit-test inputs as data tables |

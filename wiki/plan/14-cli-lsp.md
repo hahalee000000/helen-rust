@@ -5,20 +5,22 @@
 ## Files
 
 ```
-crates/helen-cli/src/main.rs        // arg parsing + subcommand dispatch
-crates/helen-cli/src/run.rs         // helen <file>
-crates/helen-cli/src/check.rs       // helen check <file> (lint)
-crates/helen-cli/src/test.rs        // helen test <file> (port stdlib test runner)
-crates/helen-cli/src/repl.rs        // interactive REPL
-crates/helen-cli/src/docgen.rs      // helen docgen (stdlib docs + wiki)
-crates/helen-cli/src/formatter.rs   // code formatter
-crates/helen-cli/src/ask.rs         // helen ask
-crates/helen-cli/src/coverage.rs    // helen coverage
+crates/helen-rust/src/main.rs        // arg parsing + subcommand dispatch
+crates/helen-rust/src/run.rs         // helen <file>
+crates/helen-rust/src/check.rs       // helen check <file> (lint)
+crates/helen-rust/src/test.rs        // helen test <file> (port stdlib test runner)
+crates/helen-rust/src/repl.rs        // interactive REPL
+crates/helen-rust/src/docgen.rs      // helen docgen (stdlib docs + wiki)
+crates/helen-rust/src/formatter.rs   // code formatter
+crates/helen-rust/src/ask.rs         // helen ask
+crates/helen-rust/src/coverage.rs    // helen coverage
 crates/helen-lsp/src/server.rs      // JSON-RPC over stdio
 crates/helen-lsp/src/features.rs    // hover, completion, diagnostics, goto-def
 ```
 
 ## Task 12.1: `helen` CLI (port `cli/__main__.py`)
+
+**Package:** crates.io package name `helen-rust` (`[package] name = "helen-rust"`, `[[bin]] name = "helen"`) so `cargo install helen-rust` works.
 
 Subcommands and flags — **match exactly**: `helen <file>` (run, exit code = program exit/error code), `helen check <file>` (report semantic errors + line numbers; exit non-zero on errors), `helen test <file>`, `helen repl`, `helen docgen`, `helen ask`, `helen coverage`, `helen --version`, `helen --provider-detect`. Use `clap` (or hand-rolled parser if flag semantics are unusual). Error output format (class name + message + `at line X`) must match for golden tests. **Exit codes**: map `HelenRuntimeError` classes to the same process exit codes as Python's CLI (check `cli/__main__.py` `main()`).
 

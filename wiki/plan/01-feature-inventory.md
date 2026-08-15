@@ -3,6 +3,11 @@
 Source: `~/helen/` v1.44.0 (module line counts from `wc -l`, verified). Use this as the
 conformance checklist. Every item must have a Rust counterpart with tests.
 
+**Cross-cutting — string semantics (D4):** Rust strings are native UTF-8 and **byte-based**
+(`len()` = bytes; index/slice by byte offset, UTF-8-boundary checked). This deliberately
+diverges from Python's code-point `str` for non-ASCII; ASCII behavior is identical. Track all
+divergences in `wiki/rust/migration-notes.md`.
+
 ## 1. Core Frontend → `crates/helen-core` + `crates/helen-parser`
 
 | Python module | Lines | Rust target | Must port |
@@ -104,7 +109,7 @@ Core builtins (from `stdlib/__init__.py` head): `print, len, str, int, float, bo
 | `python_bridge/decorators.py` (91) | `src/decorators.rs` | `@helen_agent` |
 | `python_bridge/type_converter.py` (86) | `src/converter.rs` | bridge direction conversions |
 
-## 7. CLI / LSP / Agent → `crates/helen-cli` + `crates/helen-lsp`
+## 7. CLI / LSP / Agent → `crates/helen-rust` (crates.io package `helen-rust`, binary `helen`) + `crates/helen-lsp`
 
 | Python module | Lines | Rust target |
 |---|---|---|

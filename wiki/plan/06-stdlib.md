@@ -36,7 +36,7 @@ Write `scripts/extract_builtins.py` that parses `stdlib/__init__.py` + each `*_c
 
 **string.rs (25):** `upper, lower, strip, lstrip, rstrip, split, rsplit, join, startswith, endswith, replace, find, rfind, find_from, contains, substring, trim_prefix, trim_suffix, interpolate, regex_match, regex_search, regex_test, regex_replace, regex_split, regex_findall, tokenize, word_count, levenshtein, similarity, remove_punctuation, normalize_whitespace, extract_urls, extract_emails, base64_encode, base64_decode, html_escape, html_unescape`.
 
-> ⚠️ All string ops go through the **code-point abstraction** from M3/D4 — `len()` counts code points, `substring`/`[i]`/`find` operate on code-point offsets, `upper/lower` via Unicode tables (use `unicode-normalization`/`char` case methods; verify against Python for non-ASCII).
+> ⚠️ String ops use **native byte-based** semantics (D4): `len()` = byte length; `substring`/`[i]`/`find` operate on byte offsets with UTF-8 boundary checks. `upper/lower` via `char::to_uppercase/to_lowercase` (+ `unicode-normalization` where needed) — verify **ASCII** parity with Python. Non-ASCII (CJK) results deliberately diverge from Python (byte- vs code-point): add ASCII differential tests plus an expected-diff list for non-ASCII fixtures.
 
 **collection.rs (33):** `map, filter, reduce, find, find_if, every, some, sort, unique, flatten, chunk, zip, keys, values, entries, merge, get, set, has, push, pop, shift, unshift, slice, splice, concat, includes, index_of, reverse, fill, min_by, max_by, group_by`.
 
@@ -83,7 +83,7 @@ Port `stdlib/locales/zh.py`: alias map `"字符串转大写" → "upper"` etc. R
 
 ## Task 4.8: Stdlib differential sweeps
 
-For each module: `scripts/diff.sh --suite stdlib/<module>` with a dedicated corpus. Add edge-case programs (empty inputs, unicode, negative indices, NaN/Inf) to `tests/programs/stdlib/`.
+For each module: `scripts/diff.sh --suite stdlib/<module>` with a dedicated corpus. Add edge-case programs (empty inputs, unicode, negative indices, NaN/Inf) to `tests/programs/stdlib/` — for string modules assert **ASCII** parity and add non-ASCII cases to `tests/conformance/expected-diffs.md` (D4).
 
 ## Definition of Done — M4
 

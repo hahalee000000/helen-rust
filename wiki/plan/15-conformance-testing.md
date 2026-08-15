@@ -22,6 +22,8 @@ Run the harness (M0.4) across every corpus program with per-suite reports:
 | ffi | `tests/ffi` (4) | Python objects round-trip |
 | multimodal | `tests/multimodal` (3) | media pipeline outputs |
 
+> **String-op differential (D4):** programs exercising string functions assert **ASCII parity**; non-ASCII (CJK) cases are checked against `tests/conformance/expected-diffs.md` (deliberate byte- vs code-point divergence).
+
 ## Task 13.2: Ported Rust unit tests
 
 Beyond differential runs, port high-value Python unit tests as Rust tests (they give precise blame when differential fails): lexer edge cases, precedence, sentinel propagation, scope isolation, exception hierarchy, spawn determinism, TranscriptStore formats, tool schemas.

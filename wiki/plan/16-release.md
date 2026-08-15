@@ -4,8 +4,8 @@
 
 ## Task 14.1: Packaging
 
-- CLI binary: `cargo build --release --workspace` → `target/release/helen`; document `cargo install --path crates/helen-cli`.
-- Bridge wheel: `cd crates/helen-python-bridge && maturin build --release` → `pip install` wheel (`helen-rust-bridge`).
+- CLI binary: `cargo build --release --workspace` → `target/release/helen`; publish as crates.io package **`helen-rust`** (`[package] name = "helen-rust"`, binary `helen`) → `cargo install helen-rust` (or `cargo install --path crates/helen-rust`).
+- Bridge wheel: `cd crates/helen-python-bridge && maturin build --release` → `pip install` wheel named **`helen-rust`** (`[project] name = "helen-rust"`, `[tool.maturin] module-name = "helen_rust"`).
 - FFI feature: build instructions for `--features python-ffi` (requires Python 3.12 dev headers).
 - Homebrew/standalone script `scripts/install.sh` (download release binary + optional bridge wheel).
 
@@ -13,7 +13,7 @@
 
 - `wiki/README.md` — port of the Python wiki index pointing at Rust artifacts (same doc tree layout so links survive).
 - `wiki/rust/architecture.md` — crate layout, value model, threading model, design decisions D1–D10.
-- `wiki/rust/migration-notes.md` — intentional deviations (strictness in spawn races, i64 vs arbitrary ints, custom-provider Python dependency).
+- `wiki/rust/migration-notes.md` — intentional deviations (byte-based strings D4, strictness in spawn races, i64 vs arbitrary ints, custom-provider Python dependency).
 - `docs/` user guides generated via `helen docgen` (parity-checked).
 - License: MIT (match original).
 
@@ -21,7 +21,7 @@
 
 - `scripts/sync-corpus.sh` — pull latest `.helen` corpus from `~/helen/` (auto-add new test programs).
 - `scripts/check-parity.sh` — full M13 sweep on a release build.
-- CI release pipeline (crates.io for `helen-core` crates optional; binary + wheel on GitHub Releases).
+- CI release pipeline (`cargo publish -p helen-rust` to crates.io; wheel to PyPI via maturin/GitHub Actions; publishing the library crates optional; binary + wheel on GitHub Releases).
 
 ## Task 14.4: Final acceptance checklist (Definition of Done from README §7)
 
@@ -29,7 +29,7 @@
 - [ ] **D2** `helen check`, `helen <file>`, `helen test`, REPL, LSP feature-complete.
 - [ ] **D3** Python FFI: `examples/python_bridge` FFI examples run unmodified.
 - [ ] **D4** Python Bridge: `from translator import TranslatorAgent` (sync/async/kwargs).
-- [ ] **D5** Install paths: `cargo install` binary + `pip install` wheel.
+- [ ] **D5** Install paths: `cargo install helen-rust` and `pip install helen-rust` both work.
 - [ ] **D6** Benchmarks at parity or better.
 - [ ] **D7** `tests/agent` + `tests/runtime` suites green with Mock LLM.
 - [ ] **D8** Transcript/JSONL files interoperable between Python and Rust versions.
