@@ -232,11 +232,34 @@ def lex_only(source: str, file: str, helen_src: Path):
     return out
 
 
+def parse_only(source: str, file: str, helen_src: Path):
+    """Parse `source` with the reference Parser and dump the ASTPrinter output.
+
+    Mirrors the Rust `helen --parse` mode. Output: the single-line
+    ASTPrinter S-expression string for the whole program (Python's
+    `ASTPrinter().print(program)`).
+    """
+    Scanner, Parser_cls, ErrorReporter, _, _, _, _ = _import_reference(helen_src)
+    from helen.core.ast import ASTPrinter
+
+    scanner = Scanner(source, file)
+    tokens = scanner.scan_all()
+    parser = Parser_cls(tokens)
+    program = parser.parse()
+    printer = ASTPrinter()
+    out = printer.print(program)
+    # Python prints floats inside literal nodes with str(); the ASTPrinter
+    # already does that. Return as JSON string for stable transport.
+    # Compact separators match serde_json output (byte-identical transport).
+    return json.dumps({"ast": out}, separators=(",", ":"))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="reference.py")
     parser.add_argument("file", help=".helen source file, or '-' for stdin")
     parser.add_argument("--mock-llm", action="store_true", help="inject MockLLMRuntime")
     parser.add_argument("--lex", action="store_true", help="lex only; dump token stream as JSON")
+    parser.add_argument("--parse", action="store_true", help="parse only; dump ASTPrinter output as JSON")
     parser.add_argument(
         "--mode", choices=["inprocess", "cli"], default="inprocess",
         help="inprocess = interpreter in this process (default); cli = python -m helen.cli",
@@ -244,6 +267,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     helen_src = _helen_src()
+
+    if args.parse:
+        if args.file == "-":
+            source = sys.stdin.read()
+            file = "<stdin>"
+        else:
+            source = Path(args.file).read_text(encoding="utf-8")
+            file = args.file
+        print(parse_only(source, file, helen_src))
+        return 0
 
     if args.lex:
         if args.file == "-":

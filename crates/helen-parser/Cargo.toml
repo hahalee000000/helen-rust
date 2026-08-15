@@ -5,4 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Helen language Rust reimplementation — helen-parser (M0 stub)"
+description = "Helen language Rust reimplementation — helen-parser (Pratt parser)"
+
+[dependencies]
+helen-core = { path = "../helen-core" }

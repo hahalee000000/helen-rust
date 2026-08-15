@@ -1,0 +1,7 @@
+import std.core.*
+
+main {
+    let mb = spawn Worker("hi")
+    let msg = mb.receive()
+    print(msg)
+}

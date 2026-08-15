@@ -1,0 +1,15 @@
+import std.core.*
+
+agent Greeter(name: str) {
+    description "A greeter"
+    model "gpt-4o"
+    tools ["read_file", "write_file"]
+    prompt "Hello {{name}}"
+    main {
+        print(name)
+    }
+}
+
+main {
+    print("done")
+}

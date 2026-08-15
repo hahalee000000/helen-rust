@@ -5,6 +5,8 @@
 //! tokens,lexer}.py`) so the differential harness can compare token
 //! streams and diagnostics across both implementations.
 
+pub mod ast;
+pub mod ast_printer;
 pub mod errors;
 pub mod lexer;
 pub mod source;

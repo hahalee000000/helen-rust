@@ -1,0 +1,13 @@
+import std.core.*
+
+main {
+    try {
+        throw RuntimeError("boom")
+    } catch RuntimeError e {
+        print(e)
+    } catch {
+        print("other")
+    } finally {
+        print("cleanup")
+    }
+}

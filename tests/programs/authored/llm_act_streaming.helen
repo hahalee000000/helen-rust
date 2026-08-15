@@ -1,0 +1,14 @@
+import std.core.*
+
+agent Streamer(msg: str) {
+    description "Stream"
+    prompt "Reply to {{msg}}"
+
+    main {
+        llm act "Tell me a story" on_chunk fn(chunk: str) {
+            print(chunk)
+        } on_complete fn(full: str) {
+            print(full)
+        }
+    }
+}

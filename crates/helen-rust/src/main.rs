@@ -5,11 +5,33 @@
 //! Float literals are formatted with Rust's shortest-round-trip `Debug`
 //! repr; the comparison script parses both sides numerically.
 
+use helen_core::ast_printer::AstPrinter;
 use helen_core::lexer::Scanner;
 use helen_core::tokens::LiteralValue;
+use helen_parser::Parser;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    if args.len() >= 3 && args[1] == "--parse" {
+        let path = &args[2];
+        let source = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("helen: cannot read {path}: {e}");
+                std::process::exit(2);
+            }
+        };
+
+        let mut scanner = Scanner::new(&source, path);
+        let tokens = scanner.scan_all();
+        let mut parser = Parser::new(tokens);
+        let program = parser.parse();
+        let printer = AstPrinter::new();
+        let out = printer.print_program(&program);
+        println!("{}", serde_json::json!({ "ast": out }));
+        return;
+    }
 
     if args.len() >= 3 && args[1] == "--lex" {
         let path = &args[2];

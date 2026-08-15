@@ -1,0 +1,11 @@
+import std.core.*
+
+main {
+    match 3 {
+        case 1 { print("one") }
+        case 2..5 { print("few") }
+        case is int n { print(n) }
+        case x if x > 10 { print(x) }
+        default { print("other") }
+    }
+}

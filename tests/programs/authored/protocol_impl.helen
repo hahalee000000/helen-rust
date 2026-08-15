@@ -1,0 +1,16 @@
+import std.core.*
+
+protocol Shape {
+    fn area(): float
+    fn name(): str
+}
+
+impl Shape for Circle {
+    fn area(): float {
+        return 3.14
+    }
+}
+
+main {
+    print("ok")
+}

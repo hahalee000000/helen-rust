@@ -1,0 +1,17 @@
+import std.core.*
+
+agent Classifier(text: str) {
+    description "Classify"
+    prompt "Classify: {{text}}"
+
+    main {
+        llm if "Is this urgent?" {
+            branch "yes" {
+                print("urgent")
+            }
+            default {
+                print("normal")
+            }
+        }
+    }
+}

@@ -1,0 +1,9 @@
+import std.core.*
+import std.str.{len, upper}
+import std.list as L
+import std.math.*
+
+main {
+    print(len("abc"))
+    print(upper("abc"))
+}

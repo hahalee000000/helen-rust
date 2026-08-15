@@ -1,0 +1,8 @@
+import std.core.*
+
+main {
+    let r = 1 |> f |> g
+    print(r)
+    let x = 5 |> double
+    print(x)
+}

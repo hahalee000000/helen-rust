@@ -1,0 +1,11 @@
+import std.core.*
+
+agent Router(request: str) {
+    description "Route a request"
+    prompt "Route: {{request}}"
+
+    main {
+        let result = llm act "Classify: {{request}}"
+        print(result)
+    }
+}

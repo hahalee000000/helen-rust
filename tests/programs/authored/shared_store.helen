@@ -1,0 +1,14 @@
+import std.core.*
+
+shared store Counter {
+    count: int = 0
+
+    fn increment() { count += 1 }
+    fn get(): int { return count }
+}
+
+shared let buf = ""
+
+main {
+    print("ok")
+}
