@@ -1,6 +1,6 @@
 # M1 — Core Frontend: Source, Tokens, Lexer, AST, Parser
 
-> **Status: IN PROGRESS (2026-08-15)** — Tasks 1.1–1.2 **COMPLETE** (commit `364b0df`):
+> **Status: COMPLETE (2026-08-15)** — commits `364b0df` (1.1–1.2) + `9d394c1` (1.3–1.5):
 > `tokens.rs` (88 variants, 99 bilingual keywords — Python comment "97" is
 > stale), `lexer.rs` (byte-faithful `Scanner` port), Python-faithful
 > `SourceSpan`/`ErrorCode` (E0300–E0357), `helen --lex` + `reference.py --lex`
