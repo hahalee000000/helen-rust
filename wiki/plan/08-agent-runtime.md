@@ -6,7 +6,7 @@
 
 ```
 crates/helen-interpreter/src/agent.rs     // agent decl evaluation, _call_agent, scope isolation
-crates/helen-interpreter/src/llm.rs       // llm act / llm if / llm branch / tool loop / for await
+crates/helen-interpreter/src/llm.rs       // llm act / llm if / llm branch / tool loop / on_chunk+on_complete streaming
 crates/helen-runtime/src/tools.rs         // tool registry + 11 tools
 crates/helen-runtime/src/skills.rs        // skill search + two-layer disclosure
 crates/helen-runtime/src/agent_session.rs // session tracking for agents (port agent_context pieces)

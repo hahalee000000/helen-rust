@@ -1,6 +1,6 @@
 # M4 — Stdlib: 378 Builtin Functions
 
-**Objective:** Register all **378** `BuiltinFunction`s (verified count in `helen/stdlib/__init__.py`) plus Chinese aliases. Exit criterion: `tests/stdlib/` differential corpus passes per module.
+**Objective:** Register all **378** `BuiltinFunction`s (verified count in `helen/stdlib/__init__.py`) plus Chinese aliases, exposed under the **22 user-facing `std.*` namespaces** (verified: `std.core, std.str, std.list, std.dict, std.math, std.time, std.file, std.system, std.io, std.data, std.network, std.path, std.tools, std.debug, std.context, std.transcript, std.media, std.test, std.quality, std.llm, std.crypto, std.concurrency`). Exit criterion: Tier-A `tests/stdlib/` differential corpus passes per module.
 
 ## Architecture
 
@@ -20,11 +20,13 @@ pub fn register_all(registry: &mut BuiltinRegistry) {
 }
 ```
 
-Module files: `string.rs, collection.rs, data.rs, data_formats.rs, time.rs, math_stats.rs,
+Module files map 1:1 to the Python implementation files, registered under the user-facing
+namespaces: `string.rs, collection.rs, data.rs, data_formats.rs, time.rs, math_stats.rs,
 file_advanced.rs, system.rs, network.rs, crypto.rs, media.rs, context.rs, quality.rs,
-test.rs, tools.rs, transcript.rs, transcript_query.rs, debug.rs, llm_control.rs, mailbox.rs, zh_aliases.rs`.
+test.rs, tools.rs, transcript.rs, transcript_query.rs, debug.rs, llm_control.rs, path.rs,
+mailbox.rs, io.rs, zh_aliases.rs`.
 
-**Execution order of a builtin call:** resolve name → arity/type check (params schema) → call → convert result. Errors must produce the **same exception class + message** as Python (e.g., `split("")` → ValueError, `int("abc")` → ValueError).
+**Execution order of a builtin call:** resolve name → arity/type check (params schema) → call → convert result. Errors must produce the **same exception class + message** as Python. **Verified error wrapping:** Helen stdlib has no Python-named exception classes — Python errors are wrapped as **`RuntimeError`** (e.g. `split("")` → `RuntimeError: Python ValueError: ...`, `int("abc")` → `RuntimeError: Python ValueError: invalid literal ...`). Assert the full `RuntimeError` message prefix in tests.
 
 ## Task 4.1: Function-signature extraction tooling
 
@@ -33,14 +35,17 @@ Write `scripts/extract_builtins.py` that parses `stdlib/__init__.py` + each `*_c
 ## Task 4.2: Core + string + collection (highest priority)
 
 **Core builtins** (in interpreter or stdlib-category `core`): `print, len, str, int, float, bool, list, dict, abs, min, max, range, type, isinstance, input, multiline_input, read_file`.
+- **`range(n)` returns a list** (verified: `type(range(3))` → `"list"`).
+- **`type(x)` returns a string** (`"int","str","list","dict","NoneType","bool"`); `isinstance(x, "int")` takes a string.
+- `str()`/`print` use the D11 display rules (top-level `str()` vs nested `repr`).
 
 **string.rs (25):** `upper, lower, strip, lstrip, rstrip, split, rsplit, join, startswith, endswith, replace, find, rfind, find_from, contains, substring, trim_prefix, trim_suffix, interpolate, regex_match, regex_search, regex_test, regex_replace, regex_split, regex_findall, tokenize, word_count, levenshtein, similarity, remove_punctuation, normalize_whitespace, extract_urls, extract_emails, base64_encode, base64_decode, html_escape, html_unescape`.
 
-> ⚠️ String ops use **native byte-based** semantics (D4): `len()` = byte length; `substring`/`[i]`/`find` operate on byte offsets with UTF-8 boundary checks. `upper/lower` via `char::to_uppercase/to_lowercase` (+ `unicode-normalization` where needed) — verify **ASCII** parity with Python. Non-ASCII (CJK) results deliberately diverge from Python (byte- vs code-point): add ASCII differential tests plus an expected-diff list for non-ASCII fixtures.
+> ⚠️ String ops use **native byte-based** semantics (D4): `len()` = byte length; `substring`/`[i]`/`find` operate on byte offsets with UTF-8 boundary checks. `upper/lower` via `char::to_uppercase/to_lowercase` (+ `unicode-normalization` where needed) — verify **ASCII** parity with Python. Non-ASCII (CJK) results deliberately diverge from Python (byte- vs code-point): add ASCII differential tests plus an expected-diff list for non-ASCII fixtures. String **iteration is unsupported** in the language — do not implement `iter(s)`.
 
 **collection.rs (33):** `map, filter, reduce, find, find_if, every, some, sort, unique, flatten, chunk, zip, keys, values, entries, merge, get, set, has, push, pop, shift, unshift, slice, splice, concat, includes, index_of, reverse, fill, min_by, max_by, group_by`.
 
-**Tests per module:** port Python `tests/stdlib/test_string.py` inputs as data tables → Rust table tests, plus differential runs.
+**Tests per module:** port Python `tests/stdlib/test_string.py` inputs as data tables → Rust table tests, plus differential runs (Tier A).
 
 ## Task 4.3: data + data_formats
 
@@ -51,12 +56,15 @@ Rust deps: `serde_json` (json), `toml` (toml), `serde_yaml` (yaml), `quick-xml` 
 
 **Compatibility note:** `json_stringify` output formatting (indent, key order, unicode escapes) must match Python `json.dumps` defaults — add snapshot tests.
 
-## Task 4.4: time + math_stats + crypto
+## Task 4.4: time + math_stats + crypto + path
 
 **time.rs (20):** `now, time_func, sleep, date, datetime, fromtimestamp, date_format, date_parse, date_add, date_diff, date_year, date_month, date_day, date_weekday, stopwatch_start, stopwatch_elapsed, stopwatch_lap`. Use `chrono`; `date_format` must match Python `strftime` directives → write a `strftime` compatibility layer (or use `chrono`'s formatting with a directive mapping + `%Z`/`%z` handling).
 
-**math_stats.rs (33):** `mean, median, mode, variance, stddev, correlation, percentile, sum, product, min, max, cos, sin, tan, acos, asin, atan, atan2, sqrt, pow, floor, ceil, round, log, log2, log10, exp, abs, clamp, lerp, degrees, radians, gcd, lcm, is_prime, factorial, random, randint, choice, shuffle, sample, seed`.
+**math_stats.rs (33):** `mean, median, mode, variance, stddev, correlation, percentile, sum, product, min, max, cos, sin, tan, acos, asin, atan, atan2, sqrt, pow, floor, ceil, round, log, log2, log10, exp, abs, clamp, lerp, degrees, radians, gcd, lcm, is_prime, factorial, random, randint, choice, shuffle, sample, seed`. **Verified:** `pow`, `round`, `sqrt` always return **float** (`pow(2,10)` → 1024.0, `round(3.7)` → 4.0).
+
 **crypto.rs (22):** `md5, sha1, sha256, sha512, hmac_sha256, hash_file, random, randint, choice, shuffle, sample, uuid_generate, uuid_from_string, uuid_nil, random_bytes`. Use `md-5`, `sha1`, `sha2`, `hmac`, `uuid` crates; output hex lowercase like Python `hashlib`.
+
+**path.rs:** port `std.path` (exists in v1.44 module_map — path join/split/normalize/basename/dirname/expanduser etc.).
 
 ## Task 4.5: file_advanced + system + network
 
@@ -76,6 +84,7 @@ These need the runtime (M5/M6/M8) — **implement in M5+ as features land**, but
 - **media.rs (12):** `media, media_base64, is_media, media_type, to_openai_parts, to_claude_parts, to_gemini_parts, media_to_base64, save_media, is_image, is_video, is_audio`.
 - **transcript.rs (51) + transcript_query.rs (2):** port against the TranscriptStore (M8).
 - **mailbox.rs (1):** `mailbox_select` (M7).
+- **io.rs:** `std.io` console/stdin helpers (part of the 22 namespaces).
 
 ## Task 4.7: Chinese aliases
 
@@ -83,11 +92,11 @@ Port `stdlib/locales/zh.py`: alias map `"字符串转大写" → "upper"` etc. R
 
 ## Task 4.8: Stdlib differential sweeps
 
-For each module: `scripts/diff.sh --suite stdlib/<module>` with a dedicated corpus. Add edge-case programs (empty inputs, unicode, negative indices, NaN/Inf) to `tests/programs/stdlib/` — for string modules assert **ASCII** parity and add non-ASCII cases to `tests/conformance/expected-diffs.md` (D4).
+For each namespace: `scripts/diff.sh --suite stdlib/<module>` with a dedicated corpus. Add edge-case programs (empty inputs, unicode, negative indices, NaN/Inf, big ints) to `tests/programs/stdlib/` — for string modules assert **ASCII** parity and add non-ASCII cases to `tests/conformance/expected-diffs.md` (D4). Assert error classes are the 11 Helen-native names with `RuntimeError` wrapping where Python errors surface.
 
 ## Definition of Done — M4
 
-- [ ] All 378 names registered; `helen docgen` output matches Python's docgen for the full function table.
+- [ ] All 378 names registered across the 22 `std.*` namespaces; `helen docgen` output matches Python's docgen for the full function table.
 - [ ] Chinese aliases registered and tested.
 - [ ] Differential pass per module ≥ reference parity on corpus (string/collection/data/time first).
-- [ ] Runtime-dependent modules (context/quality/test/tools/llm_control/media/transcript/mailbox) return correct results once their runtime lands in M5–M8.
+- [ ] Runtime-dependent modules (context/quality/test/tools/llm_control/media/transcript/mailbox/io) return correct results once their runtime lands in M5–M8.

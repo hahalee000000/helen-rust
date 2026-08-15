@@ -12,8 +12,8 @@
 ## Task 14.2: Documentation
 
 - `wiki/README.md` — port of the Python wiki index pointing at Rust artifacts (same doc tree layout so links survive).
-- `wiki/rust/architecture.md` — crate layout, value model, threading model, design decisions D1–D10.
-- `wiki/rust/migration-notes.md` — intentional deviations (byte-based strings D4, strictness in spawn races, i64 vs arbitrary ints, custom-provider Python dependency).
+- `wiki/rust/architecture.md` — crate layout, value model, threading model, design decisions D1–D12.
+- `wiki/rust/migration-notes.md` — intentional deviations (byte-based strings D4, string iteration unsupported, strictness in spawn races, custom-provider Python dependency).
 - `docs/` user guides generated via `helen docgen` (parity-checked).
 - License: MIT (match original).
 

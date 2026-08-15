@@ -41,7 +41,7 @@ GIL safety: never hold `Python` across interpreter boundaries; convert to/from H
 
 ## Task 10.3: TypeConverter (port `ffi/type_converter.py`)
 
-Helen → Python: `Int/Float/Bool/Str → PyInt/PyFloat/PyBool/PyStr`; `List → PyList` (recursively, with `clone_deep`), `Map → PyDict`; `Null → None`; `NativeHandle(PyObject) → same PyObject` (no copy). Python → Helen: int → Int (overflow → OverflowError), float → Float, str → Str, bool → Bool, None → Null, list/tuple → List (deep convert), dict → Map, **anything else → PythonObject wrapper** (recursively referenced).
+Helen → Python: `Int/Float/Bool/Str → PyInt/PyFloat/PyBool/PyStr`; `List → PyList` (recursively, with `clone_deep`), `Map → PyDict`; `Null → None`; `NativeHandle(PyObject) → same PyObject` (no copy). Python → Helen: int → Int (arbitrary precision, D3 — no overflow path), float → Float, str → Str, bool → Bool, None → Null, list/tuple → List (deep convert), dict → Map, **anything else → PythonObject wrapper** (recursively referenced).
 
 ## Task 10.4: PythonModule / PythonObject (port `python_module.py`, `python_object.py`, `contracts.py`)
 
@@ -58,7 +58,7 @@ In `helen-interpreter/src/import.rs`: when `import "numpy" as np` fails to resol
 - `import "math" as m; m.sqrt(16)` → 4.0
 - `import "numpy" as np; np.array([1,2,3])` round-trip
 - Dict/list deep conversion round-trips; object repr/str
-- Callable + indexable access; exception mapping (Python ValueError → Helen ValueError)
+- Callable + indexable access; exception mapping (Python exceptions are **wrapped as Helen `RuntimeError`** — Helen has no Python-named exception classes; matches stdlib behavior like `int("abc")`)
 
 ## Definition of Done — M10
 

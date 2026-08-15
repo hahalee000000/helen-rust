@@ -1,6 +1,6 @@
 # M3 — Interpreter Core: Value Model, Environment, Execution
 
-**Objective:** Port `interpreter/{interpreter,environment,exceptions,closure,pattern_mixin,exception_mixin,readonly_view,shared_store,import_mixin}.py`. Exit criterion: the full `tests/execution` + `tests/language` corpus runs byte-identical on the Rust interpreter (with LLM stubbed).
+**Objective:** Port `interpreter/{interpreter,environment,exceptions,closure,pattern_mixin,exception_mixin,readonly_view,shared_store,import_mixin}.py`. Exit criterion: the Tier-A extracted corpus from `tests/interpreter` + `tests/execution`-equivalent Rust tests run byte-identical on the Rust interpreter (LLM stubbed).
 
 ## Files
 
@@ -13,9 +13,9 @@ crates/helen-interpreter/src/interpreter.rs    crates/helen-interpreter/src/lib.
 crates/helen-interpreter/tests/interpreter_tests.rs
 ```
 
-## Task 3.1: Value model (D2, D3, D4, D5)
+## Task 3.1: Value model (D2–D5) + display parity (D11)
 
-**Step 1 — tests:** value coercion, equality (Python semantics: `1 == 1.0` true, `[1] == [1.0]` true), string length = byte length (UTF-8), byte-offset index/slice, dict order preservation.
+**Step 1 — tests:** value coercion; equality with Python semantics (`1 == 1.0` true, `[1] == [1.0]` true); string `len()` = byte length (UTF-8), byte-offset index/slice with boundary validation; **string iteration raises** (only lists iterate — verified Helen behavior); dict insertion-order + non-string keys.
 
 **Step 2 — implement:**
 
@@ -25,31 +25,47 @@ crates/helen-interpreter/tests/interpreter_tests.rs
 pub enum Value {
   Null,
   Bool(bool),
-  Int(i64),                  // D3: checked ops; overflow → OverflowError
+  Int(num_bigint::BigInt),       // D3: arbitrary precision from day one
   Float(f64),
-  Str(Rc<str>),              // native UTF-8 bytes; byte-based len/index/slice (D4)
+  Str(Rc<str>),                  // native UTF-8 bytes; byte-based len/index/slice (D4)
   List(Rc<RefCell<Vec<Value>>>),
-  Map(Rc<RefCell<IndexMap<String, Value>>>),   // D5
-  BuiltinFn(BuiltinFn),      // name, params, impl fn
-  UserFn(Rc<Closure>),       // fn + captured env
+  Map(Rc<RefCell<IndexMap<Value, Value>>>),   // D5: arbitrary hashable keys
+  BuiltinFn(BuiltinFn),          // name, params, impl fn
+  UserFn(Rc<Closure>),           // fn + captured env
   Agent(Rc<AgentDecl>),
-  Native(NativeHandle),      // opaque native object (channels, python objects, streaming)
+  Native(NativeHandle),          // opaque native object (channels, python objects)
   Channel(ChannelEndpoint),
-  Type(HelmType),            // runtime type objects for isinstance/type()
+  Type(HelmType),                // runtime type objects (type() returns strings — see below)
   Exception(Box<ExceptionValue>), // thrown/raised exception value
 }
 
 impl Value {
   pub fn truthy(&self) -> bool { /* Python truthiness: 0/0.0/""/[]/{}/null false */ }
-  pub fn to_display(&self) -> String { /* `str()` semantics for print */ }
+  pub fn to_display(&self, top_level: bool) -> String { /* D11, see below */ }
   pub fn deep_eq(&self, other: &Value) -> bool { /* structural equality like Python == */ }
   pub fn clone_deep(&self) -> Value { /* used where Python does copy.deepcopy (env snapshot for shared store) */ }
 }
 ```
 
-**Numeric semantics decision (open question from README):** check Python tests for `/` and `//`; implement `/` as float division (Python default) unless corpus says otherwise; implement `%` with Python's sign-of-divisor semantics.
+**Map keys (D5):** `Value` implements structural `Hash`/`Eq` (int 1 == float 1.0 must hash equally, mirroring Python `{1:…}` vs `{1.0:…}` collision behavior). Verified: `{"a": 1, 2: "two"}` legal, `m[2]` works.
 
-**String ops (D4):** no wrapper type — strings are native `Rc<str>`. `len()` = `str.len()` (bytes); indexing `s[i]` = byte index validated at UTF-8 boundaries (mid-codepoint → error); slicing = byte ranges. ASCII behavior matches Python exactly; non-ASCII (CJK) semantics deliberately diverge — record each divergence in `wiki/rust/migration-notes.md`. M4 stdlib string fns use byte offsets.
+**Numeric semantics (verified, resolved):**
+- Operator set: `+ - * / % == != < <= > >= && || ! |> .. -> =`. **No `//`, `**`, bitwise `| & ^ ~ << >>`.**
+- `/` always returns `Float` (`7/2` = 3.5). `%` uses Python sign-of-divisor semantics (`-7 % 3` = 2, `7 % -3` = -2). `int()` truncates toward zero.
+- All integer ops via `num-bigint` — no overflow path.
+
+**String ops (D4):** no wrapper type — strings are native `Rc<str>`. `len()` = `str.len()` (bytes); indexing `s[i]` = byte index validated at UTF-8 boundaries (mid-codepoint → error); slicing = byte ranges. **`for c in "abc"` → runtime error** (`Cannot iterate over str/dict`) — only lists iterate. `range(n)` returns a list. ASCII behavior matches Python exactly; non-ASCII (CJK) semantics deliberately diverge — record each divergence in `wiki/rust/migration-notes.md`.
+
+**`type()` / `isinstance`:** `type(x)` returns **strings** (`"int","str","list","dict","NoneType","bool"`); `isinstance(x, "int")` takes a string type name. Keep the `Type` enum for the semantic analyzer only; the runtime type() builtin returns `Value::Str`.
+
+**Task 3.1b — print/str/repr display parity (D11, dedicated):**
+`to_display(value, top_level: bool)` encodes the verified asymmetric rules:
+- **Top-level `print(x)`** uses Python `str()` semantics: `print(true)` → `true`, `print(false)` → `false`, `print(null)` → `None`, `print(3.5)` → `3.5`.
+- **Nested (inside containers)** uses Python `repr()` of elements: `print([1, 'a', true, null])` → `[1, 'a', True, None]` (bools → `True`/`False`, null → `None`, strings single-quoted).
+- **Float formatting = Python `repr`**: `1e+20`, `1.5e-05`, `3.0`, `3.5` — port `repr`-style shortest-roundtrip with Python's exponent rules (thresholds `1e-4`/`1e16`; note Python prints `1e+20`, not `1e20`).
+- Also used by error messages, `{{expr}}` template interpolation, and `std.debug` output.
+
+Corpus: `tests/programs/display/` (authored in M0, asserted byte-identical in M13).
 
 ## Task 3.2: Environment + snapshot isolation
 
@@ -75,10 +91,17 @@ Port `exceptions.py` + `exception_mixin.py`:
 pub struct ExceptionValue { pub class_name: String, pub message: String, pub fields: IndexMap<String, Value> }
 pub enum ControlFlow { Break, Continue, Return(Option<Value>) }  // sentinels (D6)
 
-pub fn predefined_exceptions() -> phf::Set<&'static str> { /* same names as Python */ }
+pub const PREDEFINED_EXCEPTIONS: [&str; 11] = [
+  "AnyError", "LLMError", "TimeoutError", "ModelError", "PromptTooLongError",
+  "AgentError", "LLMOutputContractError", "ToolError", "RuntimeError",
+  "AssertionError", "AggregateError",
+];
 ```
 
-`try-catch`: catch block matches when `class_name == caught` or class is in the exception hierarchy map (port `_PARENT_EXCEPTIONS`). `finally` always runs; thrown-from-finally replaces prior error. Implement `throw` (by name, with message) and `assert` (AssertionError).
+- **`catch` matches by exact class name** against `PREDEFINED_EXCEPTIONS` — no hierarchy map. Python exception names (`TypeError`, `ValueError`, `KeyError`, `IndexError`, `ZeroDivisionError`) are **invalid** throw/catch types → compile error.
+- **`catch X err` requires a bound variable** (bare `catch X` → E0301 `Expected error variable name`); the message is `err.message`, fields via `err.<field>`.
+- `try`/`catch`/`finally`: `finally` always runs; thrown-from-finally replaces prior error. Implement `throw Name("msg")` and `assert` (`AssertionError`).
+- Stdlib functions that wrap Python errors raise `RuntimeError` (e.g. `int("abc")` → `RuntimeError: Python ValueError: invalid literal ...`) — never a Python-named class.
 
 **Sentinel propagation pitfall (from Python dev notes):** Return sentinel must propagate through `while`, `for`, `if`, `match`, try/finally bodies — write dedicated tests.
 
@@ -86,8 +109,8 @@ pub fn predefined_exceptions() -> phf::Set<&'static str> { /* same names as Pyth
 
 Implement in `interpreter.rs` (a struct holding `environment`, `modules`/import resolver, `llm_runtime`, `agent_context`, `tools`):
 
-**Statements:** let/const/shared let/shared store/alias, fn decl, if/else, while, for-in, match/case/default, try/catch/finally, throw, assert, return, break/continue, expr-stmt, import, agent decl, protocol/impl, main.
-**Expressions:** literals, identifiers, binary/unary (Python operator semantics), call (builtin/user/agent), method calls (string/list/dict methods), index/assign, ternary, pipe `|>`, list/map literals, template `{{expr}}`, `llm act/if` (Task 3.6), spawn (M7), `for await` (Task 3.7), `async`/`await` (M7).
+**Statements:** let/const/shared let/shared store/alias, fn decl, if/else, while, for-in (**lists only**), match/case/default, try/catch/finally, throw, assert, return, break/continue, expr-stmt, import, agent decl, protocol/impl, main.
+**Expressions:** literals, identifiers, binary/unary (operator set per §3.1), call (builtin/user/agent), method calls (string/list/dict methods), index/assign, ternary, pipe `|>`, list/map literals, template `{{expr}}`, `llm act/if` (Task 3.6), spawn (M7). **No `async`/`await`/`for await` in the language** — verified absent.
 
 **Builtin function dispatch:** `Value::BuiltinFn` holds a `fn(&mut Interpreter, &[Value], &IndexMap<String,Value>) -> Result<Value, ExceptionValue>` pointer; M4 registers 378 of these.
 
@@ -99,17 +122,26 @@ Implement in `interpreter.rs` (a struct holding `environment`, `modules`/import 
 - `pattern.rs`: `match` with literal/wildcard/typed patterns; `default`; guards if present.
 - pipe `|>`: left value → last argument of right call (verify Python semantics in tests).
 
-## Task 3.6: LLM interface (stubbed) + `for await`
+## Task 3.6: LLM interface (stubbed) + streaming callbacks
 
-Interpreter holds a `Box<dyn LlmRuntime>` (trait from M5). For M3, implement `MockLlmRuntime` (deterministic canned responses). `llm act` calls `runtime.act(prompt, tools)`; streaming form iterates chunks; `for await` consumed via a `StreamingResponse` value. This unblocks `tests/execution/test_llm*` immediately with mock.
+Interpreter holds a `Box<dyn LlmRuntime>` (trait from M5). For M3, implement `MockLlmRuntime` (deterministic canned responses — strings identical to Python's `MockLLMRuntime`).
+
+- `llm act "prompt"` → `runtime.act(prompt, tools)` (sync).
+- **Streaming is via callbacks** (there is no `for await`): `llm act "..." { on_chunk(chunk) {} on_complete(result) {} }` — port `visit_llm_act_streaming` semantics from `llm_mixin.py`: chunks delivered incrementally to `on_chunk`, final result to `on_complete`.
+- `llm if "desc" { ... }` → `runtime.route(...)`.
+
+This unblocks the Tier-A `tests/interpreter` corpus (LLM tests use `MockLLMRuntime` in-process, mirrored by `MockLlmRuntime`).
 
 ## Task 3.7: Imports + import resolver
 
 Port `import_mixin.py` + `runtime/import_resolver.py`: `.helen` file imports, `import "name" as alias`, module cache (`HashMap<PathBuf, ModuleScope>`), circular-import detection, path traversal safety. Match the **in-memory cache** behavior (fresh per `Interpreter` instance).
 
+Note the verified import rules: **builtins are not globals** — `import std.core.*` (or `import std.core as C`, `import std.core.{len, str}`) is required; bare `print` → E0332 `undeclared variable 'print'`.
+
 ## Definition of Done — M3
 
-- [ ] `tests/execution` (24 files) corpus passes byte-identical with Mock LLM.
-- [ ] `tests/language` (11 files) corpus passes.
-- [ ] Exception class names and messages match on all error fixtures.
+- [ ] Tier-A extracted `tests/interpreter` corpus passes byte-identical with Mock LLM.
+- [ ] Tier-C ported `tests/execution` test cases pass (AST-constructed suite reimplemented in Rust).
+- [ ] Exception class names and messages match on all error fixtures (11 native names; E0301 for bare `catch`).
+- [ ] Display-parity corpus (`tests/programs/display/`) passes byte-identical (D11).
 - [ ] Scope-isolation and closure-capture differential tests pass (v1.10/1.12 rules).

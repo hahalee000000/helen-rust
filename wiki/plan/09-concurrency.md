@@ -1,6 +1,8 @@
-# M7 — Concurrency: `spawn`, Channel, Shared Store, Async Bridge
+# M7 — Concurrency: `spawn`, Channel, Shared Store, Mailbox
 
-**Objective:** Port `runtime/channel.py`, `interpreter/shared_store.py`, `interpreter/readonly_view.py`, `spawn` expression, `async/await` (where present), and `mailbox_select`. Exit criterion: `tests/interpreter/test_spawn*` and concurrency corpus pass deterministically.
+**Objective:** Port `runtime/channel.py`, `interpreter/shared_store.py`, `interpreter/readonly_view.py`, the `spawn` expression, and `mailbox_select`. Exit criterion: `tests/interpreter/test_spawn*` (Tier A/C) and concurrency corpus pass deterministically.
+
+> **Scope note (verified):** the Helen *language* has **no `async`/`await`/`for await`** — no AWAIT token, no ForAwait AST node. Task-level async exists **only on the bridge's Python side** (`agent_wrapper.async_call`, M11). LLM streaming is callback-based (`on_chunk`/`on_complete`, M5/M6), not iterable. There is therefore **no async interpreter core** to build; `spawn` uses OS threads exactly like Python's daemon threads.
 
 ## Files
 
@@ -8,8 +10,6 @@
 crates/helen-runtime/src/channel.rs        // Channel + ChannelEndpoint + mailbox_select
 crates/helen-interpreter/src/shared_store.rs
 crates/helen-interpreter/src/spawn.rs      // spawn expr + resume("<id>") + thread runner
-crates/helen-interpreter/src/async_bridge.rs // async/await + for await (streaming)
-crates/helen-runtime/src/stream.rs         // StreamingResponse + async iterator contracts
 ```
 
 ## Task 7.1: Channel (port `runtime/channel.py`)
@@ -42,21 +42,16 @@ Thread-safety: the spawned interpreter is fully owned by the thread (no `Arc` sh
 
 ## Task 7.4: ReadOnlyView (port `readonly_view.py`)
 
-Reference-typed agent params get a read-only wrapper: reads delegate, writes raise (exception class identical to Python's). Also wrap params for `shared let` in agent main where applicable.
+Reference-typed agent params get a read-only wrapper: reads delegate, writes raise (exception class identical to Python's — one of the 11 Helen-native names). Also wrap params for `shared let` in agent main where applicable.
 
-## Task 7.5: Async (task-level) + streaming `for await`
-
-- The Python `async Agent()`/`await [tasks]` surface: check current syntax (`tests/interpreter` + `tests/language`). If `async/await` exists in v1.44, implement `Task` as a thread + `Mutex<State>` and `await` as join with result/error collection (`AggregateError` for multi-fail — port from `exceptions.py`).
-- `for await chunk in llm act ...` over `StreamingResponse` (port `streaming_mixin.py` + `runtime/streaming_response.py`). Iterate chunk iterator; the Python version has a text iterator with chunking — mirror chunk sizes.
-
-## Task 7.6: mailbox_select (port `stdlib/mailbox.py`)
+## Task 7.5: Mailbox (port `stdlib/mailbox.py`)
 
 Poll multiple channel endpoints; return first available; timeout → None; port the exact waiting strategy (naive polling vs Condvar wait-all) to match Python behavior under load.
 
 ## Definition of Done — M7
 
-- [ ] spawn → channel round-trip programs from `tests/interpreter` pass byte-identical, N times in a row (deterministic stress).
+- [ ] spawn → channel round-trip programs from `tests/interpreter/test_spawn*` pass byte-identical, N times in a row (deterministic stress).
 - [ ] `resume("<session_id>")` reconnects to an existing spawned session.
 - [ ] shared-store value-type rules enforced; isolation tests pass.
-- [ ] `for await` over Mock streaming output matches Python chunk-for-chunk.
 - [ ] `mailbox_select` tests pass.
+- [ ] No `for await` / async interpreter surface exists (confirmed — nothing to port).

@@ -50,7 +50,7 @@ cd crates/helen-python-bridge && maturin develop --release   # install into venv
 # and for users: pip install helen-rust  (maturin build --release → wheels)
 ```
 
-Port `tests/ffi/test_python_bridge*` and `wiki/reference/15-python-bridge.md` tutorial examples as pytest. CI job: install bridge into a Python 3.12 venv, run the tutorial's `translator.helen` end-to-end.
+Port `tests/ffi/test_python_bridge*` as pytest (Tier B, against the installed wheel). CI job: install bridge into a Python 3.12 venv and run the Python → Helen round-trip end-to-end.
 
 ## Definition of Done — M11
 

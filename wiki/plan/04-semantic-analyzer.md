@@ -1,6 +1,6 @@
 # M2 — Semantic Analyzer: Types, Symbols, Analysis
 
-**Objective:** Port `semantic/{types,symbols,analyzer,type_utils}.py` (2,600+ lines). Exit criterion: the same E-codes are produced for the full semantic test corpus.
+**Objective:** Port `semantic/{types,symbols,analyzer,type_utils}.py` (2,600+ lines). Exit criterion: the same E-codes are produced for the Tier-C ported semantic corpus (`tests/semantic`, 207 tests).
 
 ## Files
 
@@ -31,13 +31,15 @@ impl Type {
 
 Rules to encode exactly: Any ← anything; `T?` ← T or null; `A|B` ← A or B; list element match; map key/value match; literal assignability; Agent name match.
 
+**Map key types (D5):** `Map(K, V)` — the key type is not restricted to `String`. Verified: map literals accept arbitrary hashable keys (`{"a": 1, 2: "two"}`), so `K` may be `Int | Float | Str | Bool | Null` (unhashable types like list/dict → semantic error, mirroring Python's `unhashable` behavior).
+
 ## Task 2.2: Symbol tables
 
 Port `symbols.py`: `Symbol { name, kind, type, mutable, scope_id }`, scope stack (`begin_scope`/`end_scope`), `declare`/`resolve` with shadowing rules matching Python.
 
 ## Task 2.3: Analyzer (47+ visitor rules, E-codes)
 
-**Step 1 — tests:** Port `tests/semantic/` (11 files). Each test asserts an E-code. Use a helper that parses → analyzes → returns codes:
+**Step 1 — tests:** Port `tests/semantic/` (207 tests). Each test asserts an E-code. Use a helper that parses → analyzes → returns codes:
 
 ```rust
 fn codes(src: &str) -> Vec<String> { /* parse, analyze, collect E-codes */ }
@@ -52,12 +54,12 @@ fn codes(src: &str) -> Vec<String> { /* parse, analyze, collect E-codes */ }
    - module `const` auto-visible (read-only) → OK;
    - `shared let` must be a **value type** → else `SemanticError`;
    - closure initializers in agent scope checked against visibility.
-4. **Operator type constraints** (table in `wiki/compiler/types.md`): `+ - * / %`, comparisons, `!`, unary `-`.
+4. **Operator type constraints** (table in `wiki/compiler/types.md`): `+ - * / %`, comparisons, `!`, unary `-`. (No `//`, `**`, or bitwise operators exist in the language — do not model them.)
 5. **Function arity/type checks** for annotated params.
-6. **Predefined-exception whitelist** — `catch X` where X not in `_PREDEFINED_EXCEPTIONS` → error; keep the same frozenset (RuntimeError, TypeError, ValueError, KeyError, IndexError, ZeroDivisionError, … + Helen-native: HelenRuntimeError, AgentError, LLMError, AggregateError, ParseError, …). **Source:** `interpreter/exceptions.py`.
-7. **Protocol/impl conformance**, pipe-operator type flow, `for await` streaming types, `spawn` agent-return-type check, `llm act` result typing (Any).
+6. **Predefined-exception whitelist (verified)** — the whitelist is **exactly the 11 Helen-native names**: `AnyError, LLMError, TimeoutError, ModelError, PromptTooLongError, AgentError, LLMOutputContractError, ToolError, RuntimeError, AssertionError, AggregateError`. Python exception names (`TypeError`, `ValueError`, `KeyError`, `IndexError`, `ZeroDivisionError`, …) are **not** valid — `catch ValueError …` / `throw ValueError(…)` → error. **Source:** `interpreter/exceptions.py` `_PREDEFINED_EXCEPTIONS`. Also: `catch X` without a bound variable → E0301 `Expected error variable name` (the grammar requires `catch X err`).
+7. **Protocol/impl conformance**, pipe-operator type flow, `spawn` agent-return-type check, `llm act` result typing (Any). (No `for await` — the feature does not exist.)
 
-**Step 3 — verify:** `cargo test -p helen-semantic`; differential: parse+analyze corpus, compare sorted E-code lists against `python -c "…analyze…"` reference script (add to harness as `--semantic-only`).
+**Step 3 — verify:** `cargo test -p helen-semantic`; differential: parse+analyze corpus, compare sorted E-code lists against `reference.py --semantic-only` (in-process Python driver, M0.4).
 
 ## Task 2.4: Error-code parity table
 
@@ -65,6 +67,6 @@ Generate `tests/conformance/e-codes.csv` (code, python_message_pattern, rust_mes
 
 ## Definition of Done — M2
 
-- [ ] All `tests/semantic/*` cases reproduce identical E-codes.
+- [ ] All Tier-C `tests/semantic` cases reproduce identical E-codes.
 - [ ] `--semantic-only` differential passes on corpus.
 - [ ] E-code parity table committed with zero unmatched codes.

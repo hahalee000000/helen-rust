@@ -22,7 +22,7 @@ crates/helen-lsp/src/features.rs    // hover, completion, diagnostics, goto-def
 
 **Package:** crates.io package name `helen-rust` (`[package] name = "helen-rust"`, `[[bin]] name = "helen"`) so `cargo install helen-rust` works.
 
-Subcommands and flags — **match exactly**: `helen <file>` (run, exit code = program exit/error code), `helen check <file>` (report semantic errors + line numbers; exit non-zero on errors), `helen test <file>`, `helen repl`, `helen docgen`, `helen ask`, `helen coverage`, `helen --version`, `helen --provider-detect`. Use `clap` (or hand-rolled parser if flag semantics are unusual). Error output format (class name + message + `at line X`) must match for golden tests. **Exit codes**: map `HelenRuntimeError` classes to the same process exit codes as Python's CLI (check `cli/__main__.py` `main()`).
+Subcommands and flags — **match exactly**: `helen <file>` (run, exit code = program exit/error code), `helen check <file>` (report semantic errors + line numbers; exit non-zero on errors), `helen test <file>`, `helen repl`, `helen docgen`, `helen ask`, `helen coverage`, `helen --version`, `helen --provider-detect`. Use `clap` (or hand-rolled parser if flag semantics are unusual). Error output format (class name + message + `at line X`) must match for golden tests. **Exit codes (verified against v1.44.0):** **0** success · **2** semantic/compile error · **3** runtime error (`HelenRuntimeError`). Pin the mapping in golden tests; CLI preflight config check exits 1 when no API key and no `HELEN_API_KEY` env (harness sets a dummy key, mirroring `tests/conftest.py`).
 
 ## Task 12.2: REPL (port `cli/repl.py`)
 

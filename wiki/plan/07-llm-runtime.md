@@ -58,7 +58,7 @@ Port `provider_protocol.py` — trait with: `build_request_payload, supports_too
 
 ## Definition of Done — M5
 
-- [ ] Mock LLM drives all deterministic tests.
+- [ ] Mock LLM drives all deterministic tests — via the in-process Python reference driver (`tests/conformance/reference.py`, M0.4, D12) on the reference side and `MockLlmRuntime` on the Rust side. No env-var hook is needed.
 - [ ] Real `act` + `act_stream` round-trip against at least one configured provider (dev key) with payload/SSE parity verified by recorded fixtures.
 - [ ] `--provider-detect` CLI probe output matches Python's.
 - [ ] Custom-provider loader works when `helen-ffi` is enabled (checked in M10).
