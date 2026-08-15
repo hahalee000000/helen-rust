@@ -26,6 +26,15 @@ pub fn get_helen_home() -> PathBuf {
     dir
 }
 
+/// `datetime.utcnow().isoformat() + "Z"` (Python parity for saved timestamps).
+pub fn now_iso_utc() -> String {
+    let now = chrono::Utc::now();
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
+        now.format("%Y"), now.format("%m"), now.format("%d"),
+        now.format("%H"), now.format("%M"), now.format("%S"),
+        now.timestamp_subsec_micros())
+}
+
 /// `~/.helen/config.yaml`
 pub fn config_file() -> PathBuf {
     get_helen_home().join(CONFIG_FILE)

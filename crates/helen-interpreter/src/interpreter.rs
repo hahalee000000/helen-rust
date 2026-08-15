@@ -71,6 +71,10 @@ pub struct Interpreter {
     pub shared_store_instances: HashMap<String, Value>,
     /// Captured stdout (Python redirects sys.stdout around `interpret`).
     pub stdout: std::sync::Arc<std::sync::Mutex<String>>,
+    /// M8: session manager backing session/transcript stdlib functions.
+    pub session_manager: std::sync::Arc<std::sync::Mutex<helen_runtime::SessionManager>>,
+    /// M8: current session ID (empty when no session is active).
+    pub session_id: String,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -160,6 +164,10 @@ impl Interpreter {
             llm_runtime: std::sync::Arc::new(MockLlmRuntime::default()),
             shared_store_instances: HashMap::new(),
             stdout: std::sync::Arc::new(std::sync::Mutex::new(String::new())),
+            session_manager: std::sync::Arc::new(std::sync::Mutex::new(
+                helen_runtime::SessionManager::new(None),
+            )),
+            session_id: String::new(),
         };
         interp.register_core_builtins();
         interp
@@ -4353,5 +4361,62 @@ main {
             msg.contains("read-only") || msg.contains("ScopeViolation"),
             "{msg}"
         );
+    }
+
+    #[test]
+    fn session_stdlib_set_dir_list_delete() {
+        let dir = std::env::temp_dir()
+            .join(format!("helen_sess_stdlib_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let dir_display = dir.display();
+        // Pre-create a session dir + transcript via the manager directly.
+        let mgr = helen_runtime::SessionManager::new(Some(&dir));
+        let sid = mgr.create_session(None);
+        std::fs::write(mgr.get_session_path(&sid), "line1\n").unwrap();
+        let src = format!(
+            r#"import std.core.*
+import std.transcript.*
+let r = set_session_dir("{dir_display}")
+print(r["status"])
+let id = get_session_id()
+print(len(id))          // v1.29.14: lazy-init creates a UUID session
+let sessions = list_sessions()
+print(len(sessions))    // 1: only sessions with transcripts count
+"#
+        );
+        let (r, out) = run_src(&src);
+        assert!(r.is_ok(), "session stdlib failed: {:?}", r.err());
+        assert_eq!(out.trim(), "ok\n44\n1");
+    }
+
+    #[test]
+    fn session_delete_and_cleanup_work() {
+        let dir = std::env::temp_dir()
+            .join(format!("helen_sess_del_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let dir_display = dir.display();
+        // Pre-create two sessions with transcripts.
+        let mgr = helen_runtime::SessionManager::new(Some(&dir));
+        let s1 = mgr.create_session(None);
+        std::fs::write(mgr.get_session_path(&s1), "a\n").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let s2 = mgr.create_session(None);
+        std::fs::write(mgr.get_session_path(&s2), "b\n").unwrap();
+        let src = format!(
+            r#"import std.core.*
+import std.transcript.*
+let r = set_session_dir("{dir_display}")
+print(delete_session("{s2}"))
+print(cleanup_sessions(0))   // deletes s1 (only remaining)
+let remaining = list_sessions()
+print(len(remaining))
+"#
+        );
+        let (r, out) = run_src(&src);
+        assert!(r.is_ok(), "session delete failed: {:?}", r.err());
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");  // delete_session(s2)
+        assert_eq!(lines[1], "1");     // cleanup deleted s1
+        assert_eq!(lines[2], "0");     // nothing remains
     }
 }
