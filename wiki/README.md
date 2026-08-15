@@ -19,6 +19,7 @@
 ### 2. Rust Architecture
 - [[rust/architecture|Architecture]] — crate layout, value model, threading model, design decisions D1–D12
 - [[rust/migration-notes|Migration Notes]] — intentional deviations and reference quirks (byte-based strings D4, string iteration unsupported, spawn race strictness, custom-provider Python dependency, context/compression quirks)
+- [[MAINTENANCE|Maintenance Guide]] — operating manual: milestone map M0–M14, verification gates, gotchas, runbook, open issues (read this first before developing)
 
 ### 3. Language Reference (from the Python reference implementation)
 > The Rust port targets the same language; the authoritative language docs
