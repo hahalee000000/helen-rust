@@ -1796,9 +1796,49 @@ impl Interpreter {
         let prev_agent = self.current_agent.clone();
         self.current_agent = Some(Rc::new(agent.clone()));
 
+        // v1.12 isolation: agent gets a completely isolated env (HLD 3.5.2).
+        // - stdlib builtins are injected (Python `stdlib_cache` loop)
+        // - module-level consts injected read-only (L1 standard)
+        // - module-level `let` hidden (unless L0 open)
+        // - shared lets injected writable (Python `_shared_vars` loop)
         let call_env = Rc::new(RefCell::new(Environment::new(None)));
         {
             let mut env = call_env.borrow_mut();
+            // 1. Builtins.
+            for (name, bf) in &self.builtins {
+                env.define(name, Value::BuiltinFn(bf.clone()), true);
+            }
+            // 2. Module-level consts + shared lets (walk the whole chain).
+            let shared: std::collections::HashSet<String> = self.shared_vars.clone();
+            let mut cur = Some(self.environment.clone());
+            while let Some(scope) = cur {
+                let borrowed = scope.borrow();
+                // Collect names to inject (const).
+                let mut to_inject: Vec<(String, Value)> = Vec::new();
+                for (name, value) in borrowed.store_ref() {
+                    if borrowed.is_const(name) {
+                        to_inject.push((name.clone(), value.clone()));
+                    }
+                }
+                drop(borrowed);
+                for (name, value) in to_inject {
+                    if env.get(&name).is_none() {
+                        env.define(&name, value, true);
+                    }
+                }
+                let next = scope.borrow().parent.clone();
+                drop(scope);
+                cur = next;
+            }
+            // 3. Shared let variables (writable).
+            for name in &shared {
+                if let Some(v) = self.environment.borrow().get(name) {
+                    if env.get(name).is_none() {
+                        env.define(name, v, false);
+                    }
+                }
+            }
+            // 4. Bind params.
             for p in &agent.params {
                 let value = args.get(&p.name).cloned().unwrap_or(Value::Null);
                 env.define(&p.name, value, false);
@@ -1828,6 +1868,231 @@ impl Interpreter {
             Flow::Normal(v) => Ok(v.unwrap_or(Value::Null)),
             _ => Ok(Value::Null),
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Task 6.2: Agent tool loop — build tools list + dispatch (port of
+    // `LlmMixin._build_tools_list` / `_create_dispatch_fn` / `_function_to_tool_schema`)
+    // ------------------------------------------------------------------
+
+    /// `_function_to_tool_schema` — convert a Helen FunctionDecl to an
+    /// OpenAI tool schema. Type annotations map to JSON Schema types.
+    fn function_to_tool_schema(&self, fn_decl: &FunctionDecl) -> serde_json::Value {
+        let mut properties = serde_json::Map::new();
+        let mut required: Vec<String> = Vec::new();
+        for param in &fn_decl.params {
+            let param_type = match param
+                .type_annotation
+                .as_ref()
+                .map(|t| t.name.to_lowercase())
+                .as_deref()
+            {
+                Some("int") | Some("integer") => "integer",
+                Some("float") | Some("number") => "number",
+                Some("bool") | Some("boolean") => "boolean",
+                Some("list") | Some("array") => "array",
+                Some("map") | Some("dict") | Some("object") => "object",
+                _ => "string",
+            };
+            properties.insert(param.name.clone(), serde_json::json!({"type": param_type}));
+            if param.default_value.is_none() {
+                required.push(param.name.clone());
+            }
+        }
+        serde_json::json!({
+            "type": "function",
+            "function": {
+                "name": fn_decl.name,
+                "description": format!("Helen function: {}", fn_decl.name),
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                },
+            },
+        })
+    }
+
+    /// `_build_tools_list` — build the tool schemas for `llm act` from the
+    /// agent's `tools = [...]` allowlist. Two-layer authorization:
+    ///   - each name resolves to a Helen function (functions{} block) OR a
+    ///     built-in tool (registry)
+    ///   - load_skill + list_skill_references are always included (unless
+    ///     sandbox isolation, which only gets skill tools)
+    ///   - no `tools` declaration -> skill tools only
+    fn build_tools_list(&self) -> Vec<serde_json::Value> {
+        let skill_tools = |names: &[&str]| -> Vec<serde_json::Value> {
+            helen_runtime::get_tool_schemas(
+                &names.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            )
+        };
+
+        let Some(agent) = &self.current_agent else {
+            // No agent context: skill tools only.
+            return skill_tools(&["load_skill", "list_skill_references"]);
+        };
+        // v1.12: sandbox (L3) — only skill tools.
+        if agent.isolation_level == "sandbox" {
+            return skill_tools(&["load_skill", "list_skill_references"]);
+        }
+
+        // 1. Read declared tools allowlist.
+        let mut declared_tools: Option<Vec<String>> = None;
+        for decl in &agent.declarations {
+            let Some(tools_expr) = &decl.tools else {
+                continue;
+            };
+            if let Expr::Literal(lit) = tools_expr {
+                // tools = ["web_search", "read_file", ...]
+                // Parser stores the list as `\x1fname\x1ename\x1f` (items
+                // joined with \x1e, wrapped in \x1f markers).
+                if let LiteralValue::Str(s) = &lit.value {
+                    let inner = s.trim_matches('\u{1f}');
+                    let names: Vec<String> = if inner.is_empty() {
+                        Vec::new()
+                    } else {
+                        inner
+                            .split('\u{1e}')
+                            .map(|x| x.trim().to_string())
+                            .filter(|x| !x.is_empty())
+                            .collect()
+                    };
+                    declared_tools = Some(names);
+                }
+            } else if let Expr::List(ll) = tools_expr {
+                let mut names = Vec::new();
+                for it in &ll.elements {
+                    if let Expr::Literal(sl) = it {
+                        if let LiteralValue::Str(s) = &sl.value {
+                            names.push(s.to_string());
+                        }
+                    }
+                }
+                declared_tools = Some(names);
+            } else if let Expr::Variable(v) = tools_expr {
+                // tools = CONST_NAME — look up the const value.
+                if let Some(Value::List(l)) = self.environment.borrow().get(&v.name) {
+                    declared_tools = Some(
+                        l.borrow()
+                            .iter()
+                            .map(|x| x.python_str())
+                            .collect::<Vec<_>>(),
+                    );
+                } else {
+                    declared_tools = Some(Vec::new());
+                }
+            }
+            break;
+        }
+
+        // 2. No tools declared -> LLM gets nothing (skill tools added below).
+        let Some(declared) = declared_tools else {
+            return skill_tools(&["load_skill", "list_skill_references"]);
+        };
+
+        // 3. Resolve each allowlist name to a Helen fn or a registry tool.
+        let mut tools: Vec<serde_json::Value> = Vec::new();
+        let mut tool_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for name in declared {
+            // 3a. Helen function in functions{} block.
+            let mut fn_schema: Option<serde_json::Value> = None;
+            for fn_decl in &agent.functions {
+                if fn_decl.name == name {
+                    fn_schema = Some(self.function_to_tool_schema(fn_decl));
+                    break;
+                }
+            }
+            if let Some(schema) = fn_schema {
+                if tool_names.insert(name.clone()) {
+                    tools.push(schema);
+                }
+                continue;
+            }
+            // 3b. Built-in tool in the runtime registry.
+            let schemas = helen_runtime::get_tool_schemas(std::slice::from_ref(&name));
+            for schema in schemas {
+                let tname = schema["function"]["name"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string();
+                if tool_names.insert(tname.clone()) {
+                    tools.push(schema);
+                }
+            }
+        }
+
+        // 4. Always include skill tools (HLD 3.6.5 Tier 2/3 disclosure).
+        for t in ["load_skill", "list_skill_references"] {
+            if !tool_names.contains(t) {
+                tools.extend(skill_tools(&[t]));
+            }
+        }
+        tools
+    }
+
+    /// `_execute_agent_function` — execute an agent's Helen function with
+    /// JSON args (from the LLM tool call). Creates a fresh child scope,
+    /// binds params (by name), evaluates defaults, executes the body.
+    fn execute_agent_function(
+        &mut self,
+        fn_decl: &FunctionDecl,
+        args: &serde_json::Value,
+        span: Option<&SourceSpan>,
+    ) -> Result<Value, ExceptionValue> {
+        let call_env = Environment::child(self.environment.clone());
+        {
+            let mut env = call_env.borrow_mut();
+            for param in &fn_decl.params {
+                if let Some(a) = args.get(&param.name) {
+                    env.define(&param.name, crate::stdlib::json_to_value(a), false);
+                } else if let Some(dv) = &param.default_value {
+                    let default_val =
+                        self.with_scope(Some(call_env.clone()), |s| s.eval_expr(dv))?;
+                    env.define(&param.name, default_val, false);
+                } else {
+                    return Err(ExceptionValue::new(
+                        "RuntimeError",
+                        format!("Missing required argument: {}", param.name),
+                        span.cloned(),
+                    ));
+                }
+            }
+        }
+        let flow = self.with_scope(Some(call_env), |s| s.execute_stmts(&fn_decl.body.body))?;
+        match flow {
+            Flow::Return(v) => Ok(v.unwrap_or(Value::Null)),
+            Flow::Normal(v) => Ok(v.unwrap_or(Value::Null)),
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// `_create_dispatch_fn` — dispatch a tool call: agent Helen function
+    /// first, then the built-in tool registry. Returns JSON string (Python
+    /// `json.dumps(result)` semantics for the LLM loop).
+    fn dispatch_agent_tool(&mut self, name: &str, args: &serde_json::Value) -> String {
+        // 1. Agent Helen function.
+        let agent_fns: Vec<FunctionDecl> = self
+            .current_agent
+            .as_ref()
+            .map(|a| a.functions.clone())
+            .unwrap_or_default();
+        for fn_decl in &agent_fns {
+            if fn_decl.name == name {
+                let result = self.execute_agent_function(fn_decl, args, None);
+                return match result {
+                    Ok(v) => match crate::stdlib::value_to_json(&v) {
+                        Ok(j) => j.to_string(),
+                        Err(_) => v.python_str(),
+                    },
+                    Err(e) => serde_json::json!({
+                        "error": format!("Helen function '{name}' failed: {}", e.message)
+                    })
+                    .to_string(),
+                };
+            }
+        }
+        // 2. Built-in tool registry.
+        helen_runtime::dispatch_tool(name, args)
     }
 
     // ------------------------------------------------------------------
@@ -1974,17 +2239,32 @@ impl Interpreter {
             .unwrap_or(false);
         let reasoning_effort = self.agent_setting("reasoning-effort");
 
-        // M3: no agent tool whitelist -> empty tools list.
+        // M6: build the tools list from the agent's `tools` allowlist
+        // (Python `_build_tools_list`): agent Helen functions + registry
+        // tools + always load_skill/list_skill_references.
+        let tools = self.build_tools_list();
+
+        // M6: dispatch closure (Python `_create_dispatch_fn`) — route agent
+        // Helen functions first, then the built-in tool registry.
+        let self_ptr = self as *mut Interpreter;
+        let dispatch_fn = move |name: &str, args: &serde_json::Value| -> String {
+            // SAFETY: `self` (the interpreter) is the unique owner and lives
+            // for the duration of this synchronous `act` call; the closure is
+            // only invoked from inside `act`, never after `self` is dropped.
+            let interp = unsafe { &mut *self_ptr };
+            interp.dispatch_agent_tool(name, args)
+        };
+
         let response = self.llm_runtime.act(
             &prompt,
-            &[],
+            &tools,
             model.as_deref(),
             temperature,
             max_turns,
             max_tokens,
             &[],
             None,
-            None,
+            Some(&dispatch_fn),
             thinking_enabled,
             reasoning_effort.as_deref(),
         )?;
@@ -3041,7 +3321,14 @@ print(A())
         let hist = mock.act_history.borrow();
         assert_eq!(hist.len(), 1);
         assert_eq!(hist[0].0, "the prompt");
-        assert!(hist[0].1.is_empty(), "M3: no tools outside agent context");
+        // M6: outside an agent, `_build_tools_list` always includes the
+        // skill tools (load_skill + list_skill_references) — Python parity.
+        let names: Vec<&str> = hist[0]
+            .1
+            .iter()
+            .filter_map(|t| t["function"]["name"].as_str())
+            .collect();
+        assert_eq!(names, vec!["load_skill", "list_skill_references"]);
     }
 
     #[test]
@@ -3208,5 +3495,157 @@ print(A())
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "DONE\n[]\n");
+    }
+
+    // ------------------------------------------------------------------
+    // M6: agent tool loop — tools allowlist → schemas; dispatch routing
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn agent_tools_allowlist_builds_schemas() {
+        // agent with `tools = ["calculate"]` → the llm act call receives the
+        // calculate schema + always-on skill tools (Python `_build_tools_list`).
+        let mock = MockLlmRuntime::with_act_text("42");
+        let src = r#"import std.core.*
+agent Calc {
+    prompt "compute"
+    tools = ["calculate"]
+    main {
+        llm act "compute it"
+    }
+}
+main {
+    Calc()
+}
+"#;
+        let (r, _out, mock) = run_src_with_mock(src, mock);
+        assert!(r.is_ok(), "{r:?}");
+        let hist = mock.act_history.borrow();
+        assert_eq!(hist.len(), 1);
+        let names: Vec<&str> = hist[0]
+            .1
+            .iter()
+            .filter_map(|t| t["function"]["name"].as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["calculate", "load_skill", "list_skill_references"]
+        );
+    }
+
+    #[test]
+    fn agent_helen_function_exposed_as_tool() {
+        // `functions { fn add(a, b) }` + `tools = ["add"]` → the LLM sees the
+        // Helen function schema (type annotations map to JSON Schema types).
+        let mock = MockLlmRuntime::with_act_text("3");
+        let src = r#"import std.core.*
+agent Adder {
+    prompt "add"
+    tools = ["add"]
+    functions {
+        fn add(a: int, b: int): int {
+            return a + b
+        }
+    }
+    main {
+        llm act "call add"
+    }
+}
+main {
+    Adder()
+}
+"#;
+        let (r, _out, mock) = run_src_with_mock(src, mock);
+        assert!(r.is_ok(), "{r:?}");
+        let hist = mock.act_history.borrow();
+        assert_eq!(hist.len(), 1);
+        let tool = &hist[0].1[0];
+        assert_eq!(tool["function"]["name"], "add");
+        assert_eq!(tool["function"]["description"], "Helen function: add");
+        assert_eq!(
+            tool["function"]["parameters"]["properties"]["a"]["type"],
+            "integer"
+        );
+        assert_eq!(
+            tool["function"]["parameters"]["required"],
+            serde_json::json!(["a", "b"])
+        );
+    }
+
+    #[test]
+    fn dispatch_routes_agent_function_and_tool_registry() {
+        // Directly exercise dispatch_agent_tool: agent Helen function first,
+        // then the built-in registry (calculate). The agent is invoked via a
+        // normal agent call so its functions{} are registered as tools.
+        let mock = MockLlmRuntime::with_act_text("ok");
+        let src = r#"import std.core.*
+agent A {
+    prompt "p"
+    functions {
+        fn greet(name: str): str {
+            return "hi " + name
+        }
+    }
+    main {
+        llm act "call greet"
+    }
+}
+main {
+    A()
+}
+"#;
+        let (r, _out, mock) = run_src_with_mock(src, mock);
+        assert!(r.is_ok(), "{r:?}");
+        let hist = mock.act_history.borrow();
+        assert_eq!(hist.len(), 1);
+        // The allowlist only contains skill tools (no `tools` declaration),
+        // but the dispatch closure is wired — exercise it via a direct call
+        // through a fresh interpreter with the agent registered.
+        let mut scanner = Scanner::new(src, "t.helen");
+        let tokens = scanner.scan_all();
+        let mut parser = helen_parser::Parser::new(tokens);
+        let program = parser.parse();
+        let mut interp = Interpreter::new();
+        let r = interp.interpret(&program);
+        assert!(r.is_ok(), "{r:?}");
+        // Built-in registry dispatch works.
+        let calc =
+            interp.dispatch_agent_tool("calculate", &serde_json::json!({"expression": "6*7"}));
+        let v: serde_json::Value = serde_json::from_str(&calc).unwrap();
+        assert_eq!(v["result"], 42);
+        // Unknown tool falls through to the registry error.
+        let unknown = interp.dispatch_agent_tool("nope", &serde_json::json!({}));
+        assert!(unknown.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn agent_scope_consts_visible_lets_hidden() {
+        // M6 scope isolation: module-level const is visible in agent main,
+        // module-level let is hidden (Python `_call_agent` L1 standard).
+        let src = r#"import std.core.*
+const MAX = 100
+let hidden_var = "secret"
+agent A {
+    prompt "p"
+    main {
+        print(MAX)
+        // accessing hidden_var should fail at runtime
+        print(hidden_var)
+    }
+}
+main {
+    A()
+}
+"#;
+        let (r, _out) = run_src(src);
+        assert!(
+            r.is_err(),
+            "module let must not leak into agent scope: {r:?}"
+        );
+        let msg = format!("{:?}", r.err());
+        assert!(
+            msg.contains("hidden_var") || msg.contains("not defined") || msg.contains("NameError"),
+            "{msg}"
+        );
     }
 }

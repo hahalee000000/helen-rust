@@ -11,6 +11,7 @@ description = "Helen language Rust reimplementation — helen-interpreter (M3 in
 helen-core = { path = "../helen-core" }
 helen-semantic = { path = "../helen-semantic" }
 helen-parser = { path = "../helen-parser" }
+helen-runtime = { path = "../helen-runtime" }
 num-bigint.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true

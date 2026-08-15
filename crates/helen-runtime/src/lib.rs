@@ -9,12 +9,14 @@
 
 pub mod calc;
 pub mod config;
+pub mod fuzzy_match;
 pub mod http_llm;
 pub mod llm;
 pub mod model_caps;
 pub mod prompt;
 pub mod provider;
+pub mod skills;
 pub mod token;
 pub mod tools;
 
-pub use tools::tools_dispatch;
+pub use tools::{dispatch_tool, get_tool_schemas, tools_dispatch};
