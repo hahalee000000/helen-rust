@@ -230,3 +230,42 @@ git commit + push origin/main
 - **Class `__dict__` is a mappingproxy**: `PyAnyMethods::get_item` on it returns
   `PyResult<Bound>` (raises KeyError), unlike `PyDictMethods::get_item` which returns
   `PyResult<Option<Bound>>` — don't `.flatten()` the former.
+
+## M11 — Python Bridge lessons (Python → Helen, maturin wheel)
+
+- **Extension-module feature is mandatory for wheel compliance**: a pyo3 cdylib
+  that links libpython fails `maturin build` manylinux compliance checks. Standard
+  fix: optional feature `extension-module = ["pyo3/extension-module"]` in the crate,
+  enabled only by `[tool.maturin] features = ["extension-module"]` in pyproject.toml.
+  `cargo test` (which embeds Python via auto-initialize) never enables it — both
+  builds coexist in the target dir.
+- **Getter-only `@property` vs plain attributes**: Python wrapper classes store
+  `self.helen_file`/`self.agent_name` as plain instance attributes (no `@property`).
+  Adding getter-only properties breaks `__init__` with
+  `AttributeError: property 'helen_file' ... has no setter`. Mirror the reference:
+  no properties.
+- **Rc-based Interpreter is not Send**: the interpreter cannot live in a pyclass.
+  Bridge holds the parsed `Arc<Program>` + builds a fresh interpreter per call
+  (plan 13.1 documented deviation) — keeps wrappers Send-safe for `async_call`.
+- **Default-param evaluation needs the agent's isolated env**: `call_agent` must
+  evaluate `default_value` expressions with `self.environment` swapped to the call
+  env (Python `_call_agent` parity); compute values first, then define into the
+  borrowed env (defaults may evaluate arbitrary expressions).
+- **ReadOnlyView delegation**: agents receive mutable list/dict args wrapped in
+  ReadOnlyView; builtins like `len()` must delegate to the underlying data
+  (Python `ReadOnlyView.__len__` parity) — match the ReadOnly arm before the
+  concrete-type arms.
+- **Shared temp fixtures race under parallel tests**: several tests writing the
+  same temp filename concurrently can be read mid-truncate (`std::fs::write` is
+  non-atomic) → spurious "Failed to parse". Use a per-call unique filename
+  (atomic counter) in the test helper.
+- **Inline `llm act "literal"` does NOT substitute `{{param}}`**: the prompt is
+  evaluated as an expression (a literal string stays literal) in both Python and
+  Rust; only the agent's `prompt "..."` template is rendered. The reference
+  translator.helen example's `llm act "Translate '{{text}}'..."` sends the
+  template verbatim — the bridge DoD only asserts the call flows and returns str.
+- **Wheel packaging layout**: `[lib] name = "helen_rust"` + `crate-type =
+  ["cdylib", "rlib"]`; `[tool.maturin] python-source = "python"` (pure-Python shim
+  with import hook, decorators) and `module-name = "helen_rust._core"` — the shim
+  package imports from `._core`. Editable `maturin develop` links the shim from
+  source, so .py fixes need no rebuild.

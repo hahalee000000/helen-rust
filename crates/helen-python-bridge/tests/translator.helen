@@ -1,0 +1,28 @@
+// M11 DoD fixture — agents + functions exercised by the Python bridge.
+// (Mirrors examples/python_bridge/translator.helen; run after `maturin develop`.)
+
+agent TranslatorAgent(text: str, target: str) {
+    description "translate text to a target language"
+    prompt "Translate '{{text}}' to {{target}}"
+    main {
+        return llm act "Translate '{{text}}' to {{target}}"
+    }
+}
+
+agent SumAgent(a: int, b: int) {
+    description "compute a + b"
+    main {
+        return a + b
+    }
+}
+
+agent GreetAgent(name: str, greeting: str = "Hello") {
+    description "greet someone"
+    main {
+        return greeting + ", " + name + "!"
+    }
+}
+
+fn add(a: int, b: int): int {
+    return a + b
+}

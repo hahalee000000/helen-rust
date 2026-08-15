@@ -1,0 +1,32 @@
+[package]
+name = "helen-python-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Helen language Rust reimplementation — helen-python-bridge (M11 Python Bridge, Python → Helen)"
+
+# Maturin builds this crate as a PyO3 extension module. The compiled module is
+# installed as `helen_rust._core` (see pyproject.toml `module-name`); the
+# pure-Python shim package lives in `python/helen_rust/` and is bundled into
+# the wheel (import hook, wrappers, decorators).
+[lib]
+name = "helen_rust"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# maturin-only: prevents the cdylib from linking libpython (manylinux
+# compliance). Enabled by [tool.maturin] features in pyproject.toml; never
+# enabled for `cargo test` (tests embed Python via auto-initialize).
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+# auto-initialize: lets `cargo test` run pyo3 code without an external Python
+# process (M10 helen-ffi uses the same setup for its tests).
+pyo3 = { version = "0.23", features = ["auto-initialize"] }
+helen-core = { path = "../helen-core" }
+helen-parser = { path = "../helen-parser" }
+helen-semantic = { path = "../helen-semantic" }
+helen-interpreter = { path = "../helen-interpreter" }
+helen-ffi = { path = "../helen-ffi", features = ["python-ffi"] }

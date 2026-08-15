@@ -12,7 +12,7 @@ members = [
   "crates/helen-rust",   # installable crates.io package "helen-rust" (binary: helen)
   "crates/helen-lsp",
   "crates/helen-ffi",             # PyO3, feature-gated; M10
-  # "crates/helen-python-bridge",   # maturin cdylib; added in M11
+  "crates/helen-python-bridge",   # maturin cdylib; M11
 ]
 
 [workspace.package]

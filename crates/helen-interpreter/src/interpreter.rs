@@ -2244,7 +2244,11 @@ impl Interpreter {
     // Calls
     // ------------------------------------------------------------------
 
-    fn call_function(
+    /// Call a top-level Helen function with fully-resolved positional args.
+    ///
+    /// M11: made `pub` so the Python bridge (`helen-python-bridge`) can call
+    /// functions from Python (`HelenFunctionWrapper.__call__` parity).
+    pub fn call_function(
         &mut self,
         func: &FunctionDecl,
         args: Vec<Value>,
@@ -2373,7 +2377,11 @@ impl Interpreter {
 
     /// Minimal agent call for M3: fresh isolated environment, bind params,
     /// execute the agent's main block (if any). LLM interaction lands in 3.6.
-    fn call_agent(
+    /// Call an agent by name with a keyword-argument map (HLD 3.5.2).
+    ///
+    /// M11: made `pub` so the Python bridge (`helen-python-bridge`) can call
+    /// agents from Python (`HelenAgentWrapper.__call__` parity).
+    pub fn call_agent(
         &mut self,
         agent: &AgentDecl,
         args: HashMap<String, Value>,
@@ -2425,17 +2433,41 @@ impl Interpreter {
                     }
                 }
             }
-            // 4. Bind params. v1.12: wrap mutable reference types (list, dict)
-            //    in a ReadOnlyView so the agent cannot modify the caller's
-            //    data (L1 isolation; Python ReadOnlyView).
-            for p in &agent.params {
-                let value = args.get(&p.name).cloned().unwrap_or(Value::Null);
-                let bound = if value.is_mutable_type() {
-                    Value::ReadOnly(Rc::new(RefCell::new(value)))
-                } else {
-                    value
-                };
-                env.define(&p.name, bound, false);
+        }
+
+        // 4. Bind params. v1.12: wrap mutable reference types (list, dict)
+        //    in a ReadOnlyView so the agent cannot modify the caller's
+        //    data (L1 isolation; Python ReadOnlyView). Missing params with
+        //    a default are evaluated in the agent's isolated env (Python
+        //    `_call_agent` parity); missing without a default bind Null.
+        //    Values are computed first (defaults may evaluate expressions,
+        //    which need `self.environment` unborrowed), then defined.
+        let mut param_values: Vec<(String, Value)> = Vec::new();
+        for p in &agent.params {
+            let value = if let Some(v) = args.get(&p.name).cloned() {
+                v
+            } else if let Some(dv) = &p.default_value {
+                // Evaluate in the agent's isolated env (env swap, like
+                // Python's `self.environment = call_env`).
+                let old_env = self.environment.clone();
+                self.environment = call_env.clone();
+                let r = self.eval_expr(dv);
+                self.environment = old_env;
+                r?
+            } else {
+                Value::Null
+            };
+            let bound = if value.is_mutable_type() {
+                Value::ReadOnly(Rc::new(RefCell::new(value)))
+            } else {
+                value
+            };
+            param_values.push((p.name.clone(), bound));
+        }
+        {
+            let mut env = call_env.borrow_mut();
+            for (name, bound) in param_values {
+                env.define(&name, bound, false);
             }
         }
 
@@ -3271,6 +3303,12 @@ fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, Exce
 
 fn builtin_len(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let v = args.first().cloned().unwrap_or(Value::Null);
+    // v1.12 ReadOnlyView delegates `len()` to the underlying data (Python
+    // ReadOnlyView.__len__ parity) — agents receive mutable args wrapped.
+    let v = match &v {
+        Value::ReadOnly(r) => r.borrow().clone(),
+        _ => v,
+    };
     let n: i64 = match &v {
         Value::Str(s) => s.len() as i64, // byte length (D4 divergence)
         Value::List(l) => l.borrow().len() as i64,

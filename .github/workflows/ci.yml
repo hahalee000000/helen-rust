@@ -31,6 +31,26 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+  python-bridge:
+    name: M11 Python bridge (maturin wheel + DoD suite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install maturin + pytest
+        run: |
+          pip install maturin pytest
+      - name: Build and install the bridge wheel
+        working-directory: crates/helen-python-bridge
+        run: maturin develop --release
+      - name: M11 DoD suite (Python → Helen round-trip)
+        working-directory: crates/helen-python-bridge
+        run: python -m pytest tests/test_bridge_python.py -q
+
   conformance:
     name: Conformance vs Python reference
     runs-on: ubuntu-latest
