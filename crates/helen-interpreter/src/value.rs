@@ -55,6 +55,8 @@ pub enum Value {
     /// Native UTF-8 bytes; `len`/index/slice are byte-based (D4).
     Str(Rc<str>),
     List(Rc<RefCell<Vec<Value>>>),
+    /// A tuple — immutable list-like; rendered `(a, b)` (Python str parity).
+    Tuple(Rc<RefCell<Vec<Value>>>),
     /// Insertion-ordered map with arbitrary structural keys (D5).
     Map(Rc<RefCell<IndexMap<Value, Value>>>),
     /// A thrown/raised Helen exception (catch binds this to the error var).
@@ -85,6 +87,7 @@ impl Value {
             Value::Float(f) => *f != 0.0,
             Value::Str(s) => !s.is_empty(),
             Value::List(l) => !l.borrow().is_empty(),
+            Value::Tuple(t) => !t.borrow().is_empty(),
             Value::Map(m) => !m.borrow().is_empty(),
             Value::Exception(_) => true,
             Value::BuiltinFn(_) | Value::UserFn(_) | Value::Agent(_) | Value::Closure(_) => true,
@@ -101,6 +104,7 @@ impl Value {
             Value::Float(_) => "float".into(),
             Value::Str(_) => "str".into(),
             Value::List(_) => "list".into(),
+            Value::Tuple(_) => "tuple".into(),
             Value::Map(_) => "dict".into(),
             Value::Exception(e) => e.class_name.clone(),
             Value::BuiltinFn(b) => b.name.clone(),
@@ -145,6 +149,10 @@ impl Value {
                 let items: Vec<String> = l.borrow().iter().map(|v| v.python_repr()).collect();
                 format!("[{}]", items.join(", "))
             }
+            Value::Tuple(t) => {
+                let items: Vec<String> = t.borrow().iter().map(|v| v.python_repr()).collect();
+                format!("({})", items.join(", "))
+            }
             Value::Map(m) => {
                 let items: Vec<String> = m
                     .borrow()
@@ -180,6 +188,10 @@ impl Value {
             Value::List(l) => {
                 let items: Vec<String> = l.borrow().iter().map(|v| v.python_repr()).collect();
                 format!("[{}]", items.join(", "))
+            }
+            Value::Tuple(t) => {
+                let items: Vec<String> = t.borrow().iter().map(|v| v.python_repr()).collect();
+                format!("({})", items.join(", "))
             }
             Value::Map(m) => {
                 let items: Vec<String> = m
@@ -282,6 +294,7 @@ impl PartialEq for Value {
             (Value::Float(a), Value::Float(b)) => a == b,
             (Value::Str(a), Value::Str(b)) => a == b,
             (Value::List(a), Value::List(b)) => *a.borrow() == *b.borrow(),
+            (Value::Tuple(a), Value::Tuple(b)) => *a.borrow() == *b.borrow(),
             (Value::Map(a), Value::Map(b)) => *a.borrow() == *b.borrow(),
             // Python bool is an int subclass: true == 1, false == 0.
             (Value::Bool(b), Value::Int(i)) => {
@@ -393,6 +406,13 @@ impl Hash for Value {
             Value::ListMethod(m) => {
                 0xAu8.hash(state);
                 std::ptr::hash(Rc::as_ptr(&m.list), state);
+            }
+            Value::Tuple(t) => {
+                0xBu8.hash(state);
+                let tb = t.borrow();
+                for v in tb.iter() {
+                    v.hash(state);
+                }
             }
         }
     }

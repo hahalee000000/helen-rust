@@ -31,4 +31,17 @@ num-traits = "0.2"
 ryu = "1"  # shortest round-trip float formatting (Python-repr parity)
 thiserror = "2"
 anyhow = "1"
+regex = "1"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rand = "0.8"
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+hmac = "0.12"
+uuid = { version = "1", features = ["v4", "v5"] }
+ureq = { version = "2", default-features = false, features = ["tls"] }
+digest = "0.10"
+csv = "1"
+
 pyo3 = { version = "0.23", features = ["abi3-py39"] }  # unused until M10/M11

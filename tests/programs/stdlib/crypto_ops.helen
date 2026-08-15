@@ -1,0 +1,11 @@
+import std.core.*
+import std.crypto.*
+
+main {
+    print(md5("hello"))
+    print(sha1("hello"))
+    print(sha256("hello"))
+    print(sha512("hello"))
+    print(hmac_sha256("key", "message"))
+    print(uuid_nil())
+}

@@ -1,0 +1,28 @@
+import std.core.*
+import std.list.*
+import std.dict.*
+
+main {
+    print(sort([3, 1, 2]))
+    print(unique([1, 2, 2, 3]))
+    print(flatten([[1, 2], [3]]))
+    print(chunk([1, 2, 3, 4, 5], 2))
+    print(zip([1, 2], ["a", "b"]))
+    print(map([1, 2, 3], fn(x) { return x * 2 }))
+    print(filter([1, 2, 3, 4], fn(x) { return x > 2 }))
+    print(reduce([1, 2, 3, 4], fn(a, b) { return a + b }))
+    print(every([2, 4], fn(x) { return x % 2 == 0 }))
+    print(some([1, 3], fn(x) { return x % 2 == 0 }))
+    print(find_if([1, 2, 3], fn(x) { return x > 1 }))
+    print(keys({"a": 1, "b": 2}))
+    print(values({"a": 1, "b": 2}))
+    print(entries({"a": 1}))
+    print(get({"a": 1}, "a"))
+    print(get({"a": 1}, "zz", 99))
+    print(has_key({"a": 1}, "a"))
+    print(merge({"a": 1}, {"b": 2}))
+    print(set_key({"a": 1}, "b", 2))
+    print(remove_key({"a": 1, "b": 2}, "a"))
+    print(pick({"a": 1, "b": 2}, ["a"]))
+    print(omit({"a": 1, "b": 2}, ["a"]))
+}

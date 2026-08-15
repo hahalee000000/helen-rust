@@ -2873,7 +2873,8 @@ mod m3_tests {
 
     #[test]
     fn stdlib_str_functions() {
-        let src = "import std.core.*\nimport std.str.*\nmain {\n    print(upper(\"Hello\"))\n    print(substring(\"Hello\", 1, 3))\n    print(join(\"-\", [\"a\", \"b\"]))\n    print(contains(\"hello\", \"ell\"))\n}\n";
+        // join(items, sep) — items first, Python _join parity
+        let src = "import std.core.*\nimport std.str.*\nmain {\n    print(upper(\"Hello\"))\n    print(substring(\"Hello\", 1, 3))\n    print(join([\"a\", \"b\"], \"-\"))\n    print(contains(\"hello\", \"ell\"))\n}\n";
         let (r, out) = run_src(src);
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "HELLO\nel\na-b\ntrue\n");

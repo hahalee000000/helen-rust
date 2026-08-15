@@ -1,0 +1,2626 @@
+{
+ "count": 378,
+ "builtins": [
+  {
+   "name": "abs",
+   "description": "Absolute value",
+   "signature": "abs(value)",
+   "category": "core"
+  },
+  {
+   "name": "acos",
+   "description": "Arc cosine",
+   "signature": "acos(x)",
+   "category": "math"
+  },
+  {
+   "name": "after_all",
+   "description": "Register after-all hook",
+   "signature": "after_all(fn)",
+   "category": "test"
+  },
+  {
+   "name": "after_each",
+   "description": "Register after-each hook",
+   "signature": "after_each(fn)",
+   "category": "test"
+  },
+  {
+   "name": "analyze_code",
+   "description": "Analyze code metrics",
+   "signature": "analyze_code(source, filename?)",
+   "category": "quality"
+  },
+  {
+   "name": "append_file",
+   "description": "Append to file",
+   "signature": "append_file(path, content)",
+   "category": "io"
+  },
+  {
+   "name": "asin",
+   "description": "Arc sine",
+   "signature": "asin(x)",
+   "category": "math"
+  },
+  {
+   "name": "assert_contains",
+   "description": "Assert container contains item",
+   "signature": "assert_contains(container, item, message?)",
+   "category": "test"
+  },
+  {
+   "name": "assert_equal",
+   "description": "Assert equality",
+   "signature": "assert_equal(actual, expected, message?)",
+   "category": "test"
+  },
+  {
+   "name": "assert_not_equal",
+   "description": "Assert inequality",
+   "signature": "assert_not_equal(actual, expected, message?)",
+   "category": "test"
+  },
+  {
+   "name": "assert_throws",
+   "description": "Assert function throws",
+   "signature": "assert_throws(fn, error_type?)",
+   "category": "test"
+  },
+  {
+   "name": "assert_true",
+   "description": "Assert condition is truthy",
+   "signature": "assert_true(condition, message?)",
+   "category": "test"
+  },
+  {
+   "name": "atan",
+   "description": "Arc tangent",
+   "signature": "atan(x)",
+   "category": "math"
+  },
+  {
+   "name": "atan2",
+   "description": "Arc tangent of y/x",
+   "signature": "atan2(y, x)",
+   "category": "math"
+  },
+  {
+   "name": "base64_decode",
+   "description": "Base64 decode",
+   "signature": "base64_decode(s)",
+   "category": "string"
+  },
+  {
+   "name": "base64_encode",
+   "description": "Base64 encode",
+   "signature": "base64_encode(s)",
+   "category": "string"
+  },
+  {
+   "name": "before_all",
+   "description": "Register before-all hook",
+   "signature": "before_all(fn)",
+   "category": "test"
+  },
+  {
+   "name": "before_each",
+   "description": "Register before-each hook",
+   "signature": "before_each(fn)",
+   "category": "test"
+  },
+  {
+   "name": "bit_and",
+   "description": "Bitwise AND",
+   "signature": "bit_and(a, b)",
+   "category": "math"
+  },
+  {
+   "name": "bit_not",
+   "description": "Bitwise NOT",
+   "signature": "bit_not(a)",
+   "category": "math"
+  },
+  {
+   "name": "bit_or",
+   "description": "Bitwise OR",
+   "signature": "bit_or(a, b)",
+   "category": "math"
+  },
+  {
+   "name": "bit_shift_left",
+   "description": "Bitwise left shift",
+   "signature": "bit_shift_left(a, n)",
+   "category": "math"
+  },
+  {
+   "name": "bit_shift_right",
+   "description": "Bitwise right shift",
+   "signature": "bit_shift_right(a, n)",
+   "category": "math"
+  },
+  {
+   "name": "bit_xor",
+   "description": "Bitwise XOR",
+   "signature": "bit_xor(a, b)",
+   "category": "math"
+  },
+  {
+   "name": "bool",
+   "description": "Convert to boolean",
+   "signature": "bool(value)",
+   "category": "core"
+  },
+  {
+   "name": "calculate",
+   "description": "Evaluate math expression",
+   "signature": "calculate(expression)",
+   "category": "tools"
+  },
+  {
+   "name": "cancel_all_llm_calls",
+   "description": "Cancel all active streaming LLM calls",
+   "signature": "cancel_all_llm_calls()",
+   "category": "llm"
+  },
+  {
+   "name": "cancel_llm_call",
+   "description": "Cancel an in-flight streaming LLM call",
+   "signature": "cancel_llm_call(call_id)",
+   "category": "llm"
+  },
+  {
+   "name": "ceil",
+   "description": "Ceiling value",
+   "signature": "ceil(value)",
+   "category": "math"
+  },
+  {
+   "name": "center",
+   "description": "Center string",
+   "signature": "center(s, width, char?)",
+   "category": "string"
+  },
+  {
+   "name": "check_security",
+   "description": "Check security issues",
+   "signature": "check_security(source)",
+   "category": "quality"
+  },
+  {
+   "name": "choice",
+   "description": "Choose random item",
+   "signature": "choice(items)",
+   "category": "crypto"
+  },
+  {
+   "name": "chr",
+   "description": "Unicode code point to character",
+   "signature": "chr(code)",
+   "category": "string"
+  },
+  {
+   "name": "chunk",
+   "description": "Split into chunks",
+   "signature": "chunk(lst, size)",
+   "category": "collection"
+  },
+  {
+   "name": "cleanup_sessions",
+   "description": "Clean up old sessions (v1.23.7: cascade=true deletes spawned)",
+   "signature": "cleanup_sessions(keep_count?, older_than_days?, cascade?)",
+   "category": "transcript"
+  },
+  {
+   "name": "clear_context",
+   "description": "Clear conversation context",
+   "signature": "clear_context()",
+   "category": "context"
+  },
+  {
+   "name": "compress_context",
+   "description": "Compress conversation context",
+   "signature": "compress_context(strategy?)",
+   "category": "context"
+  },
+  {
+   "name": "compress_context_target",
+   "description": "Compress context by target type",
+   "signature": "compress_context_target(target, keep_recent?)",
+   "category": "context"
+  },
+  {
+   "name": "contains",
+   "description": "Check if contains substring",
+   "signature": "contains(s, sub)",
+   "category": "string"
+  },
+  {
+   "name": "context_slice",
+   "description": "Extract a slice of conversation history",
+   "signature": "context_slice(start?, end?, role?)",
+   "category": "context"
+  },
+  {
+   "name": "context_stats",
+   "description": "Return detailed statistics about current context",
+   "signature": "context_stats()",
+   "category": "context"
+  },
+  {
+   "name": "context_usage",
+   "description": "Return current context usage ratio (0.0-1.0)",
+   "signature": "context_usage()",
+   "category": "context"
+  },
+  {
+   "name": "copy_file",
+   "description": "Copy file",
+   "signature": "copy_file(src, dst)",
+   "category": "file"
+  },
+  {
+   "name": "correlation",
+   "description": "Pearson correlation",
+   "signature": "correlation(x, y)",
+   "category": "math"
+  },
+  {
+   "name": "cos",
+   "description": "Cosine",
+   "signature": "cos(radians)",
+   "category": "math"
+  },
+  {
+   "name": "count",
+   "description": "Count substring",
+   "signature": "count(s, sub)",
+   "category": "string"
+  },
+  {
+   "name": "coverage_off",
+   "description": "Disable coverage tracking",
+   "signature": "coverage_off()",
+   "category": "debug"
+  },
+  {
+   "name": "coverage_on",
+   "description": "Enable coverage tracking",
+   "signature": "coverage_on()",
+   "category": "debug"
+  },
+  {
+   "name": "coverage_report",
+   "description": "Generate coverage report",
+   "signature": "coverage_report(format?)",
+   "category": "debug"
+  },
+  {
+   "name": "coverage_summary",
+   "description": "Get coverage summary",
+   "signature": "coverage_summary()",
+   "category": "debug"
+  },
+  {
+   "name": "cpu_count",
+   "description": "Get CPU core count",
+   "signature": "cpu_count()",
+   "category": "system"
+  },
+  {
+   "name": "csv_load",
+   "description": "Load CSV from file",
+   "signature": "csv_load(path, delimiter?)",
+   "category": "data"
+  },
+  {
+   "name": "csv_parse",
+   "description": "Parse CSV",
+   "signature": "csv_parse(text, delimiter?)",
+   "category": "data"
+  },
+  {
+   "name": "csv_save",
+   "description": "Save CSV to file",
+   "signature": "csv_save(path, rows, delimiter?)",
+   "category": "data"
+  },
+  {
+   "name": "csv_stringify",
+   "description": "Stringify to CSV",
+   "signature": "csv_stringify(rows, delimiter?)",
+   "category": "data"
+  },
+  {
+   "name": "current_llm_call_id",
+   "description": "Get the current active streaming call ID",
+   "signature": "current_llm_call_id()",
+   "category": "llm"
+  },
+  {
+   "name": "date",
+   "description": "Create/get date",
+   "signature": "date(year?, month?, day?)",
+   "category": "time"
+  },
+  {
+   "name": "date_add",
+   "description": "Add to date",
+   "signature": "date_add(date_str, days?, hours?, minutes?, seconds?)",
+   "category": "time"
+  },
+  {
+   "name": "date_day",
+   "description": "Extract day",
+   "signature": "date_day(date_str)",
+   "category": "time"
+  },
+  {
+   "name": "date_diff",
+   "description": "Date difference",
+   "signature": "date_diff(date1, date2, unit?)",
+   "category": "time"
+  },
+  {
+   "name": "date_format",
+   "description": "Format date",
+   "signature": "date_format(date_str, format_str)",
+   "category": "time"
+  },
+  {
+   "name": "date_month",
+   "description": "Extract month",
+   "signature": "date_month(date_str)",
+   "category": "time"
+  },
+  {
+   "name": "date_parse",
+   "description": "Parse date",
+   "signature": "date_parse(date_str, format_str)",
+   "category": "time"
+  },
+  {
+   "name": "date_weekday",
+   "description": "Day of week",
+   "signature": "date_weekday(date_str)",
+   "category": "time"
+  },
+  {
+   "name": "date_year",
+   "description": "Extract year",
+   "signature": "date_year(date_str)",
+   "category": "time"
+  },
+  {
+   "name": "datetime",
+   "description": "Create/get datetime",
+   "signature": "datetime(year?, month?, day?, hour?, minute?, second?)",
+   "category": "time"
+  },
+  {
+   "name": "debug",
+   "description": "Output structured debug info",
+   "signature": "debug(message, data?)",
+   "category": "debug"
+  },
+  {
+   "name": "delete_current_session",
+   "description": "Permanently delete current session (v1.23.7: cascade=true deletes spawned)",
+   "signature": "delete_current_session(confirm?, cascade?)",
+   "category": "transcript"
+  },
+  {
+   "name": "delete_dir",
+   "description": "Delete directory",
+   "signature": "delete_dir(path, recursive?)",
+   "category": "file"
+  },
+  {
+   "name": "delete_file",
+   "description": "Delete file",
+   "signature": "delete_file(path)",
+   "category": "file"
+  },
+  {
+   "name": "delete_message",
+   "description": "Delete a message by UUID",
+   "signature": "delete_message(uuid)",
+   "category": "context"
+  },
+  {
+   "name": "delete_session",
+   "description": "Permanently delete a session (v1.23.7: cascade=true deletes spawned sessions)",
+   "signature": "delete_session(session_id, cascade?)",
+   "category": "transcript"
+  },
+  {
+   "name": "describe",
+   "description": "Define a test suite",
+   "signature": "describe(name, fn)",
+   "category": "test"
+  },
+  {
+   "name": "dict",
+   "description": "Convert to dict or create empty dict",
+   "signature": "dict(value?)",
+   "category": "core"
+  },
+  {
+   "name": "endswith",
+   "description": "Check suffix",
+   "signature": "endswith(s, suffix)",
+   "category": "string"
+  },
+  {
+   "name": "entries",
+   "description": "Get dict entries",
+   "signature": "entries(dict)",
+   "category": "collection"
+  },
+  {
+   "name": "env_delete",
+   "description": "Delete environment variable",
+   "signature": "env_delete(key)",
+   "category": "system"
+  },
+  {
+   "name": "env_get",
+   "description": "Get environment variable",
+   "signature": "env_get(key, default?)",
+   "category": "system"
+  },
+  {
+   "name": "env_list",
+   "description": "List all environment variables",
+   "signature": "env_list()",
+   "category": "system"
+  },
+  {
+   "name": "env_set",
+   "description": "Set environment variable",
+   "signature": "env_set(key, value)",
+   "category": "system"
+  },
+  {
+   "name": "error_category",
+   "description": "Extract diagnostic category from error dict",
+   "signature": "error_category(err)",
+   "category": "debug"
+  },
+  {
+   "name": "error_data_flow",
+   "description": "Extract data flow from error dict",
+   "signature": "error_data_flow(err)",
+   "category": "debug"
+  },
+  {
+   "name": "error_suggestion",
+   "description": "Extract suggestion from error dict",
+   "signature": "error_suggestion(err)",
+   "category": "debug"
+  },
+  {
+   "name": "every",
+   "description": "Check all elements",
+   "signature": "every(lst, fn)",
+   "category": "collection"
+  },
+  {
+   "name": "exec",
+   "description": "Execute command",
+   "signature": "exec(command, shell?, timeout?)",
+   "category": "system"
+  },
+  {
+   "name": "exec_async",
+   "description": "Execute command asynchronously",
+   "signature": "exec_async(command, shell?)",
+   "category": "system"
+  },
+  {
+   "name": "exit",
+   "description": "Exit program",
+   "signature": "exit(code?)",
+   "category": "system"
+  },
+  {
+   "name": "exp",
+   "description": "Exponential (e^x)",
+   "signature": "exp(x)",
+   "category": "math"
+  },
+  {
+   "name": "expect",
+   "description": "Create chainable expectation",
+   "signature": "expect(value)",
+   "category": "test"
+  },
+  {
+   "name": "export_context",
+   "description": "Export current context as serializable dict",
+   "signature": "export_context()",
+   "category": "context"
+  },
+  {
+   "name": "export_transcript",
+   "description": "Export transcript to file (v1.23.7: include_spawned)",
+   "signature": "export_transcript(output_path, format?, session_id?, include_spawned?)",
+   "category": "transcript"
+  },
+  {
+   "name": "extract_emails",
+   "description": "Extract emails",
+   "signature": "extract_emails(text)",
+   "category": "string"
+  },
+  {
+   "name": "extract_urls",
+   "description": "Extract URLs",
+   "signature": "extract_urls(text)",
+   "category": "string"
+  },
+  {
+   "name": "fail",
+   "description": "Explicitly fail a test",
+   "signature": "fail(message?)",
+   "category": "test"
+  },
+  {
+   "name": "file_modified",
+   "description": "File modification time",
+   "signature": "file_modified(path)",
+   "category": "file"
+  },
+  {
+   "name": "file_size",
+   "description": "File size in bytes",
+   "signature": "file_size(path)",
+   "category": "file"
+  },
+  {
+   "name": "filter",
+   "description": "Filter list by predicate",
+   "signature": "filter(lst, fn)",
+   "category": "collection"
+  },
+  {
+   "name": "find",
+   "description": "Find substring index",
+   "signature": "find(s, sub)",
+   "category": "string"
+  },
+  {
+   "name": "find_from",
+   "description": "Find substring from position",
+   "signature": "find_from(s, sub, start)",
+   "category": "string"
+  },
+  {
+   "name": "find_if",
+   "description": "Find element by predicate",
+   "signature": "find_if(lst, fn)",
+   "category": "collection"
+  },
+  {
+   "name": "flatten",
+   "description": "Flatten nested lists",
+   "signature": "flatten(lst)",
+   "category": "collection"
+  },
+  {
+   "name": "float",
+   "description": "Convert to float",
+   "signature": "float(value)",
+   "category": "core"
+  },
+  {
+   "name": "floor",
+   "description": "Floor value",
+   "signature": "floor(value)",
+   "category": "math"
+  },
+  {
+   "name": "fork_context",
+   "description": "Create a deep-copy snapshot of current context",
+   "signature": "fork_context()",
+   "category": "context"
+  },
+  {
+   "name": "format_float",
+   "description": "Format float with decimals",
+   "signature": "format_float(value, decimals)",
+   "category": "string"
+  },
+  {
+   "name": "fromtimestamp",
+   "description": "Unix timestamp to datetime",
+   "signature": "fromtimestamp(timestamp)",
+   "category": "time"
+  },
+  {
+   "name": "get",
+   "description": "Get value with default",
+   "signature": "get(dict, key, default?)",
+   "category": "collection"
+  },
+  {
+   "name": "get_call_stack",
+   "description": "Get current call stack",
+   "signature": "get_call_stack()",
+   "category": "debug"
+  },
+  {
+   "name": "get_cli_args",
+   "description": "Get CLI arguments",
+   "signature": "get_cli_args()",
+   "category": "system"
+  },
+  {
+   "name": "get_compression_audit",
+   "description": "Get compression event history",
+   "signature": "get_compression_audit()",
+   "category": "transcript"
+  },
+  {
+   "name": "get_context_config",
+   "description": "Get current context management config",
+   "signature": "get_context_config()",
+   "category": "context"
+  },
+  {
+   "name": "get_data_lineage",
+   "description": "Get the complete data lineage graph",
+   "signature": "get_data_lineage()",
+   "category": "debug"
+  },
+  {
+   "name": "get_description",
+   "description": "Get agent description (read-only)",
+   "signature": "get_description()",
+   "category": "llm"
+  },
+  {
+   "name": "get_invocation",
+   "description": "Get metadata for a specific invocation",
+   "signature": "get_invocation(invocation_id, session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "get_invocation_tree",
+   "description": "Get the full invocation tree for a session (agent calls)",
+   "signature": "get_invocation_tree(session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "get_last_error",
+   "description": "Get last error snapshot with context",
+   "signature": "get_last_error()",
+   "category": "debug"
+  },
+  {
+   "name": "get_llm_log",
+   "description": "Get recent LLM call audit log",
+   "signature": "get_llm_log(n?)",
+   "category": "debug"
+  },
+  {
+   "name": "get_max_tokens",
+   "description": "Get effective max-tokens",
+   "signature": "get_max_tokens()",
+   "category": "llm"
+  },
+  {
+   "name": "get_max_turns",
+   "description": "Get effective max-turns",
+   "signature": "get_max_turns()",
+   "category": "llm"
+  },
+  {
+   "name": "get_message",
+   "description": "Retrieve a message by UUID",
+   "signature": "get_message(uuid)",
+   "category": "context"
+  },
+  {
+   "name": "get_model",
+   "description": "Get current model (read-only)",
+   "signature": "get_model()",
+   "category": "llm"
+  },
+  {
+   "name": "get_provider",
+   "description": "Get current provider (read-only)",
+   "signature": "get_provider()",
+   "category": "llm"
+  },
+  {
+   "name": "get_reasoning_effort",
+   "description": "Get effective reasoning-effort",
+   "signature": "get_reasoning_effort()",
+   "category": "llm"
+  },
+  {
+   "name": "get_session_dir",
+   "description": "Get resolved transcript session directory",
+   "signature": "get_session_dir()",
+   "category": "transcript"
+  },
+  {
+   "name": "get_session_id",
+   "description": "Get current transcript session ID",
+   "signature": "get_session_id()",
+   "category": "transcript"
+  },
+  {
+   "name": "get_session_meta",
+   "description": "Get session metadata (argv, timestamp, version)",
+   "signature": "get_session_meta(session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "get_spawn_tree",
+   "description": "Get the full session spawn tree (nested spawns)",
+   "signature": "get_spawn_tree(session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "get_spawned_sessions",
+   "description": "Get sessions spawned by the given session",
+   "signature": "get_spawned_sessions(session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "get_temperature",
+   "description": "Get effective temperature",
+   "signature": "get_temperature()",
+   "category": "llm"
+  },
+  {
+   "name": "get_thinking_mode",
+   "description": "Get effective thinking-mode",
+   "signature": "get_thinking_mode()",
+   "category": "llm"
+  },
+  {
+   "name": "get_trace",
+   "description": "Get recent execution trace",
+   "signature": "get_trace(n?)",
+   "category": "debug"
+  },
+  {
+   "name": "glob_files",
+   "description": "Recursively find files matching glob pattern",
+   "signature": "glob_files(path, pattern?)",
+   "category": "file"
+  },
+  {
+   "name": "grep_files",
+   "description": "Search file contents for a pattern",
+   "signature": "grep_files(path, pattern, regex?, case_sensitive?, max_results?)",
+   "category": "file"
+  },
+  {
+   "name": "has_key",
+   "description": "Check key exists",
+   "signature": "has_key(dict, key)",
+   "category": "collection"
+  },
+  {
+   "name": "hash_file",
+   "description": "Calculate hash of file",
+   "signature": "hash_file(path, algorithm?)",
+   "category": "crypto"
+  },
+  {
+   "name": "hmac_sha256",
+   "description": "Calculate HMAC-SHA256",
+   "signature": "hmac_sha256(key, message)",
+   "category": "crypto"
+  },
+  {
+   "name": "hostname",
+   "description": "Get hostname",
+   "signature": "hostname()",
+   "category": "system"
+  },
+  {
+   "name": "html_escape",
+   "description": "HTML escape",
+   "signature": "html_escape(s)",
+   "category": "string"
+  },
+  {
+   "name": "html_links",
+   "description": "Extract HTML links",
+   "signature": "html_links(html)",
+   "category": "data"
+  },
+  {
+   "name": "html_parse",
+   "description": "Parse HTML",
+   "signature": "html_parse(text)",
+   "category": "data"
+  },
+  {
+   "name": "html_select",
+   "description": "CSS select elements",
+   "signature": "html_select(html, selector)",
+   "category": "data"
+  },
+  {
+   "name": "html_text",
+   "description": "Extract HTML text",
+   "signature": "html_text(html)",
+   "category": "data"
+  },
+  {
+   "name": "html_unescape",
+   "description": "HTML unescape",
+   "signature": "html_unescape(s)",
+   "category": "string"
+  },
+  {
+   "name": "http_delete",
+   "description": "HTTP DELETE request",
+   "signature": "http_delete(url, headers?)",
+   "category": "network"
+  },
+  {
+   "name": "http_download",
+   "description": "Download file from URL",
+   "signature": "http_download(url, path)",
+   "category": "network"
+  },
+  {
+   "name": "http_get",
+   "description": "HTTP GET request",
+   "signature": "http_get(url, headers?)",
+   "category": "network"
+  },
+  {
+   "name": "http_post",
+   "description": "HTTP POST request",
+   "signature": "http_post(url, data?, headers?)",
+   "category": "network"
+  },
+  {
+   "name": "http_put",
+   "description": "HTTP PUT request",
+   "signature": "http_put(url, data?, headers?)",
+   "category": "network"
+  },
+  {
+   "name": "import_context",
+   "description": "Import a previously exported context",
+   "signature": "import_context(data)",
+   "category": "context"
+  },
+  {
+   "name": "index",
+   "description": "Find substring index",
+   "signature": "index(s, sub)",
+   "category": "string"
+  },
+  {
+   "name": "input",
+   "description": "Read line from stdin",
+   "signature": "input(prompt?)",
+   "category": "core"
+  },
+  {
+   "name": "insert_message",
+   "description": "Insert a new message into context",
+   "signature": "insert_message(role, content, position?)",
+   "category": "context"
+  },
+  {
+   "name": "int",
+   "description": "Convert to integer",
+   "signature": "int(value)",
+   "category": "core"
+  },
+  {
+   "name": "interpolate",
+   "description": "Template string interpolation",
+   "signature": "interpolate(template, vars)",
+   "category": "string"
+  },
+  {
+   "name": "invocation_path",
+   "description": "Get human-readable path string for an invocation",
+   "signature": "invocation_path(invocation_id, session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "is_audio",
+   "description": "Check if MediaPart is audio",
+   "signature": "is_audio(value)",
+   "category": "media"
+  },
+  {
+   "name": "is_image",
+   "description": "Check if MediaPart is an image",
+   "signature": "is_image(value)",
+   "category": "media"
+  },
+  {
+   "name": "is_media",
+   "description": "Check if value is MediaPart",
+   "signature": "is_media(value)",
+   "category": "media"
+  },
+  {
+   "name": "is_video",
+   "description": "Check if MediaPart is a video",
+   "signature": "is_video(value)",
+   "category": "media"
+  },
+  {
+   "name": "isinstance",
+   "description": "Type check",
+   "signature": "isinstance(value, type_name)",
+   "category": "core"
+  },
+  {
+   "name": "it",
+   "description": "Define a test case",
+   "signature": "it(name, fn)",
+   "category": "test"
+  },
+  {
+   "name": "it_skip",
+   "description": "Define a skipped test case",
+   "signature": "it_skip(name, fn?)",
+   "category": "test"
+  },
+  {
+   "name": "join",
+   "description": "Join strings",
+   "signature": "join(items, sep)",
+   "category": "string"
+  },
+  {
+   "name": "json_load",
+   "description": "Load JSON from file",
+   "signature": "json_load(path)",
+   "category": "data"
+  },
+  {
+   "name": "json_parse",
+   "description": "Parse JSON",
+   "signature": "json_parse(text)",
+   "category": "data"
+  },
+  {
+   "name": "json_parse_lenient",
+   "description": "Parse JSON with markdown fence stripping",
+   "signature": "json_parse_lenient(text)",
+   "category": "data"
+  },
+  {
+   "name": "json_save",
+   "description": "Save JSON to file",
+   "signature": "json_save(path, value, indent?)",
+   "category": "data"
+  },
+  {
+   "name": "json_stringify",
+   "description": "Stringify to JSON",
+   "signature": "json_stringify(value, indent?)",
+   "category": "data"
+  },
+  {
+   "name": "keys",
+   "description": "Get dict keys",
+   "signature": "keys(dict)",
+   "category": "collection"
+  },
+  {
+   "name": "kill",
+   "description": "Send signal to process",
+   "signature": "kill(pid, signal?)",
+   "category": "system"
+  },
+  {
+   "name": "last_error_detail",
+   "description": "Get detailed error with diagnostic category and suggestion",
+   "signature": "last_error_detail()",
+   "category": "debug"
+  },
+  {
+   "name": "len",
+   "description": "Return length of string/list/dict",
+   "signature": "len(value)",
+   "category": "core"
+  },
+  {
+   "name": "levenshtein",
+   "description": "Edit distance",
+   "signature": "levenshtein(s1, s2)",
+   "category": "string"
+  },
+  {
+   "name": "list",
+   "description": "Convert to list or create empty list",
+   "signature": "list(iterable?)",
+   "category": "core"
+  },
+  {
+   "name": "list_dir",
+   "description": "List directory",
+   "signature": "list_dir(path, pattern?)",
+   "category": "file"
+  },
+  {
+   "name": "list_invocations",
+   "description": "List invocations with optional filtering",
+   "signature": "list_invocations(session_id?, agent?, limit?, offset?)",
+   "category": "transcript"
+  },
+  {
+   "name": "list_pinned_messages",
+   "description": "List all pinned messages (uuid, role, snippet)",
+   "signature": "list_pinned_messages()",
+   "category": "context"
+  },
+  {
+   "name": "list_sessions",
+   "description": "List all transcript sessions",
+   "signature": "list_sessions()",
+   "category": "transcript"
+  },
+  {
+   "name": "list_skill_references",
+   "description": "List reference documents for a skill",
+   "signature": "list_skill_references(name)",
+   "category": "tools"
+  },
+  {
+   "name": "load_skill",
+   "description": "Load a skill by name",
+   "signature": "load_skill(name, include_references?)",
+   "category": "tools"
+  },
+  {
+   "name": "log",
+   "description": "Logarithm",
+   "signature": "log(x, base?)",
+   "category": "math"
+  },
+  {
+   "name": "log10",
+   "description": "Base-10 logarithm",
+   "signature": "log10(x)",
+   "category": "math"
+  },
+  {
+   "name": "log2",
+   "description": "Base-2 logarithm",
+   "signature": "log2(x)",
+   "category": "math"
+  },
+  {
+   "name": "log_critical",
+   "description": "Log critical message",
+   "signature": "log_critical(message)",
+   "category": "system"
+  },
+  {
+   "name": "log_debug",
+   "description": "Log debug message",
+   "signature": "log_debug(message)",
+   "category": "system"
+  },
+  {
+   "name": "log_error",
+   "description": "Log error message",
+   "signature": "log_error(message)",
+   "category": "system"
+  },
+  {
+   "name": "log_info",
+   "description": "Log info message",
+   "signature": "log_info(message)",
+   "category": "system"
+  },
+  {
+   "name": "log_set_level",
+   "description": "Set logging level",
+   "signature": "log_set_level(level)",
+   "category": "system"
+  },
+  {
+   "name": "log_to_file",
+   "description": "Set log output to file",
+   "signature": "log_to_file(path)",
+   "category": "system"
+  },
+  {
+   "name": "log_warn",
+   "description": "Log warning message",
+   "signature": "log_warn(message)",
+   "category": "system"
+  },
+  {
+   "name": "lower",
+   "description": "Lowercase string",
+   "signature": "lower(s)",
+   "category": "string"
+  },
+  {
+   "name": "mailbox_select",
+   "description": "Receive first available message from multiple channels",
+   "signature": "mailbox_select(channels, timeout?)",
+   "category": "concurrency"
+  },
+  {
+   "name": "make_set",
+   "description": "Create set",
+   "signature": "make_set(items)",
+   "category": "collection"
+  },
+  {
+   "name": "map",
+   "description": "Map function over list",
+   "signature": "map(lst, fn)",
+   "category": "collection"
+  },
+  {
+   "name": "markdown_extract_headings",
+   "description": "Extract Markdown headings",
+   "signature": "markdown_extract_headings(text)",
+   "category": "data"
+  },
+  {
+   "name": "markdown_parse",
+   "description": "Parse Markdown to blocks",
+   "signature": "markdown_parse(text)",
+   "category": "data"
+  },
+  {
+   "name": "markdown_to_html",
+   "description": "Convert Markdown to HTML",
+   "signature": "markdown_to_html(text)",
+   "category": "data"
+  },
+  {
+   "name": "max",
+   "description": "Maximum value",
+   "signature": "max(*args)",
+   "category": "core"
+  },
+  {
+   "name": "md5",
+   "description": "Calculate MD5 hash",
+   "signature": "md5(text)",
+   "category": "crypto"
+  },
+  {
+   "name": "mean",
+   "description": "Arithmetic mean",
+   "signature": "mean(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "media",
+   "description": "Create media from file/URL/MediaPart (passthrough + multi-arg)",
+   "signature": "media(source|MediaPart, ...) | media(source, type?)",
+   "category": "media"
+  },
+  {
+   "name": "media_base64",
+   "description": "Create media from base64 data",
+   "signature": "media_base64(data, mime, type?)",
+   "category": "media"
+  },
+  {
+   "name": "media_to_base64",
+   "description": "Convert MediaPart content to base64 string",
+   "signature": "media_to_base64(part)",
+   "category": "media"
+  },
+  {
+   "name": "media_type",
+   "description": "Get media type",
+   "signature": "media_type(value)",
+   "category": "media"
+  },
+  {
+   "name": "median",
+   "description": "Median value",
+   "signature": "median(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "memory_info",
+   "description": "Get memory information",
+   "signature": "memory_info()",
+   "category": "system"
+  },
+  {
+   "name": "merge",
+   "description": "Merge dicts",
+   "signature": "merge(*dicts)",
+   "category": "collection"
+  },
+  {
+   "name": "min",
+   "description": "Minimum value",
+   "signature": "min(*args)",
+   "category": "core"
+  },
+  {
+   "name": "mkdir",
+   "description": "Create directory",
+   "signature": "mkdir(path)",
+   "category": "io"
+  },
+  {
+   "name": "mkdir_p",
+   "description": "Create directory tree",
+   "signature": "mkdir_p(path)",
+   "category": "io"
+  },
+  {
+   "name": "mode",
+   "description": "Most frequent values",
+   "signature": "mode(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "move_file",
+   "description": "Move file",
+   "signature": "move_file(src, dst)",
+   "category": "file"
+  },
+  {
+   "name": "multiline_input",
+   "description": "Read multiple lines (empty line ends)",
+   "signature": "multiline_input(prompt?)",
+   "category": "core"
+  },
+  {
+   "name": "normalize_whitespace",
+   "description": "Normalize whitespace",
+   "signature": "normalize_whitespace(text)",
+   "category": "string"
+  },
+  {
+   "name": "now",
+   "description": "Current datetime",
+   "signature": "now()",
+   "category": "time"
+  },
+  {
+   "name": "omit",
+   "description": "Omit dict keys",
+   "signature": "omit(dict, keys)",
+   "category": "collection"
+  },
+  {
+   "name": "on_compression",
+   "description": "Register callback for compression events",
+   "signature": "on_compression(callback?)",
+   "category": "context"
+  },
+  {
+   "name": "on_context_overflow",
+   "description": "Register callback for context overflow",
+   "signature": "on_context_overflow(callback?)",
+   "category": "context"
+  },
+  {
+   "name": "ord",
+   "description": "Character to Unicode code point",
+   "signature": "ord(char)",
+   "category": "string"
+  },
+  {
+   "name": "pad_left",
+   "description": "Pad left",
+   "signature": "pad_left(s, width, char?)",
+   "category": "string"
+  },
+  {
+   "name": "pad_right",
+   "description": "Pad right",
+   "signature": "pad_right(s, width, char?)",
+   "category": "string"
+  },
+  {
+   "name": "parse_cli_args",
+   "description": "Parse CLI arguments",
+   "signature": "parse_cli_args(spec?)",
+   "category": "system"
+  },
+  {
+   "name": "patch_file",
+   "description": "Patch a file",
+   "signature": "patch_file(path, old_string, new_string, replace_all?)",
+   "category": "tools"
+  },
+  {
+   "name": "path_basename",
+   "description": "Base name",
+   "signature": "path_basename(path)",
+   "category": "path"
+  },
+  {
+   "name": "path_dirname",
+   "description": "Directory name",
+   "signature": "path_dirname(path)",
+   "category": "path"
+  },
+  {
+   "name": "path_exists",
+   "description": "Check if path exists",
+   "signature": "path_exists(path)",
+   "category": "path"
+  },
+  {
+   "name": "path_is_dir",
+   "description": "Check if path is directory",
+   "signature": "path_is_dir(path)",
+   "category": "path"
+  },
+  {
+   "name": "path_is_file",
+   "description": "Check if path is file",
+   "signature": "path_is_file(path)",
+   "category": "path"
+  },
+  {
+   "name": "path_join",
+   "description": "Join path components",
+   "signature": "path_join(*parts)",
+   "category": "path"
+  },
+  {
+   "name": "percentile",
+   "description": "Percentile value",
+   "signature": "percentile(numbers, p)",
+   "category": "math"
+  },
+  {
+   "name": "pick",
+   "description": "Pick dict keys",
+   "signature": "pick(dict, keys)",
+   "category": "collection"
+  },
+  {
+   "name": "pid",
+   "description": "Get current process ID",
+   "signature": "pid()",
+   "category": "system"
+  },
+  {
+   "name": "pin_message",
+   "description": "Pin a message by UUID (immune to compression)",
+   "signature": "pin_message(uuid)",
+   "category": "context"
+  },
+  {
+   "name": "platform",
+   "description": "Get OS name",
+   "signature": "platform()",
+   "category": "system"
+  },
+  {
+   "name": "platform_version",
+   "description": "Get detailed platform info",
+   "signature": "platform_version()",
+   "category": "system"
+  },
+  {
+   "name": "pow",
+   "description": "Power",
+   "signature": "pow(base, exponent)",
+   "category": "math"
+  },
+  {
+   "name": "print",
+   "description": "Print values to stdout",
+   "signature": "print(*args)",
+   "category": "core"
+  },
+  {
+   "name": "product",
+   "description": "Product of numbers",
+   "signature": "product(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "progress_bar",
+   "description": "Display progress bar",
+   "signature": "progress_bar(current, total, width?)",
+   "category": "io"
+  },
+  {
+   "name": "python_version",
+   "description": "Get Python version",
+   "signature": "python_version()",
+   "category": "system"
+  },
+  {
+   "name": "quality_report",
+   "description": "Generate quality report",
+   "signature": "quality_report(source, filename?)",
+   "category": "quality"
+  },
+  {
+   "name": "quality_score",
+   "description": "Calculate quality score",
+   "signature": "quality_score(source, file_path?)",
+   "category": "quality"
+  },
+  {
+   "name": "query_transcript",
+   "description": "Query transcript with filtering and pagination (v1.40+)",
+   "signature": "query_transcript(session_id?, role?, agent?, invocation_id?, since?, until?, content_regex?, message_type?, limit?, offset?)",
+   "category": "transcript"
+  },
+  {
+   "name": "randint",
+   "description": "Generate random integer",
+   "signature": "randint(min, max)",
+   "category": "crypto"
+  },
+  {
+   "name": "random",
+   "description": "Generate random float",
+   "signature": "random()",
+   "category": "crypto"
+  },
+  {
+   "name": "random_base64",
+   "description": "Generate random base64 string",
+   "signature": "random_base64(n)",
+   "category": "crypto"
+  },
+  {
+   "name": "random_bytes",
+   "description": "Generate random bytes as hex",
+   "signature": "random_bytes(n)",
+   "category": "crypto"
+  },
+  {
+   "name": "random_hex",
+   "description": "Generate random hex string",
+   "signature": "random_hex(n)",
+   "category": "crypto"
+  },
+  {
+   "name": "range",
+   "description": "Integer range",
+   "signature": "range(start, stop?, step?)",
+   "category": "core"
+  },
+  {
+   "name": "read_file",
+   "description": "Read file content",
+   "signature": "read_file(path)",
+   "category": "core"
+  },
+  {
+   "name": "record_data_flow",
+   "description": "Manually record a data flow event",
+   "signature": "record_data_flow(producer_uuid, consumer_uuid, flow_type, metadata?)",
+   "category": "debug"
+  },
+  {
+   "name": "record_session",
+   "description": "Start recording LLM interactions to cassette",
+   "signature": "record_session(cassette_path)",
+   "category": "debug"
+  },
+  {
+   "name": "reduce",
+   "description": "Reduce list to value",
+   "signature": "reduce(lst, fn, initial?)",
+   "category": "collection"
+  },
+  {
+   "name": "regex_findall",
+   "description": "Regex find all",
+   "signature": "regex_findall(pattern, s)",
+   "category": "string"
+  },
+  {
+   "name": "regex_match",
+   "description": "Regex match at start",
+   "signature": "regex_match(pattern, s)",
+   "category": "string"
+  },
+  {
+   "name": "regex_replace",
+   "description": "Regex replace",
+   "signature": "regex_replace(pattern, s, replacement)",
+   "category": "string"
+  },
+  {
+   "name": "regex_search",
+   "description": "Regex search anywhere",
+   "signature": "regex_search(pattern, s)",
+   "category": "string"
+  },
+  {
+   "name": "regex_split",
+   "description": "Regex split",
+   "signature": "regex_split(pattern, s)",
+   "category": "string"
+  },
+  {
+   "name": "regex_test",
+   "description": "Regex test returns bool",
+   "signature": "regex_test(pattern, s)",
+   "category": "string"
+  },
+  {
+   "name": "release_session_lock",
+   "description": "Release cross-process session lock (called on actor exit to prevent stale locks)",
+   "signature": "release_session_lock(session_id)",
+   "category": "transcript"
+  },
+  {
+   "name": "remove_key",
+   "description": "Remove single key",
+   "signature": "remove_key(dict, key)",
+   "category": "collection"
+  },
+  {
+   "name": "remove_punctuation",
+   "description": "Remove punctuation",
+   "signature": "remove_punctuation(text)",
+   "category": "string"
+  },
+  {
+   "name": "repeat",
+   "description": "Repeat string",
+   "signature": "repeat(s, n)",
+   "category": "string"
+  },
+  {
+   "name": "replace",
+   "description": "Replace substring",
+   "signature": "replace(s, old, new)",
+   "category": "string"
+  },
+  {
+   "name": "replace_message",
+   "description": "Replace a message's content by UUID",
+   "signature": "replace_message(uuid, new_content)",
+   "category": "context"
+  },
+  {
+   "name": "replay_full_session",
+   "description": "Replay transcript from session and all spawned sessions (v1.23.7+)",
+   "signature": "replay_full_session(session_id?)",
+   "category": "transcript"
+  },
+  {
+   "name": "replay_session",
+   "description": "Replay LLM interactions from cassette",
+   "signature": "replay_session(cassette_path)",
+   "category": "debug"
+  },
+  {
+   "name": "replay_transcript",
+   "description": "Replay transcript messages with optional invocation filtering",
+   "signature": "replay_transcript(session_id?, include_compressed?, agent?, invocation_id?, last_only?, include_subtree?)",
+   "category": "transcript"
+  },
+  {
+   "name": "restore_context",
+   "description": "Restore active context from a previous transcript session",
+   "signature": "restore_context(session_id, invocation_id?, agent?, last_only?, include_subtree?)",
+   "category": "context"
+  },
+  {
+   "name": "resume_session",
+   "description": "Resume a previous transcript session",
+   "signature": "resume_session(session_id)",
+   "category": "transcript"
+  },
+  {
+   "name": "reverse",
+   "description": "Reverse string",
+   "signature": "reverse(s)",
+   "category": "string"
+  },
+  {
+   "name": "round",
+   "description": "Round number",
+   "signature": "round(value, ndigits?)",
+   "category": "math"
+  },
+  {
+   "name": "run_tests",
+   "description": "Execute all tests and print report",
+   "signature": "run_tests(only?, suite?, filter?)",
+   "category": "test"
+  },
+  {
+   "name": "run_tests_json",
+   "description": "Execute tests and return JSON",
+   "signature": "run_tests_json(only?, suite?, filter?)",
+   "category": "test"
+  },
+  {
+   "name": "sample",
+   "description": "Sample items randomly",
+   "signature": "sample(items, k)",
+   "category": "crypto"
+  },
+  {
+   "name": "save_media",
+   "description": "Save MediaPart to file",
+   "signature": "save_media(part, path?)",
+   "category": "media"
+  },
+  {
+   "name": "search_context",
+   "description": "Search context for messages matching query",
+   "signature": "search_context(query, role?, limit?)",
+   "category": "context"
+  },
+  {
+   "name": "search_transcript",
+   "description": "Search transcript messages by content (v1.23.7: include_spawned)",
+   "signature": "search_transcript(query, session_id?, scope?, role?, regex?, limit?, include_spawned?)",
+   "category": "transcript"
+  },
+  {
+   "name": "set_cache_aware",
+   "description": "Enable/disable cache-aware compression at runtime",
+   "signature": "set_cache_aware(enabled)",
+   "category": "context"
+  },
+  {
+   "name": "set_compression_strategy",
+   "description": "Set compression strategy at runtime",
+   "signature": "set_compression_strategy(strategy)",
+   "category": "context"
+  },
+  {
+   "name": "set_context_window",
+   "description": "Set context window size at runtime",
+   "signature": "set_context_window(tokens)",
+   "category": "context"
+  },
+  {
+   "name": "set_difference",
+   "description": "Set difference",
+   "signature": "set_difference(s1, s2)",
+   "category": "collection"
+  },
+  {
+   "name": "set_has",
+   "description": "Check set membership",
+   "signature": "set_has(set, item)",
+   "category": "collection"
+  },
+  {
+   "name": "set_intersection",
+   "description": "Set intersection",
+   "signature": "set_intersection(s1, s2)",
+   "category": "collection"
+  },
+  {
+   "name": "set_key",
+   "description": "Set key-value pair",
+   "signature": "set_key(dict, key, value)",
+   "category": "collection"
+  },
+  {
+   "name": "set_max_tokens",
+   "description": "Set max output tokens",
+   "signature": "set_max_tokens(4000)",
+   "category": "llm"
+  },
+  {
+   "name": "set_max_turns",
+   "description": "Set max tool-calling turns",
+   "signature": "set_max_turns(5)",
+   "category": "llm"
+  },
+  {
+   "name": "set_reasoning_effort",
+   "description": "Set reasoning effort level",
+   "signature": "set_reasoning_effort(\"high\")",
+   "category": "llm"
+  },
+  {
+   "name": "set_session_dir",
+   "description": "Set transcript session directory at runtime",
+   "signature": "set_session_dir(path)",
+   "category": "transcript"
+  },
+  {
+   "name": "set_temperature",
+   "description": "Set temperature for subsequent llm act calls",
+   "signature": "set_temperature(0.7)",
+   "category": "llm"
+  },
+  {
+   "name": "set_test_timeout",
+   "description": "Set per-test timeout",
+   "signature": "set_test_timeout(seconds)",
+   "category": "test"
+  },
+  {
+   "name": "set_thinking_mode",
+   "description": "Enable/disable thinking mode",
+   "signature": "set_thinking_mode(true)",
+   "category": "llm"
+  },
+  {
+   "name": "set_union",
+   "description": "Set union",
+   "signature": "set_union(s1, s2)",
+   "category": "collection"
+  },
+  {
+   "name": "set_working_memory_enabled",
+   "description": "Enable/disable working memory at runtime",
+   "signature": "set_working_memory_enabled(enabled)",
+   "category": "context"
+  },
+  {
+   "name": "sha1",
+   "description": "Calculate SHA1 hash",
+   "signature": "sha1(text)",
+   "category": "crypto"
+  },
+  {
+   "name": "sha256",
+   "description": "Calculate SHA256 hash",
+   "signature": "sha256(text)",
+   "category": "crypto"
+  },
+  {
+   "name": "sha512",
+   "description": "Calculate SHA512 hash",
+   "signature": "sha512(text)",
+   "category": "crypto"
+  },
+  {
+   "name": "shell_exec",
+   "description": "Execute shell command",
+   "signature": "shell_exec(command, timeout?, shell?)",
+   "category": "tools"
+  },
+  {
+   "name": "shuffle",
+   "description": "Shuffle list randomly",
+   "signature": "shuffle(items)",
+   "category": "crypto"
+  },
+  {
+   "name": "similarity",
+   "description": "String similarity",
+   "signature": "similarity(s1, s2)",
+   "category": "string"
+  },
+  {
+   "name": "sin",
+   "description": "Sine",
+   "signature": "sin(radians)",
+   "category": "math"
+  },
+  {
+   "name": "sleep",
+   "description": "Pause execution",
+   "signature": "sleep(seconds)",
+   "category": "time"
+  },
+  {
+   "name": "some",
+   "description": "Check any element",
+   "signature": "some(lst, fn)",
+   "category": "collection"
+  },
+  {
+   "name": "sort",
+   "description": "Sort list",
+   "signature": "sort(lst, compare?)",
+   "category": "collection"
+  },
+  {
+   "name": "split",
+   "description": "Split string",
+   "signature": "split(s, sep?)",
+   "category": "string"
+  },
+  {
+   "name": "sqrt",
+   "description": "Square root",
+   "signature": "sqrt(value)",
+   "category": "math"
+  },
+  {
+   "name": "startswith",
+   "description": "Check prefix",
+   "signature": "startswith(s, prefix)",
+   "category": "string"
+  },
+  {
+   "name": "stats_max",
+   "description": "Maximum value (stats)",
+   "signature": "stats_max(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "stats_min",
+   "description": "Minimum value (stats)",
+   "signature": "stats_min(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "stddev",
+   "description": "Standard deviation",
+   "signature": "stddev(numbers, population?)",
+   "category": "math"
+  },
+  {
+   "name": "stop_recording",
+   "description": "Stop recording LLM interactions",
+   "signature": "stop_recording()",
+   "category": "debug"
+  },
+  {
+   "name": "stopwatch_elapsed",
+   "description": "Get elapsed time",
+   "signature": "stopwatch_elapsed(start_time)",
+   "category": "time"
+  },
+  {
+   "name": "stopwatch_lap",
+   "description": "Get lap time",
+   "signature": "stopwatch_lap(start_time)",
+   "category": "time"
+  },
+  {
+   "name": "stopwatch_start",
+   "description": "Start stopwatch",
+   "signature": "stopwatch_start()",
+   "category": "time"
+  },
+  {
+   "name": "str",
+   "description": "Convert to string",
+   "signature": "str(value)",
+   "category": "core"
+  },
+  {
+   "name": "stream_clear",
+   "description": "Clear current line",
+   "signature": "stream_clear()",
+   "category": "io"
+  },
+  {
+   "name": "stream_cursor_down",
+   "description": "Move cursor down",
+   "signature": "stream_cursor_down(n?)",
+   "category": "io"
+  },
+  {
+   "name": "stream_cursor_up",
+   "description": "Move cursor up",
+   "signature": "stream_cursor_up(n?)",
+   "category": "io"
+  },
+  {
+   "name": "stream_print",
+   "description": "Print without newline",
+   "signature": "stream_print(text)",
+   "category": "io"
+  },
+  {
+   "name": "strip",
+   "description": "Trim whitespace",
+   "signature": "strip(s)",
+   "category": "string"
+  },
+  {
+   "name": "substring",
+   "description": "Extract substring",
+   "signature": "substring(s, start, end?)",
+   "category": "string"
+  },
+  {
+   "name": "sum",
+   "description": "Sum of numbers",
+   "signature": "sum(numbers)",
+   "category": "math"
+  },
+  {
+   "name": "tan",
+   "description": "Tangent",
+   "signature": "tan(radians)",
+   "category": "math"
+  },
+  {
+   "name": "temp_dir",
+   "description": "Create temp directory",
+   "signature": "temp_dir(suffix?, prefix?, dir?)",
+   "category": "file"
+  },
+  {
+   "name": "temp_file",
+   "description": "Create temp file",
+   "signature": "temp_file(suffix?, prefix?, dir?)",
+   "category": "file"
+  },
+  {
+   "name": "test_case",
+   "description": "Register a test case",
+   "signature": "test_case(name, fn)",
+   "category": "test"
+  },
+  {
+   "name": "test_case_skip",
+   "description": "Register a skipped test",
+   "signature": "test_case_skip(name, fn?)",
+   "category": "test"
+  },
+  {
+   "name": "test_count",
+   "description": "Count registered tests",
+   "signature": "test_count()",
+   "category": "test"
+  },
+  {
+   "name": "test_end_suite",
+   "description": "End current test suite",
+   "signature": "test_end_suite()",
+   "category": "test"
+  },
+  {
+   "name": "test_reset",
+   "description": "Clear all registered tests",
+   "signature": "test_reset()",
+   "category": "test"
+  },
+  {
+   "name": "test_suite",
+   "description": "Start a test suite",
+   "signature": "test_suite(name)",
+   "category": "test"
+  },
+  {
+   "name": "time",
+   "description": "Unix timestamp",
+   "signature": "time()",
+   "category": "time"
+  },
+  {
+   "name": "to_claude_parts",
+   "description": "Convert MediaParts to Claude content format",
+   "signature": "to_claude_parts(parts)",
+   "category": "media"
+  },
+  {
+   "name": "to_gemini_parts",
+   "description": "Convert MediaParts to Gemini content format",
+   "signature": "to_gemini_parts(parts)",
+   "category": "media"
+  },
+  {
+   "name": "to_openai_parts",
+   "description": "Convert MediaParts to OpenAI content format",
+   "signature": "to_openai_parts(parts)",
+   "category": "media"
+  },
+  {
+   "name": "tokenize",
+   "description": "Tokenize text",
+   "signature": "tokenize(text)",
+   "category": "string"
+  },
+  {
+   "name": "toml_load",
+   "description": "Load TOML from file",
+   "signature": "toml_load(path)",
+   "category": "data"
+  },
+  {
+   "name": "toml_parse",
+   "description": "Parse TOML",
+   "signature": "toml_parse(text)",
+   "category": "data"
+  },
+  {
+   "name": "toml_save",
+   "description": "Save TOML to file",
+   "signature": "toml_save(path, value)",
+   "category": "data"
+  },
+  {
+   "name": "toml_stringify",
+   "description": "Stringify to TOML",
+   "signature": "toml_stringify(value)",
+   "category": "data"
+  },
+  {
+   "name": "trace_off",
+   "description": "Disable execution tracing",
+   "signature": "trace_off()",
+   "category": "debug"
+  },
+  {
+   "name": "trace_on",
+   "description": "Enable execution tracing",
+   "signature": "trace_on()",
+   "category": "debug"
+  },
+  {
+   "name": "trace_value_consumers",
+   "description": "Trace the consumers of data produced by a message",
+   "signature": "trace_value_consumers(message_uuid)",
+   "category": "debug"
+  },
+  {
+   "name": "trace_value_origin",
+   "description": "Trace the origin of data consumed by a message",
+   "signature": "trace_value_origin(message_uuid)",
+   "category": "debug"
+  },
+  {
+   "name": "trim_prefix",
+   "description": "Remove prefix",
+   "signature": "trim_prefix(s, prefix)",
+   "category": "string"
+  },
+  {
+   "name": "trim_suffix",
+   "description": "Remove suffix",
+   "signature": "trim_suffix(s, suffix)",
+   "category": "string"
+  },
+  {
+   "name": "type",
+   "description": "Type name",
+   "signature": "type(value)",
+   "category": "core"
+  },
+  {
+   "name": "unique",
+   "description": "Remove duplicates",
+   "signature": "unique(lst)",
+   "category": "collection"
+  },
+  {
+   "name": "unpin_message",
+   "description": "Unpin a previously pinned message",
+   "signature": "unpin_message(uuid)",
+   "category": "context"
+  },
+  {
+   "name": "upper",
+   "description": "Uppercase string",
+   "signature": "upper(s)",
+   "category": "string"
+  },
+  {
+   "name": "url_build",
+   "description": "Build URL",
+   "signature": "url_build(scheme, host, path?, query?)",
+   "category": "network"
+  },
+  {
+   "name": "url_decode",
+   "description": "URL decode",
+   "signature": "url_decode(s)",
+   "category": "network"
+  },
+  {
+   "name": "url_encode",
+   "description": "URL encode",
+   "signature": "url_encode(s)",
+   "category": "network"
+  },
+  {
+   "name": "url_parse",
+   "description": "Parse URL",
+   "signature": "url_parse(url)",
+   "category": "network"
+  },
+  {
+   "name": "uuid_from_string",
+   "description": "Parse UUID from string",
+   "signature": "uuid_from_string(s)",
+   "category": "crypto"
+  },
+  {
+   "name": "uuid_generate",
+   "description": "Generate UUID",
+   "signature": "uuid_generate()",
+   "category": "crypto"
+  },
+  {
+   "name": "uuid_nil",
+   "description": "Return nil UUID",
+   "signature": "uuid_nil()",
+   "category": "crypto"
+  },
+  {
+   "name": "validate_output",
+   "description": "Validate output against contract (json/text/schema)",
+   "signature": "validate_output(output, contract)",
+   "category": "debug"
+  },
+  {
+   "name": "values",
+   "description": "Get dict values",
+   "signature": "values(dict)",
+   "category": "collection"
+  },
+  {
+   "name": "variance",
+   "description": "Variance",
+   "signature": "variance(numbers, population?)",
+   "category": "math"
+  },
+  {
+   "name": "walk_dir",
+   "description": "Walk directory tree",
+   "signature": "walk_dir(path)",
+   "category": "file"
+  },
+  {
+   "name": "web_fetch",
+   "description": "Fetch web page content",
+   "signature": "web_fetch(url)",
+   "category": "tools"
+  },
+  {
+   "name": "web_search",
+   "description": "Search the web",
+   "signature": "web_search(query, limit?)",
+   "category": "tools"
+  },
+  {
+   "name": "word_count",
+   "description": "Count word frequencies",
+   "signature": "word_count(text)",
+   "category": "string"
+  },
+  {
+   "name": "working_memory_clear",
+   "description": "Clear all working memory",
+   "signature": "working_memory_clear()",
+   "category": "context"
+  },
+  {
+   "name": "working_memory_get",
+   "description": "Read working memory contents",
+   "signature": "working_memory_get(key?)",
+   "category": "context"
+  },
+  {
+   "name": "working_memory_remove",
+   "description": "Remove a working memory entry",
+   "signature": "working_memory_remove(key, item?)",
+   "category": "context"
+  },
+  {
+   "name": "working_memory_set",
+   "description": "Set a working memory field",
+   "signature": "working_memory_set(key, value)",
+   "category": "context"
+  },
+  {
+   "name": "write_file",
+   "description": "Write to file",
+   "signature": "write_file(path, content)",
+   "category": "io"
+  },
+  {
+   "name": "xml_load",
+   "description": "Load XML from file",
+   "signature": "xml_load(path)",
+   "category": "data"
+  },
+  {
+   "name": "xml_parse",
+   "description": "Parse XML",
+   "signature": "xml_parse(text)",
+   "category": "data"
+  },
+  {
+   "name": "xml_save",
+   "description": "Save XML to file",
+   "signature": "xml_save(path, value, root?)",
+   "category": "data"
+  },
+  {
+   "name": "xml_stringify",
+   "description": "Stringify to XML",
+   "signature": "xml_stringify(value, root?)",
+   "category": "data"
+  },
+  {
+   "name": "yaml_load",
+   "description": "Load YAML from file",
+   "signature": "yaml_load(path)",
+   "category": "data"
+  },
+  {
+   "name": "yaml_parse",
+   "description": "Parse YAML",
+   "signature": "yaml_parse(text)",
+   "category": "data"
+  },
+  {
+   "name": "yaml_save",
+   "description": "Save YAML to file",
+   "signature": "yaml_save(path, value)",
+   "category": "data"
+  },
+  {
+   "name": "yaml_stringify",
+   "description": "Stringify to YAML",
+   "signature": "yaml_stringify(value)",
+   "category": "data"
+  },
+  {
+   "name": "zip",
+   "description": "Zip lists",
+   "signature": "zip(*lists)",
+   "category": "collection"
+  }
+ ],
+ "aliases": {
+  "CPU核心数": "cpu_count",
+  "Python版本": "python_version",
+  "base64编码": "base64_encode",
+  "base64解码": "base64_decode",
+  "csv保存": "csv_save",
+  "csv加载": "csv_load",
+  "csv序列化": "csv_stringify",
+  "csv解析": "csv_parse",
+  "hmac_sha256": "hmac_sha256",
+  "html反转义": "html_unescape",
+  "html文本": "html_text",
+  "html解析": "html_parse",
+  "html转义": "html_escape",
+  "html选择": "html_select",
+  "html链接": "html_links",
+  "http下载": "http_download",
+  "http删除": "http_delete",
+  "http发布": "http_post",
+  "http提交": "http_put",
+  "http获取": "http_get",
+  "json保存": "json_save",
+  "json加载": "json_load",
+  "json序列化": "json_stringify",
+  "json解析": "json_parse",
+  "md5": "md5",
+  "md提取标题": "markdown_extract_headings",
+  "md解析": "markdown_parse",
+  "md转html": "markdown_to_html",
+  "sha1": "sha1",
+  "sha256": "sha256",
+  "sha512": "sha512",
+  "toml保存": "toml_save",
+  "toml加载": "toml_load",
+  "toml序列化": "toml_stringify",
+  "toml解析": "toml_parse",
+  "xml保存": "xml_save",
+  "xml加载": "xml_load",
+  "xml序列化": "xml_stringify",
+  "xml解析": "xml_parse",
+  "yaml保存": "yaml_save",
+  "yaml加载": "yaml_load",
+  "yaml序列化": "yaml_stringify",
+  "yaml解析": "yaml_parse",
+  "上下文切片": "context_slice",
+  "上下文占用率": "context_usage",
+  "上下文统计": "context_stats",
+  "中位数": "median",
+  "临时文件": "temp_file",
+  "临时目录": "temp_dir",
+  "主机名": "hostname",
+  "从位置查找": "find_from",
+  "休眠": "sleep",
+  "众数": "mode",
+  "余弦": "cos",
+  "保存媒体": "save_media",
+  "修补文件": "patch_file",
+  "值": "values",
+  "光标上移": "stream_cursor_up",
+  "光标下移": "stream_cursor_down",
+  "全部满足": "every",
+  "关闭跟踪": "trace_off",
+  "内存信息": "memory_info",
+  "写文件": "write_file",
+  "分割": "split",
+  "分叉上下文": "fork_context",
+  "分块": "chunk",
+  "分析代码": "analyze_code",
+  "分词": "tokenize",
+  "列出会话": "list_sessions",
+  "列出技能引用": "list_skill_references",
+  "列出目录": "list_dir",
+  "列出调用": "list_invocations",
+  "列表": "list",
+  "创建目录": "mkdir",
+  "删除会话": "delete_session",
+  "删除当前会话": "delete_current_session",
+  "删除文件": "delete_file",
+  "删除消息": "delete_message",
+  "删除目录": "delete_dir",
+  "删除键": "remove_key",
+  "前置所有": "before_all",
+  "前置每个": "before_each",
+  "剔除": "omit",
+  "加载技能": "load_skill",
+  "包含": "contains",
+  "包含键": "has_key",
+  "压缩": "zip",
+  "压缩上下文": "compress_context",
+  "压缩回调": "on_compression",
+  "压缩审计": "get_compression_audit",
+  "去前缀": "trim_prefix",
+  "去后缀": "trim_suffix",
+  "去标点": "remove_punctuation",
+  "去重": "unique",
+  "去除空白": "strip",
+  "反余弦": "acos",
+  "反正切": "atan",
+  "反正切二": "atan2",
+  "反正弦": "asin",
+  "反转": "reverse",
+  "取消大模型调用": "cancel_llm_call",
+  "取消所有大模型调用": "cancel_all_llm_calls",
+  "取消钉住": "unpin_message",
+  "右填充": "pad_right",
+  "合并": "merge",
+  "后置所有": "after_all",
+  "后置每个": "after_each",
+  "向上取整": "ceil",
+  "向下取整": "floor",
+  "命令行参数": "get_cli_args",
+  "四舍五入": "round",
+  "回放会话": "replay_transcript",
+  "回放完整会话": "replay_full_session",
+  "复制文件": "copy_file",
+  "多行输入": "multiline_input",
+  "失败": "fail",
+  "媒体": "media",
+  "媒体base64": "media_base64",
+  "媒体类型": "media_type",
+  "媒体转base64": "media_to_base64",
+  "子串": "substring",
+  "字典": "dict",
+  "字符": "chr",
+  "字符串": "str",
+  "它": "it",
+  "安全检查": "check_security",
+  "定向压缩": "compress_context_target",
+  "对数": "log",
+  "对数二": "log2",
+  "对数十": "log10",
+  "导入上下文": "import_context",
+  "导出上下文": "export_context",
+  "导出会话": "export_transcript",
+  "居中": "center",
+  "展平": "flatten",
+  "左填充": "pad_left",
+  "已钉住消息": "list_pinned_messages",
+  "布尔": "bool",
+  "幂": "pow",
+  "平均值": "mean",
+  "平方根": "sqrt",
+  "年": "date_year",
+  "开启跟踪": "trace_on",
+  "开头是": "startswith",
+  "开始计时": "stopwatch_start",
+  "异步执行": "exec_async",
+  "归约": "reduce",
+  "当前大模型调用id": "current_llm_call_id",
+  "当前时间": "time",
+  "当前时间戳": "now",
+  "恢复上下文": "restore_context",
+  "恢复会话": "resume_session",
+  "打印": "print",
+  "执行": "exec",
+  "执行命令": "shell_exec",
+  "指数": "exp",
+  "排序": "sort",
+  "描述": "describe",
+  "提取邮箱": "extract_emails",
+  "提取链接": "extract_urls",
+  "插值": "interpolate",
+  "插入消息": "insert_message",
+  "搜索上下文": "search_context",
+  "搜索会话": "search_transcript",
+  "搜索内容": "grep_files",
+  "操作系统": "platform",
+  "整数": "int",
+  "文件修改时间": "file_modified",
+  "文件哈希": "hash_file",
+  "文件大小": "file_size",
+  "断言不等": "assert_not_equal",
+  "断言为真": "assert_true",
+  "断言包含": "assert_contains",
+  "断言抛出": "assert_throws",
+  "断言相等": "assert_equal",
+  "方差": "variance",
+  "日": "date_day",
+  "日志严重": "log_critical",
+  "日志信息": "log_info",
+  "日志写入文件": "log_to_file",
+  "日志警告": "log_warn",
+  "日志设置级别": "log_set_level",
+  "日志调试": "log_debug",
+  "日志错误": "log_error",
+  "日期": "date",
+  "日期时间": "datetime",
+  "日期格式化": "date_format",
+  "日期相减": "date_diff",
+  "日期相加": "date_add",
+  "日期解析": "date_parse",
+  "星期": "date_weekday",
+  "映射": "map",
+  "是否文件": "path_is_file",
+  "是否目录": "path_is_dir",
+  "是图片": "is_image",
+  "是媒体": "is_media",
+  "是视频": "is_video",
+  "是音频": "is_audio",
+  "替换": "replace",
+  "替换消息": "replace_message",
+  "最大值": "max",
+  "最小值": "min",
+  "月": "date_month",
+  "期望": "expect",
+  "条件查找": "find_if",
+  "构造集合": "make_set",
+  "查找": "find",
+  "查找文件": "glob_files",
+  "查找索引": "index",
+  "标准差": "stddev",
+  "格式化浮点": "format_float",
+  "正切": "tan",
+  "正则分割": "regex_split",
+  "正则匹配": "regex_match",
+  "正则搜索": "regex_search",
+  "正则替换": "regex_replace",
+  "正则查找全部": "regex_findall",
+  "正则测试": "regex_test",
+  "正弦": "sin",
+  "求和": "sum",
+  "求积": "product",
+  "洗牌": "shuffle",
+  "流式打印": "stream_print",
+  "流式清除": "stream_clear",
+  "测试套件": "test_suite",
+  "测试用例": "test_case",
+  "测试计数": "test_count",
+  "浮点": "float",
+  "清理会话": "cleanup_sessions",
+  "清空工作记忆": "working_memory_clear",
+  "清除上下文": "clear_context",
+  "溢出回调": "on_context_overflow",
+  "环境变量列表": "env_list",
+  "环境变量删除": "env_delete",
+  "环境变量获取": "env_get",
+  "环境变量设置": "env_set",
+  "生成UUID": "uuid_generate",
+  "百分位": "percentile",
+  "相似度": "similarity",
+  "相关系数": "correlation",
+  "码点": "ord",
+  "移动文件": "move_file",
+  "移除工作记忆": "working_memory_remove",
+  "空UUID": "uuid_nil",
+  "类型": "type",
+  "类型判断": "isinstance",
+  "系统版本": "platform_version",
+  "终止进程": "kill",
+  "经过时间": "stopwatch_elapsed",
+  "结尾是": "endswith",
+  "结束测试套件": "test_end_suite",
+  "绝对值": "abs",
+  "统计最大": "stats_max",
+  "统计最小": "stats_min",
+  "编辑距离": "levenshtein",
+  "网页搜索": "web_search",
+  "网页获取": "web_fetch",
+  "范围": "range",
+  "获取": "get",
+  "获取上下文配置": "get_context_config",
+  "获取会话id": "get_session_id",
+  "获取会话元数据": "get_session_meta",
+  "获取会话树": "get_spawn_tree",
+  "获取会话目录": "get_session_dir",
+  "获取子会话": "get_spawned_sessions",
+  "获取工作记忆": "working_memory_get",
+  "获取思考模式": "get_thinking_mode",
+  "获取推理强度": "get_reasoning_effort",
+  "获取描述": "get_description",
+  "获取提供商": "get_provider",
+  "获取最大tokens": "get_max_tokens",
+  "获取最大轮次": "get_max_turns",
+  "获取模型": "get_model",
+  "获取消息": "get_message",
+  "获取温度": "get_temperature",
+  "获取调用": "get_invocation",
+  "获取调用树": "get_invocation_tree",
+  "获取跟踪": "get_trace",
+  "规范化空白": "normalize_whitespace",
+  "解析UUID": "uuid_from_string",
+  "解析命令行参数": "parse_cli_args",
+  "计数": "count",
+  "计时分段": "stopwatch_lap",
+  "计算表达式": "calculate",
+  "设置上下文窗口": "set_context_window",
+  "设置会话目录": "set_session_dir",
+  "设置压缩策略": "set_compression_strategy",
+  "设置工作记忆": "working_memory_set",
+  "设置工作记忆开关": "set_working_memory_enabled",
+  "设置思考模式": "set_thinking_mode",
+  "设置推理强度": "set_reasoning_effort",
+  "设置最大tokens": "set_max_tokens",
+  "设置最大轮次": "set_max_turns",
+  "设置测试超时": "set_test_timeout",
+  "设置温度": "set_temperature",
+  "设置缓存感知": "set_cache_aware",
+  "设置键": "set_key",
+  "词频统计": "word_count",
+  "读文件": "read_file",
+  "调用路径": "invocation_path",
+  "调试": "debug",
+  "质量报告": "quality_report",
+  "质量评分": "quality_score",
+  "路径基础名": "path_basename",
+  "路径存在": "path_exists",
+  "路径拼接": "path_join",
+  "路径目录名": "path_dirname",
+  "跳过它": "it_skip",
+  "跳过测试用例": "test_case_skip",
+  "转Claude格式": "to_claude_parts",
+  "转Gemini格式": "to_gemini_parts",
+  "转OpenAI格式": "to_openai_parts",
+  "转大写": "upper",
+  "转小写": "lower",
+  "输入": "input",
+  "过滤": "filter",
+  "运行测试": "run_tests",
+  "运行测试json": "run_tests_json",
+  "进度条": "progress_bar",
+  "进程ID": "pid",
+  "连接": "join",
+  "追加文件": "append_file",
+  "退出": "exit",
+  "选取": "pick",
+  "递归创建目录": "mkdir_p",
+  "遍历目录": "walk_dir",
+  "邮箱选择": "mailbox_select",
+  "部分满足": "some",
+  "释放会话锁": "release_session_lock",
+  "重复": "repeat",
+  "重置测试": "test_reset",
+  "钉住列表": "list_pinned_messages",
+  "钉住消息": "pin_message",
+  "链接构建": "url_build",
+  "链接编码": "url_encode",
+  "链接解析": "url_parse",
+  "链接解码": "url_decode",
+  "键": "keys",
+  "键值对": "entries",
+  "长度": "len",
+  "随机": "random",
+  "随机Base64": "random_base64",
+  "随机十六进制": "random_hex",
+  "随机字节": "random_bytes",
+  "随机抽样": "sample",
+  "随机整数": "randint",
+  "随机选择": "choice",
+  "集合交": "set_intersection",
+  "集合包含": "set_has",
+  "集合差": "set_difference",
+  "集合并": "set_union"
+ }
+}

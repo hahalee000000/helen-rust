@@ -1,0 +1,12 @@
+import std.core.*
+import std.data.*
+
+main {
+    print(json_parse("{\"a\": 1, \"b\": [1, 2, 3]}"))
+    print(json_stringify({"a": 1, "b": "x"}))
+    print(json_parse("[1, 2, 3]"))
+    print(json_stringify([1, 2.5, "x", true, null]))
+    print(json_parse_lenient("```json\n{\"a\": 1}\n```"))
+    print(csv_parse("a,b,c\n1,2,3"))
+    print(csv_stringify([["a", "b"], ["1", "2"]]))
+}

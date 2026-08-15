@@ -15,6 +15,18 @@ num-bigint.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true
 serde_json.workspace = true
+csv.workspace = true
+digest.workspace = true
+ureq.workspace = true
+regex.workspace = true
+base64.workspace = true
+chrono.workspace = true
+rand.workspace = true
+md-5.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 ryu = { workspace = true }

@@ -1,0 +1,12 @@
+import std.core.*
+import std.path.*
+import std.io.*
+
+main {
+    print(path_join("a", "b", "c"))
+    print(path_basename("/a/b/file.txt"))
+    print(path_dirname("/a/b/file.txt"))
+    print(path_exists("."))
+    print(path_is_dir("."))
+    print(path_is_file("."))
+}
