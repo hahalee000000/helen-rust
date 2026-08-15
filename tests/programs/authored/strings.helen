@@ -1,0 +1,13 @@
+import std.core.*
+import std.str.*
+
+main {
+    let a = "Hello"
+    let b = "World"
+    print(a + ", " + b)
+    print(len(a))
+    print(upper(a))
+    print(lower("ABC"))
+    print(substring(a, 1, 3))
+    print("a\tb\nc")
+}

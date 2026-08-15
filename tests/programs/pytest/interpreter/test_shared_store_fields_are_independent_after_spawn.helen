@@ -1,0 +1,33 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared store State {
+    let value: int = 10
+    fn set_value(v: int) { value = v }
+    fn get_value(): int { return value }
+}
+
+agent Modifier(reply: Channel) {
+    main {
+        State.set_value(999)
+        reply.send({"modified_value": State.get_value()})
+        reply.close()
+    }
+}
+
+main {
+    let original = State.get_value()
+
+    let mb = spawn Modifier()
+    let result = mb.receive()
+
+    let after_spawn = State.get_value()
+
+    print(original)
+    print(result["modified_value"])
+    print(after_spawn)
+}

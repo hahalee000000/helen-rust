@@ -1,0 +1,35 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+agent Probe(mode: str, reply: Channel) {
+    main {
+        if mode == "write" {
+            insert_message("user", "The secret code is BANANA_42")
+            let sid = get_session_id()
+            reply.send({"sid": sid})
+            reply.close()
+        } else {
+            let sid = get_session_id()
+            let found = search_context("BANANA_42")
+            reply.send({"sid": sid, "matches": found["total_matches"]})
+            reply.close()
+        }
+    }
+}
+
+main {
+    let mb1 = spawn Probe("write")
+    let r1 = mb1.receive()
+    let sid1 = r1["sid"]
+
+    let mb2 = spawn Probe("read") resume(sid1)
+    let r2 = mb2.receive()
+
+    print(sid1)
+    print(r2["sid"])
+    print(r2["matches"])
+}

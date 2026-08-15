@@ -1,0 +1,43 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import std.context.*
+
+shared store StatsBox {
+    fn describe(): str {
+        try {
+            let s = context_stats()
+            return "count=" + str(s["message_count"])
+        } catch RuntimeError err {
+            return "ERROR:" + err.message
+        } catch {
+            return "ERROR:unknown"
+        }
+    }
+}
+
+fn read_stats(): str {
+    return StatsBox.describe()
+}
+
+agent Worker(reply: Channel) {
+    description "Spawned worker"
+    functions {
+        fn do_work(): str {
+            return read_stats()
+        }
+    }
+    main {
+        reply.send(do_work())
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let result = mb.receive()
+    print(result)
+}

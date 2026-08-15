@@ -1,0 +1,22 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import "math" as Math
+
+agent Worker(reply: Channel) {
+    main {
+        // Just verify spawn works, not necessarily module access
+        reply.send({"status": "spawned_ok"})
+        reply.close()
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["status"])
+}

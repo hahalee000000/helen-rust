@@ -1,0 +1,5 @@
+import std.core.*
+
+main {
+    print(undeclared_variable_name)
+}

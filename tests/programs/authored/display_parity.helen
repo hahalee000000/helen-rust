@@ -1,0 +1,9 @@
+import std.core.*
+
+main {
+    print([1, "a", true, null])
+    print({"a": 1, "b": [1, 2]})
+    print(true)
+    print(null)
+    print([[1, 2], [3, 4]])
+}

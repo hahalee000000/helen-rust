@@ -1,0 +1,12 @@
+import std.core.*
+import std.math.*
+
+main {
+    print(7 / 2)
+    print(1.5 + 2.25)
+    print(1e20)
+    print(0.00001)
+    print(pow(2, 10))
+    print(round(3.7))
+    print(sqrt(16))
+}

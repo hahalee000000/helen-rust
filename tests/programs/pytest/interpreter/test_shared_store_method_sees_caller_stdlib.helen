@@ -1,0 +1,23 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import std.context.*
+
+shared store Stats {
+    fn get_count(): int {
+        let s = context_stats()
+        return s["message_count"]
+    }
+}
+
+fn get_count_via_store(): int {
+    return Stats.get_count()
+}
+
+main {
+    print(str(get_count_via_store()))
+}

@@ -1,0 +1,27 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+agent Probe(reply: Channel) {
+    main {
+        let sid = get_session_id()
+        reply.send({"sid": sid})
+        reply.close()
+    }
+}
+
+main {
+    let mb1 = spawn Probe()
+    let r1 = mb1.receive()
+    let sid1 = r1["sid"]
+
+    let mb2 = spawn Probe() resume(sid1)
+    let r2 = mb2.receive()
+    let sid2 = r2["sid"]
+
+    print(sid1)
+    print(sid2)
+}

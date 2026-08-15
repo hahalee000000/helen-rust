@@ -1,0 +1,4 @@
+# Pin the toolchain. Stable is sufficient for the entire project
+# (no nightly features required by design).
+[toolchain]
+channel = "stable"

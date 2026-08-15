@@ -1,0 +1,17 @@
+import std.core.*
+
+fn add(a: int, b: int): int {
+    return a + b
+}
+
+fn factorial(n: int): int {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+main {
+    print(add(2, 3))
+    print(factorial(10))
+}

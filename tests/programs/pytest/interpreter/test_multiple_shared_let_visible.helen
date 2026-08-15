@@ -1,0 +1,29 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared let val1 = "first"
+shared let val2 = 42
+shared let val3 = true
+
+agent Worker(reply: Channel) {
+    main {
+        reply.send({
+            "v1": val1,
+            "v2": val2,
+            "v3": val3
+        })
+        reply.close()
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["v1"])
+    print(r["v2"])
+    print(r["v3"])
+}

@@ -1,0 +1,29 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared store Counter {
+    let count: int = 0
+    fn increment() { count = count + 1 }
+    fn reset() { count = 0 }
+    fn get(): int { return count }
+}
+
+agent Worker(reply: Channel) {
+    main {
+        Counter.increment()
+        Counter.increment()
+        Counter.reset()
+        reply.send({"count": Counter.get()})
+        reply.close()
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["count"])
+}

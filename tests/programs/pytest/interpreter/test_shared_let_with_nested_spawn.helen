@@ -1,0 +1,30 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared let depth = 0
+
+agent Level2(reply: Channel) {
+    main {
+        reply.send({"depth": depth})
+        reply.close()
+    }
+}
+
+agent Level1(reply: Channel) {
+    main {
+        let mb2 = spawn Level2()
+        let r2 = mb2.receive()
+        reply.send(r2)
+        reply.close()
+    }
+}
+
+main {
+    let mb1 = spawn Level1()
+    let r1 = mb1.receive()
+    print(r1["depth"])
+}

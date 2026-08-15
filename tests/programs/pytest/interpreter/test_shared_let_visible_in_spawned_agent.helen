@@ -1,0 +1,21 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared let shared_value = "hello-from-parent"
+
+agent Worker(reply: Channel) {
+    main {
+        reply.send({"value": shared_value})
+        reply.close()
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["value"])
+}

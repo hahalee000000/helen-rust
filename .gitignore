@@ -20,3 +20,4 @@ venv/
 
 # Local state
 *.local
+.helen/

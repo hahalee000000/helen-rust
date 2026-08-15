@@ -1,0 +1,12 @@
+import std.core.*
+import std.dict.*
+
+main {
+    let m = {"a": 1, "b": 2}
+    print(m["a"])
+    m["c"] = 3
+    print(m)
+    let mixed = {"a": 1, 2: "two", true: 3}
+    print(mixed[2])
+    print(len(mixed))
+}

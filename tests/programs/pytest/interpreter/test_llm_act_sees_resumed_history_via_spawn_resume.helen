@@ -1,0 +1,18 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+agent Worker(reply: Channel) {
+    main {
+        let r = llm act "what was the secret code?"
+        reply.send(r)
+        reply.close()
+    }
+}
+main {
+    let mb = spawn Worker() resume("session_child_resume")
+    print(mb.receive())
+}

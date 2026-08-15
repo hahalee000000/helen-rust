@@ -1,0 +1,18 @@
+{"file": "arithmetic.helen", "stdout": "9\n5\n14\n3.5\n1\n2\n-2\n-3.5\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "bigint.helen", "stdout": "199999999999999999999999998\n123456789012345678901234567891\n1234567890123456789012345678900\n199999999999999999999999998\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "closures.helen", "stdout": "42\n15\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "control_flow.helen", "stdout": "big\n0\n1\n2\n0\n1\n2\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "dicts.helen", "stdout": "1\n{'a': 1, 'b': 2, 'c': 3}\ntwo\n3\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "display_parity.helen", "stdout": "[1, 'a', True, None]\n{'a': 1, 'b': [1, 2]}\ntrue\nNone\n[[1, 2], [3, 4]]\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "error_lex.helen", "stdout": "", "stderr": "E0301: Expected expression, got RIGHT_BRACE\nE0301: Expected '}' after main block.", "exit_code": 1, "error_classes": []}
+{"file": "error_runtime.helen", "stdout": "", "stderr": "RuntimeError: RuntimeError: intentional runtime failure\n", "exit_code": 3, "error_classes": ["RuntimeError"]}
+{"file": "error_semantic.helen", "stdout": "", "stderr": "E0332: undeclared variable 'undeclared_variable_name'", "exit_code": 2, "error_classes": []}
+{"file": "exceptions.helen", "stdout": "caught: RuntimeError: at tests/programs/authored/exceptions.helen:5:9-52 cannot divide by zero\ndone\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "float_precision.helen", "stdout": "3.5\n3.75\n1e+20\n1e-05\n1024.0\n4.0\n4.0\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "functions.helen", "stdout": "5\n3628800\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "hello.helen", "stdout": "hello, world\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "lists.helen", "stdout": "[1, 2, 3, 4]\n4\n1\n4\n[0, 1, 2, 3, 4]\n[]\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "logical_ops.helen", "stdout": "false\ntrue\nfalse\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "operator_precedence.helen", "stdout": "14\n20\n5\n8.0\ntrue\ntrue\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "strings.helen", "stdout": "Hello, World\n5\nHELLO\nabc\nel\na\tb\nc\n", "stderr": "", "exit_code": 0, "error_classes": []}
+{"file": "type_conversion.helen", "stdout": "int\nstr\nlist\nfloat\nbool\nNoneType\n42\n42\n3.5\nfalse\n", "stderr": "", "exit_code": 0, "error_classes": []}

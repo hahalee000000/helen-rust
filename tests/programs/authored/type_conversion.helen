@@ -1,0 +1,14 @@
+import std.core.*
+
+main {
+    print(type(1))
+    print(type("abc"))
+    print(type([1, 2]))
+    print(type(1.5))
+    print(type(true))
+    print(type(null))
+    print(int("42"))
+    print(str(42))
+    print(float("3.5"))
+    print(bool(0))
+}

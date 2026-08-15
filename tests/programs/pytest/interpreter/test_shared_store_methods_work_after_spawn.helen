@@ -1,0 +1,38 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared store Counter {
+    let count: int = 0
+    fn increment() { count = count + 1 }
+    fn get(): int { return count }
+}
+
+agent Worker(reply: Channel) {
+    main {
+        try {
+            Counter.increment()
+            Counter.increment()
+            let count = Counter.get()
+            reply.send({"status": "ok", "count": count})
+        } catch RuntimeError err {
+            reply.send({"status": "error", "msg": err.message})
+        }
+        reply.close()
+    }
+}
+
+main {
+    Counter.increment()
+    let parent_count = Counter.get()
+
+    let mb = spawn Worker()
+    let r = mb.receive()
+
+    print(parent_count)
+    print(r["status"])
+    print(r["count"])
+}

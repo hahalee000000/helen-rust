@@ -1,0 +1,18 @@
+import std.core.*
+
+fn risky(x: int): int {
+    if x == 0 {
+        throw RuntimeError("cannot divide by zero")
+    }
+    return 100 / x
+}
+
+main {
+    try {
+        let r = risky(0)
+        print(r)
+    } catch RuntimeError err {
+        print("caught: " + str(err))
+    }
+    print("done")
+}

@@ -1,0 +1,33 @@
+# helen-rust — Rust reimplementation of the Helen programming language
+# Workspace root. All phases (M0–M14) build crates under crates/.
+[workspace]
+resolver = "2"
+members = [
+  "crates/helen-core",
+  "crates/helen-parser",
+  "crates/helen-semantic",
+  "crates/helen-interpreter",
+  "crates/helen-stdlib",
+  "crates/helen-runtime",
+  "crates/helen-rust",   # installable crates.io package "helen-rust" (binary: helen)
+  "crates/helen-lsp",
+  # "crates/helen-ffi",             # PyO3, feature-gated; added in M10
+  # "crates/helen-python-bridge",   # maturin cdylib; added in M11
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["helen-rust contributors"]
+repository = "https://github.com/hahalee000000/helen-rust"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+indexmap = "2"
+num-bigint = "0.4"
+num-traits = "0.2"
+thiserror = "2"
+anyhow = "1"
+pyo3 = { version = "0.23", features = ["abi3-py39"] }  # unused until M10/M11

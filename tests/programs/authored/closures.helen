@@ -1,0 +1,11 @@
+import std.core.*
+
+main {
+    let double = fn(x: int): int { return x * 2 }
+    print(double(21))
+    let make_adder = fn(n: int) {
+        return fn(x: int): int { return x + n }
+    }
+    let add5 = make_adder(5)
+    print(add5(10))
+}

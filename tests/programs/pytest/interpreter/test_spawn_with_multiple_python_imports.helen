@@ -1,0 +1,22 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import "math" as Math
+import "os" as Os
+
+agent Worker(reply: Channel) {
+    main {
+        reply.send({"status": "success"})
+        reply.close()
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["status"])
+}

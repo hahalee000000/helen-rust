@@ -1,0 +1,10 @@
+import std.core.*
+
+main {
+    print(2 + 3 * 4)
+    print((2 + 3) * 4)
+    print(10 - 2 - 3)
+    print(20 / 5 * 2)
+    print(1 + 2 == 3)
+    print(1 < 2 && 3 < 4)
+}

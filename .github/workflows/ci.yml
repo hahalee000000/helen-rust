@@ -1,0 +1,69 @@
+# CI — Rust checks + differential conformance against the Python reference.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust build / lint / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ hashFiles('Cargo.toml', 'crates/**/Cargo.toml') }}
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+      - name: cargo clippy -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo test
+        run: cargo test --workspace
+
+  conformance:
+    name: Conformance vs Python reference
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout Python reference interpreter (public repo)
+        uses: actions/checkout@v4
+        with:
+          repository: hahalee000000/helen
+          path: python-helen
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install reference interpreter + test tooling
+        run: |
+          pip install -e ./python-helen
+          pip install pytest
+      - name: Conformance contract tests
+        env:
+          HELEN_SRC: ${{ github.workspace }}/python-helen
+        run: python -m pytest tests/conformance/ -q
+      - name: Differential pass over authored corpus
+        env:
+          HELEN_SRC: ${{ github.workspace }}/python-helen
+        run: |
+          # M0: no candidate binary yet — diff.sh prints reference output and
+          # exits 2 (SKIP). This step exercises the harness end-to-end.
+          set +e
+          failed=0
+          for f in tests/programs/authored/*.helen; do
+            scripts/diff.sh "$f" >/dev/null 2>&1
+            rc=$?
+            if [[ $rc -eq 2 ]]; then echo "SKIP  $(basename "$f")"; else echo "FAIL  $(basename "$f") (rc=$rc)"; failed=1; fi
+          done
+          echo "corpus sweep complete (expect all SKIP until candidate lands)"
+          exit $failed

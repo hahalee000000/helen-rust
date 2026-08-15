@@ -1,0 +1,29 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+shared let counter = 10
+
+agent Modifier(reply: Channel) {
+    main {
+        counter = 999
+        reply.send({"modified": counter})
+        reply.close()
+    }
+}
+
+main {
+    let original = counter
+
+    let mb = spawn Modifier()
+    let r = mb.receive()
+
+    let after_spawn = counter
+
+    print(original)
+    print(r["modified"])
+    print(after_spawn)
+}
