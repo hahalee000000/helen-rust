@@ -600,9 +600,12 @@ impl Interpreter {
     pub fn interpret(&mut self, program: &Program) -> Result<Option<Value>, ExceptionValue> {
         let flow = self.execute_stmts(&program.statements)?;
         Ok(match flow {
-            Flow::Return(v) => v,
+            Flow::Return(v) => v.filter(|v| !matches!(v, Value::Null)),
             Flow::Break | Flow::Continue => None,
-            Flow::Normal(v) => v,
+            // Python's `null` literal IS None — the interpret boundary must
+            // collapse Value::Null → None for exact reference parity
+            // (verified: `main { null }` → None in the Python reference).
+            Flow::Normal(v) => v.filter(|v| !matches!(v, Value::Null)),
         })
     }
 
@@ -623,8 +626,8 @@ impl Interpreter {
     pub fn execute_stmt(&mut self, stmt: &Stmt) -> Result<Flow, ExceptionValue> {
         match stmt {
             Stmt::VarDecl(v) => {
-                self.visit_var_decl(v)?;
-                Ok(Flow::Normal(None))
+                let value = self.visit_var_decl(v)?;
+                Ok(Flow::Normal(value))
             }
             Stmt::If(s) => self.visit_if(s),
             Stmt::For(s) => self.visit_for(s),
@@ -640,8 +643,11 @@ impl Interpreter {
                 Ok(Flow::Return(value))
             }
             Stmt::Expr(e) => {
-                self.eval_expr(&e.expression)?;
-                Ok(Flow::Normal(None))
+                // HLD 3.5.1: an expression statement yields its value to the
+                // enclosing flow (Python `visit_expr_stmt` returns the value,
+                // so `interpret(main { 42 })` is `42`). M13 Tier C caught this.
+                let v = self.eval_expr(&e.expression)?;
+                Ok(Flow::Normal(Some(v)))
             }
             Stmt::FunctionDecl(f) => {
                 self.visit_function_decl(f);
@@ -1072,7 +1078,7 @@ impl Interpreter {
     // Variable / statements
     // ------------------------------------------------------------------
 
-    fn visit_var_decl(&mut self, v: &VarDecl) -> Result<(), ExceptionValue> {
+    fn visit_var_decl(&mut self, v: &VarDecl) -> Result<Option<Value>, ExceptionValue> {
         let is_const = !v.mutable;
         let is_lambda_init =
             matches!(&v.initializer, Some(e) if matches!(e.as_ref(), Expr::Lambda(_)));
@@ -1102,7 +1108,16 @@ impl Interpreter {
         if v.shared {
             self.shared_vars.insert(v.name.clone());
         }
-        Ok(())
+        Ok(Some(if v.initializer.is_some() {
+            // v1.45/HlD 3.5.1: `let` yields its initializer value to the
+            // enclosing flow (Python `visit_var_decl` returns the value).
+            self.environment
+                .borrow()
+                .get(&v.name)
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        }))
     }
 
     fn visit_if(&mut self, s: &IfStmt) -> Result<Flow, ExceptionValue> {
