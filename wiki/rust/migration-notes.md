@@ -175,3 +175,27 @@ semantic: scripts/diff-semantic.sh     -> 54/54
 conformance: python3 -m pytest tests/conformance/  -> 17/17
 git commit + push origin/main
 ```
+
+## M9 — MCP client lessons
+
+- **Process-global MCP registry**: Python `tools._mcp_registry` is module-global;
+  Rust uses `static MCP_REGISTRY: OnceLock<Mutex<Option<MCPToolRegistry>>>`.
+  Tests touching it MUST serialize (shared `with_mcp_clean` helper) or parallel
+  tests observe leaked MCP state ("Unknown tool" → "Unknown MCP tool").
+- **`pathlib` normalizes `./subdir`** in cwd resolution; Rust `Path::join` does
+  not — add a `normalize_path` (drop `CurDir`, pop on `ParentDir`) for parity.
+- **MCP `shutdown()` is best-effort**: set `is_running=false` FIRST, then the
+  `shutdown` RPC fails the `is_running` check and is swallowed — the server is
+  killed via process termination only. Mirror the quirk exactly.
+- **Crash behavior**: a server that exits immediately → initialize request times
+  out → wrapped as `MCPServerError("Failed to initialize MCP server 'X': Timeout
+  waiting for response from MCP server 'X'")` — verified byte-identical vs Python.
+- **Reader-thread design**: `ChildStdout` moves into the reader thread (BufReader
+  lines); responses dispatched to per-request `mpsc::Sender` keyed by id in an
+  `Arc<Mutex<HashMap>>`; `recv_timeout` implements the Python queue timeout.
+- **`Drop` for MCPClient**: calling `shutdown()` in Drop guards against leaked
+  child processes; the child `kill()`+`wait()` then join the reader thread.
+- **Integration point is `get_tool_schemas`/`dispatch_tool`**: MCP schemas are
+  appended (name-filtered) after built-ins; dispatch falls back to
+  `dispatch_mcp_tool`. `_ensure_mcp_initialized` reads `cwd/.mcp.json` lazily —
+  the same hook the agent tool loop hits on first tool resolution.
