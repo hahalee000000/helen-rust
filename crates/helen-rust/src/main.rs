@@ -112,6 +112,13 @@ fn run_json(stdout: &str, stderr: &str, exit_code: i64, error_classes: &[String]
 }
 
 fn run_mode(path: &str) {
+    #[cfg(feature = "python-ffi")]
+    {
+        // M10: install the Python FFI runtime (import hook + custom
+        // provider loader). Best-effort: a missing Python embedding should
+        // not prevent plain-Helen programs from running.
+        let _ = helen_ffi::install();
+    }
     let source = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {

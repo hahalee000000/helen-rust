@@ -1,0 +1,18 @@
+// examples/python_bridge/os_example.helen
+// M10: Python module attribute + method access via the FFI bridge.
+
+import std.core.*
+
+import "os" as os
+import "os.path" as osp
+
+main {
+    let cwd = os.getcwd()
+    print(cwd)                     // current working directory
+
+    let joined = osp.join("a", "b")
+    print(joined)                  // a/b (or a\b on Windows)
+
+    let sep = osp.sep
+    print(sep)                     // /
+}

@@ -119,6 +119,8 @@ pub enum Value {
     ChannelMethod(Box<ChannelMethodValue>),
     /// Read-only wrapper for reference types passed to agents (v1.12).
     ReadOnly(Rc<RefCell<Value>>),
+    /// A native (foreign-language) object — Python FFI objects etc. (M10).
+    Native(crate::native::NativeHandle),
 }
 
 impl Value {
@@ -141,7 +143,8 @@ impl Value {
             | Value::Channel(_)
             | Value::SharedStore(_)
             | Value::StoreMethod(_)
-            | Value::ChannelMethod(_) => true,
+            | Value::ChannelMethod(_)
+            | Value::Native(_) => true,
             // v1.12: ReadOnlyView delegates truthiness to underlying data.
             Value::ReadOnly(r) => r.borrow().truthy(),
         }
@@ -170,6 +173,7 @@ impl Value {
             Value::StoreMethod(_) => "SharedStoreMethod".into(),
             Value::ChannelMethod(_) => "method".into(),
             Value::ReadOnly(r) => r.borrow().type_name(),
+            Value::Native(n) => n.0.type_name(),
         }
     }
 
@@ -246,6 +250,8 @@ impl Value {
             Value::ChannelMethod(cm) => format!("<channel method {}.{}>", "endpoint", cm.name),
             // v1.12: ReadOnlyView stringifies as its underlying data.
             Value::ReadOnly(r) => r.borrow().python_str(),
+            // M10: native objects stringify via their Python `str()`.
+            Value::Native(n) => n.0.python_str(),
         }
     }
 
@@ -307,6 +313,8 @@ impl Value {
             Value::ChannelMethod(cm) => format!("<channel method {}.{}>", "endpoint", cm.name),
             // v1.12: ReadOnlyView repr wraps the data.
             Value::ReadOnly(r) => format!("ReadOnly({})", r.borrow().python_repr()),
+            // M10: native objects repr via their Python `repr()`.
+            Value::Native(n) => n.0.python_repr(),
         }
     }
 
@@ -519,6 +527,8 @@ impl PartialEq for Value {
             (Value::ReadOnly(a), Value::ReadOnly(b)) => *a.borrow() == *b.borrow(),
             (Value::ReadOnly(a), other) => *a.borrow() == *other,
             (other, Value::ReadOnly(b)) => *other == *b.borrow(),
+            // M10: native object identity (Python `is` — wrapper has no __eq__).
+            (Value::Native(a), Value::Native(b)) => std::sync::Arc::ptr_eq(&a.0, &b.0),
             _ => false,
         }
     }
@@ -633,6 +643,11 @@ impl Hash for Value {
             Value::ReadOnly(r) => {
                 0xFu8.hash(state);
                 r.borrow().hash(state);
+            }
+            // M10: native objects hash by identity (Python `id`).
+            Value::Native(n) => {
+                0x11u8.hash(state);
+                std::ptr::hash(std::sync::Arc::as_ptr(&n.0), state);
             }
         }
     }

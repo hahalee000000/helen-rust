@@ -1,0 +1,26 @@
+// examples/python_bridge/math_example.helen
+// M10 DoD: FFI examples run on the Rust interpreter (built with python-ffi).
+//
+// Run: cargo run -p helen-rust --features python-ffi -- --run examples/python_bridge/math_example.helen
+// (or `helen --run` with the python-ffi binary)
+
+import std.core.*
+import std.str.*
+
+import "math" as math
+import "json" as json
+
+main {
+    let r = math.sqrt(16)
+    print(r)                       // 4.0 (Python float)
+
+    let p = math.pow(2, 10)
+    print(p)                       // 1024.0 (Python float)
+
+    let pi = math.pi
+    print(pi)                      // 3.14159...
+
+    let data = {"name": "Alice", "age": 30}
+    let s = json.dumps(data)
+    print(s)                       // {"name": "Alice", "age": 30}
+}

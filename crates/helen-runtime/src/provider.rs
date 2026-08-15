@@ -411,6 +411,94 @@ pub fn protocol_by_name(name: &str) -> PlatformKind {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Custom provider registry (M10 — Python FFI custom provider loader).
+// Port of `_PROTOCOL_NAME_MAP` custom half + `_load_custom_providers`:
+// user-defined `~/.helen/providers/*.py` protocols are loaded through the
+// helen-ffi crate and registered here. Built-in names cannot be overridden.
+// ---------------------------------------------------------------------------
+
+static CUSTOM_PROTOCOLS: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<dyn PlatformProtocol>>>,
+> = std::sync::OnceLock::new();
+
+/// Register a custom (Python-loaded) protocol. Built-in names are ignored
+/// (Python: "shadows built-in; skipping"). Returns the registered name.
+pub fn register_custom_protocol(
+    name: &str,
+    proto: std::sync::Arc<dyn PlatformProtocol>,
+) -> Option<String> {
+    let builtin = [
+        "dashscope",
+        "volcengine",
+        "zhipu",
+        "deepseek",
+        "minimax",
+        "kimi",
+        "openai",
+    ];
+    if builtin.contains(&name) {
+        return None;
+    }
+    let map =
+        CUSTOM_PROTOCOLS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    map.lock().unwrap().insert(name.to_string(), proto);
+    Some(name.to_string())
+}
+
+/// Look up a custom protocol by name (None if not registered).
+pub fn custom_protocol_by_name(name: &str) -> Option<std::sync::Arc<dyn PlatformProtocol>> {
+    let map = CUSTOM_PROTOCOLS.get()?;
+    let guard = map.lock().unwrap();
+    guard.get(name).cloned()
+}
+
+/// Delegating proxy so an `Arc<dyn PlatformProtocol>` can produce a
+/// `Box<dyn PlatformProtocol>` (trait objects aren't cloneable directly).
+pub struct ProtocolProxy(pub std::sync::Arc<dyn PlatformProtocol>);
+
+impl PlatformProtocol for ProtocolProxy {
+    fn name(&self) -> &'static str {
+        self.0.name()
+    }
+    fn build_request_payload(
+        &self,
+        base_payload: Value,
+        model_id: &str,
+        thinking_enabled: bool,
+        reasoning_effort: Option<&str>,
+    ) -> Value {
+        self.0
+            .build_request_payload(base_payload, model_id, thinking_enabled, reasoning_effort)
+    }
+    fn supports_tool_choice(&self, value: &str) -> bool {
+        self.0.supports_tool_choice(value)
+    }
+    fn sanitize_messages(&self, messages: Vec<Value>) -> Vec<Value> {
+        self.0.sanitize_messages(messages)
+    }
+    fn parse_response(&self, response_data: &Value) -> Value {
+        self.0.parse_response(response_data)
+    }
+    fn parse_streaming_delta(&self, delta: &Value, context: &mut Value) -> Value {
+        self.0.parse_streaming_delta(delta, context)
+    }
+    fn extract_streaming_usage(&self, chunk: &Value) -> Option<Value> {
+        self.0.extract_streaming_usage(chunk)
+    }
+    fn parse_error(&self, status_code: u16, response_body: &Value) -> String {
+        self.0.parse_error(status_code, response_body)
+    }
+    fn is_context_overflow_error(&self, error_msg: &str) -> bool {
+        self.0.is_context_overflow_error(error_msg)
+    }
+}
+
+/// Box a custom protocol Arc as a fresh `Box<dyn PlatformProtocol>`.
+pub fn box_custom_protocol(arc: std::sync::Arc<dyn PlatformProtocol>) -> Box<dyn PlatformProtocol> {
+    Box::new(ProtocolProxy(arc))
+}
+
 /// Detect platform protocol from base_url or explicit name.
 /// Priority: explicit protocol_name > URL pattern > OpenAI fallback.
 pub fn detect_protocol(base_url: &str, protocol_name: Option<&str>) -> PlatformKind {

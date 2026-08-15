@@ -344,11 +344,40 @@ impl Interpreter {
                 return Ok(());
             }
             Ok(ResolvedImport::Python) => {
+                // M10: fall back to the FFI runtime when a Python import hook
+                // is registered (helen-ffi crate with `python-ffi` feature).
+                // Mirror Python's `_import_python_module`: alias defaults to
+                // the last dotted component; `.py` suffix is stripped.
+                let module_name = imp
+                    .module_path
+                    .strip_suffix(".py")
+                    .unwrap_or(&imp.module_path);
+                if let Some(hook) = crate::native::python_import_hook() {
+                    let value = match hook(module_name) {
+                        Ok(v) => v,
+                        Err(msg) => {
+                            return Err(self.runtime_error(
+                                Some(&imp.span),
+                                &format!("Cannot import Python module '{module_name}': {msg}"),
+                            ))
+                        }
+                    };
+                    let alias = imp.alias.clone().unwrap_or_else(|| {
+                        module_name
+                            .rsplit('.')
+                            .next()
+                            .unwrap_or(module_name)
+                            .to_string()
+                    });
+                    self.environment.borrow_mut().define(&alias, value, true);
+                    return Ok(());
+                }
                 return Err(self.runtime_error(
                     Some(&imp.span),
                     &format!(
                         "Failed to import '{}': Python module imports are not \
-                         supported by the Rust runtime",
+                         supported by the Rust runtime (compile with the \
+                         `python-ffi` feature)",
                         imp.module_path
                     ),
                 ));
@@ -1471,11 +1500,36 @@ impl Interpreter {
                 self.call_channel_method(&cm.endpoint, &cm.name, &args, &c.span)
             }
             Value::StoreMethod(sm) => self.call_store_method(&sm.store, &sm.name, &args, &c.span),
+            // M10: native callable (Python function/class/callable object).
+            Value::Native(n) => {
+                let (pos, kwargs) = self.split_args(&c.arguments)?;
+                n.0.call(&pos, &kwargs)
+                    .map_err(|e| self.runtime_error(Some(&c.span), &e.message))
+            }
             other => Err(self.runtime_error(
                 Some(&c.span),
                 &format!("'{}' is not callable", other.type_name()),
             )),
         }
+    }
+
+    /// Evaluate call arguments, splitting positional and keyword args
+    /// (M10 FFI calls pass kwargs through to Python).
+    #[allow(clippy::type_complexity)]
+    fn split_args(
+        &mut self,
+        arguments: &[CallArg],
+    ) -> Result<(Vec<Value>, Vec<(String, Value)>), ExceptionValue> {
+        let mut pos = Vec::new();
+        let mut kwargs = Vec::new();
+        for a in arguments {
+            let v = self.eval_expr(&a.value)?;
+            match &a.name {
+                Some(name) => kwargs.push((name.clone(), v)),
+                None => pos.push(v),
+            }
+        }
+        Ok((pos, kwargs))
     }
 
     fn eval_args(&mut self, arguments: &[CallArg]) -> Result<Vec<Value>, ExceptionValue> {
@@ -1512,6 +1566,11 @@ impl Interpreter {
             }
             Value::StoreMethod(sm) => {
                 self.call_store_method(&sm.store, &sm.name, &args, &self.fake_span())
+            }
+            // M10: native callable invoked with positional args only.
+            Value::Native(n) => {
+                n.0.call(&args, &[])
+                    .map_err(|e| self.runtime_error(None, &e.message))
             }
             other => {
                 Err(self.runtime_error(None, &format!("'{}' is not callable", other.type_name())))
@@ -1614,6 +1673,11 @@ impl Interpreter {
                     )),
                 }
             }
+            // M10: native object __getitem__ (Python `obj[key]`).
+            Value::Native(n) => {
+                n.0.get_item(&index)
+                    .map_err(|e| self.runtime_error(Some(&i.span), &e.message))
+            }
             other => Err(self.runtime_error(
                 Some(&i.span),
                 &format!("Type {} does not support indexing", other.type_name()),
@@ -1690,6 +1754,12 @@ impl Interpreter {
             }
             Value::Map(m) => {
                 m.borrow_mut().insert(index.clone(), right.clone());
+                Ok(right)
+            }
+            // M10: native object __setitem__ (Python `obj[key] = value`).
+            Value::Native(n) => {
+                n.0.set_item(index, &right)
+                    .map_err(|e| self.runtime_error(Some(span), &e.message))?;
                 Ok(right)
             }
             // v1.12: mutation through a ReadOnlyView raises ScopeViolationError.
@@ -1843,6 +1913,11 @@ impl Interpreter {
                     ),
                 ))
             }
+            // M10: native object __getattr__ (Python `module.attr`, `obj.attr`).
+            Value::Native(n) => {
+                n.0.get_attribute(prop)
+                    .map_err(|e| self.runtime_error(Some(&a.span), &e.message))
+            }
             other => Err(self.runtime_error(
                 Some(&a.span),
                 &format!("'{}' has no property '{}'", other.type_name(), a.property),
@@ -1876,6 +1951,12 @@ impl Interpreter {
                 String::from("cannot modify a read-only value (agent parameter isolation)"),
                 Some((*span).clone()),
             ));
+        }
+        // M10: native object __setattr__ (Python `obj.attr = value`).
+        if let Value::Native(n) = target {
+            n.0.set_item(&Value::Str(Rc::from(prop)), &right)
+                .map_err(|e| self.runtime_error(Some(span), &e.message))?;
+            return Ok(right);
         }
         Err(self.runtime_error(
             Some(span),

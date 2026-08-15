@@ -205,6 +205,8 @@ pub struct HttpLLMRuntime {
     pub enable_message_sanitization: bool,
     pub enable_tool_truncation: bool,
     pub protocol: PlatformKind,
+    /// Explicit protocol name (M10 custom-provider lookup).
+    pub protocol_name: Option<String>,
     pub last_error: Option<String>,
     pub last_status_code: Option<u16>,
 }
@@ -252,12 +254,19 @@ impl HttpLLMRuntime {
             enable_message_sanitization: true,
             enable_tool_truncation: true,
             protocol,
+            protocol_name: protocol_name.map(|s| s.to_string()),
             last_error: None,
             last_status_code: None,
         }
     }
 
     fn protocol(&self) -> Box<dyn PlatformProtocol> {
+        // M10: custom (Python-loaded) protocols take priority over built-ins.
+        if let Some(name) = self.protocol_name.as_deref() {
+            if let Some(custom) = crate::provider::custom_protocol_by_name(name) {
+                return crate::provider::box_custom_protocol(custom);
+            }
+        }
         self.protocol.protocol()
     }
 
