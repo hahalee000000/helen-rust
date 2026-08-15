@@ -1,5 +1,14 @@
 # M1 — Core Frontend: Source, Tokens, Lexer, AST, Parser
 
+> **Status: IN PROGRESS (2026-08-15)** — Tasks 1.1–1.2 **COMPLETE** (commit `364b0df`):
+> `tokens.rs` (88 variants, 99 bilingual keywords — Python comment "97" is
+> stale), `lexer.rs` (byte-faithful `Scanner` port), Python-faithful
+> `SourceSpan`/`ErrorCode` (E0300–E0357), `helen --lex` + `reference.py --lex`
+> + `scripts/diff-lex.sh`. Differential: **36/36** corpus token streams
+> byte-identical (type, lexeme, line/col, literals incl. bigint + float
+> numeric compare). 35 contract tests, clippy clean. Tasks 1.3–1.5 (AST,
+> ASTPrinter, Pratt parser) remain.
+
 **Objective:** Byte-faithful port of `core/{source,tokens,lexer,errors,ast}.py` + `core/parser.py`. Exit criterion: Rust lexer+parser pass differential AST output and token streams against Python for the whole corpus.
 
 ## Files
