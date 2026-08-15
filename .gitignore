@@ -1,0 +1,22 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Python bridge / FFI build artifacts
+*.so
+*.pyd
+*.pyc
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local state
+*.local
