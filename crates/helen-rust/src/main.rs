@@ -10,7 +10,7 @@
 //! Float literals are formatted with Rust's shortest-round-trip `Debug`
 //! repr; the comparison script parses both sides numerically.
 
-use helen_core::ast_printer::AstPrinter;
+use helen_core::ast_printer::{py_str_float, AstPrinter};
 use helen_core::lexer::Scanner;
 use helen_core::tokens::LiteralValue;
 use helen_interpreter::exceptions::ExceptionValue;
@@ -149,6 +149,7 @@ fn run_mode(path: &str) {
 
     // Interpret
     let mut interp = Interpreter::new();
+    interp.set_source_file(path);
     let result = interp.interpret(&program);
     let stdout = interp.stdout.borrow().clone();
     match result {
@@ -252,7 +253,7 @@ fn main() {
                         serde_json::json!({"kind": "int", "value": i.to_string()})
                     }
                     LiteralValue::Float(f) => {
-                        serde_json::json!({"kind": "float", "value": format!("{f:?}")})
+                        serde_json::json!({"kind": "float", "value": py_str_float(*f)})
                     }
                 };
                 serde_json::json!({

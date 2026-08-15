@@ -9,6 +9,7 @@
 pub mod closure;
 pub mod environment;
 pub mod exceptions;
+pub mod import_resolver;
 pub mod interpreter;
 pub mod llm_runtime;
 pub mod stdlib;

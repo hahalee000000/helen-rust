@@ -18,8 +18,8 @@ use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 
 use helen_core::ast::{
-    Access, AgentDecl, Binary, Call, CallArg, Expr, ForStmt, FunctionDecl, IfStmt, Index, Lambda,
-    Pipe, Program, Stmt, ThrowStmt, TypeRef, Unary, VarDecl,
+    Access, AgentDecl, Binary, Call, CallArg, Expr, ForStmt, FunctionDecl, IfStmt, ImportStmt,
+    Index, Lambda, Pipe, Program, Stmt, ThrowStmt, TypeRef, Unary, VarDecl,
 };
 use helen_core::ast_printer::py_str_float;
 use helen_core::source::SourceSpan;
@@ -55,6 +55,12 @@ pub struct Interpreter {
     pub shared_vars: HashSet<String>,
     /// v1.39: maps imported function name -> its defining module env.
     pub function_module_envs: HashMap<String, Rc<RefCell<Environment>>>,
+    /// Task 3.7b: `.helen`/data-file import resolution (fresh per instance).
+    pub import_resolver: crate::import_resolver::ImportResolver,
+    /// Absolute path of the file being interpreted (relative-import base).
+    pub source_file: Option<String>,
+    /// `.helen` files already registered (idempotency across imports).
+    pub processed_files: HashSet<std::path::PathBuf>,
     pub program_args: Vec<String>,
     pub builtins: HashMap<String, Rc<BuiltinFn>>,
     /// v1.22: current agent (None at top level).
@@ -77,6 +83,11 @@ impl Interpreter {
             impls: HashMap::new(),
             shared_vars: HashSet::new(),
             function_module_envs: HashMap::new(),
+            import_resolver: crate::import_resolver::ImportResolver::new(std::path::PathBuf::from(
+                ".",
+            )),
+            source_file: None,
+            processed_files: HashSet::new(),
             program_args: Vec::new(),
             builtins: HashMap::new(),
             current_agent: None,
@@ -223,6 +234,197 @@ impl Interpreter {
         Ok(())
     }
 
+    /// Set the file being interpreted (relative-import base). The file's
+    /// directory becomes the resolver's `base_dir`; its path is used as the
+    /// `from_file` anchor when resolving relative imports.
+    pub fn set_source_file(&mut self, path: &str) {
+        self.source_file = Some(path.to_string());
+        let dir = std::path::Path::new(path)
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        self.import_resolver =
+            crate::import_resolver::ImportResolver::new(if dir.as_os_str().is_empty() {
+                std::path::PathBuf::from(".")
+            } else {
+                dir
+            });
+    }
+
+    /// `import "path"` — `.helen` file or data file (Task 3.7b).
+    ///
+    /// `.helen`: parse + register functions/agents/consts/shared stores into
+    /// the interpreter namespaces (main block NOT executed); aliased form
+    /// exposes the direct file's symbols via a module object map.
+    fn import_file(&mut self, imp: &ImportStmt) -> Result<(), ExceptionValue> {
+        use crate::import_resolver::ResolvedImport;
+
+        let from_file = self.source_file.as_ref().map(std::path::PathBuf::from);
+        let direct_path = match self
+            .import_resolver
+            .resolve(&imp.module_path, from_file.as_deref())
+        {
+            Ok(ResolvedImport::Data { alias, value }) => {
+                let name = imp.alias.clone().unwrap_or(alias);
+                self.environment.borrow_mut().define(&name, value, true);
+                return Ok(());
+            }
+            Ok(ResolvedImport::Python) => {
+                return Err(self.runtime_error(
+                    Some(&imp.span),
+                    &format!(
+                        "Failed to import '{}': Python module imports are not \
+                         supported by the Rust runtime",
+                        imp.module_path
+                    ),
+                ));
+            }
+            Ok(ResolvedImport::Helen { path }) => path,
+            Err(msg) => return Err(self.runtime_error(Some(&imp.span), &msg)),
+        };
+
+        // Register every loaded `.helen` file (direct + transitive) once.
+        let order: Vec<std::path::PathBuf> = self.import_resolver.load_order().to_vec();
+        for abs in &order {
+            if !self.processed_files.insert(abs.clone()) {
+                continue;
+            }
+            self.register_helen_file(abs)?;
+        }
+
+        // Aliased import: expose the DIRECT file's symbols via a module map.
+        if let Some(alias) = &imp.alias {
+            let module = self.build_module_object(&direct_path)?;
+            self.environment.borrow_mut().define(alias, module, true);
+        }
+        Ok(())
+    }
+
+    /// Register one `.helen` file's symbols into the interpreter:
+    /// consts/shared-lets -> module env (+ global env), shared stores ->
+    /// containers, functions -> `self.functions` + `function_module_envs`,
+    /// agents -> `self.agents`.
+    fn register_helen_file(&mut self, abs: &std::path::Path) -> Result<(), ExceptionValue> {
+        let Some(reg) = self.import_resolver.file(abs).cloned() else {
+            return Ok(());
+        };
+        let module_env = Rc::new(RefCell::new(Environment::new(Some(
+            self.environment.clone(),
+        ))));
+
+        // 0. This file's own stdlib imports bind into its module env
+        //    (Python `_get_file_module_env` step 3), so the file's functions
+        //    see exactly the symbols their file declares.
+        for i in &reg.imports {
+            if i.is_stdlib_module {
+                let module = i.module_name.clone().unwrap_or_default();
+                let names = i.imported_names.clone();
+                let ns = i.namespace.clone();
+                let span = i.span.clone();
+                self.with_scope(Some(module_env.clone()), |s| {
+                    s.import_stdlib_module(&module, names.as_deref(), ns.as_deref(), &span)
+                })?;
+            }
+        }
+
+        // 1. Consts / shared lets: define (Null placeholder), then evaluate
+        //    each initializer in the module env scope (so later consts see
+        //    earlier ones). All land in the global env too (NameError-guard),
+        //    shared lets also join `shared_vars`.
+        for v in &reg.data {
+            module_env
+                .borrow_mut()
+                .define(&v.name, Value::Null, !v.mutable);
+        }
+        for v in &reg.data {
+            let value = if let Some(init) = &v.initializer {
+                self.with_scope(Some(module_env.clone()), |s| s.eval_expr(init))?
+            } else {
+                Value::Null
+            };
+            module_env
+                .borrow_mut()
+                .define(&v.name, value.clone(), !v.mutable);
+            if self.environment.borrow().get(&v.name).is_none() {
+                self.environment
+                    .borrow_mut()
+                    .define(&v.name, value, !v.mutable);
+            }
+            if v.shared {
+                self.shared_vars.insert(v.name.clone());
+            }
+        }
+
+        // 2. Shared stores -> container maps (fields; methods are a later
+        //    milestone — divergence recorded in wiki/rust/migration-notes.md).
+        for ss in &reg.shared_stores {
+            let mut fields = indexmap::IndexMap::new();
+            for f in &ss.fields {
+                let val = if let Some(init) = &f.initializer {
+                    self.with_scope(Some(module_env.clone()), |s| s.eval_expr(init))?
+                } else {
+                    Value::Null
+                };
+                fields.insert(Value::Str(std::rc::Rc::from(f.name.as_str())), val);
+            }
+            let container = Value::Map(Rc::new(RefCell::new(fields)));
+            module_env
+                .borrow_mut()
+                .define(&ss.name, container.clone(), true);
+            if self.environment.borrow().get(&ss.name).is_none() {
+                self.environment
+                    .borrow_mut()
+                    .define(&ss.name, container, true);
+            }
+        }
+
+        // 3. Functions -> self.functions + their file's module env.
+        for f in &reg.functions {
+            self.functions.insert(f.name.clone(), Rc::new(f.clone()));
+            self.function_module_envs
+                .insert(f.name.clone(), module_env.clone());
+        }
+
+        // 4. Agents -> self.agents.
+        for a in &reg.agents {
+            self.agents.insert(a.name.clone(), Rc::new(a.clone()));
+        }
+        Ok(())
+    }
+
+    /// Build the module-object map for an aliased `.helen` import: the
+    /// direct file's functions/agents/consts are exposed as `m.symbol`
+    /// entries (`__type__` marker mirrors Python's module dict).
+    fn build_module_object(&mut self, abs: &std::path::Path) -> Result<Value, ExceptionValue> {
+        let reg = self.import_resolver.file(abs).cloned().unwrap_or_default();
+        let mut map = indexmap::IndexMap::new();
+        map.insert(
+            Value::Str(std::rc::Rc::from("__type__")),
+            Value::Str(std::rc::Rc::from("module")),
+        );
+        for f in &reg.functions {
+            map.insert(
+                Value::Str(std::rc::Rc::from(f.name.as_str())),
+                Value::UserFn(Rc::new(f.clone())),
+            );
+        }
+        for a in &reg.agents {
+            map.insert(
+                Value::Str(std::rc::Rc::from(a.name.as_str())),
+                Value::Agent(Rc::new(a.clone())),
+            );
+        }
+        for v in &reg.data {
+            let val = self
+                .environment
+                .borrow()
+                .get(&v.name)
+                .unwrap_or(Value::Null);
+            map.insert(Value::Str(std::rc::Rc::from(v.name.as_str())), val);
+        }
+        Ok(Value::Map(Rc::new(RefCell::new(map))))
+    }
+
     fn register_core_builtins(&mut self) {
         // M3: core subset of std.core — bound into the global environment so
         // `import std.core.*` programs resolve them (import machinery is
@@ -355,14 +557,16 @@ impl Interpreter {
             }
             Stmt::Import(imp) => {
                 // v1.34/v1.38 stdlib module imports: wildcard, selective,
-                // and namespace (`as NS`) forms. Non-stdlib file imports are
-                // Task 3.7b (file resolver).
+                // and namespace (`as NS`) forms. Non-stdlib imports resolve
+                // `.helen` files / data files (Task 3.7b).
                 if imp.is_stdlib_module {
                     let module = imp.module_name.clone().unwrap_or_default();
                     let names = imp.imported_names.clone();
                     let ns = imp.namespace.clone();
                     let span = imp.span.clone();
                     self.import_stdlib_module(&module, names.as_deref(), ns.as_deref(), &span)?;
+                } else {
+                    self.import_file(imp)?;
                 }
                 Ok(Flow::Normal(None))
             }
@@ -2421,6 +2625,44 @@ mod m3_tests {
         (r, out, hist_handle)
     }
 
+    /// Run `main_src` with helper module files on disk (Tier-C `.helen`
+    /// imports). Writes `files` into a temp dir, parses `main_src` with the
+    /// main path anchored there, and sets the interpreter's source file so
+    /// relative imports resolve against the temp dir.
+    fn run_src_with_files(
+        main_src: &str,
+        files: &[(&str, &str)],
+    ) -> (Result<Option<Value>, ExceptionValue>, String) {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "helen_imp_test_{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (name, content) in files {
+            std::fs::write(dir.join(name), content).unwrap();
+        }
+        let main_path = dir.join("main.helen");
+        std::fs::write(&main_path, main_src).unwrap();
+
+        let mut scanner = Scanner::new(main_src, main_path.to_str().unwrap());
+        let tokens = scanner.scan_all();
+        let mut parser = helen_parser::Parser::new(tokens);
+        let program = parser.parse();
+        assert!(
+            parser.errors().is_empty(),
+            "parse errs: {:?}",
+            parser.errors()
+        );
+        let mut interp = Interpreter::new();
+        interp.set_source_file(main_path.to_str().unwrap());
+        let r = interp.interpret(&program);
+        let out = interp.stdout.borrow().clone();
+        (r, out)
+    }
+
     #[test]
     fn prints_hello() {
         let (r, out) = run_src("import std.core.*\nmain {\n    print(\"hello\")\n}\n");
@@ -2704,5 +2946,96 @@ mod m3_tests {
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "2\n");
+    }
+
+    // ------------------------------------------------------------------
+    // Task 3.7b: `.helen` file imports (Tier-C parity tests)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn aliased_import_cross_function_call() {
+        // Python `test_basic_cross_function_call`: fn A calls fn B within
+        // the same aliased module.
+        let (r, out) = run_src_with_files(
+            "import std.core.*\nimport \"mod.helen\" as math\nmain {\n    print(math.quadruple(5))\n}\n",
+            &[(
+                "mod.helen",
+                "import std.core.*\nfn double(x: int): int { return x * 2 }\nfn quadruple(x: int): int { return double(double(x)) }\n",
+            )],
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "20\n");
+    }
+
+    #[test]
+    fn aliased_import_multi_level_chain() {
+        // Python `test_multi_level_call_chain`: A calls B calls C.
+        let (r, out) = run_src_with_files(
+            "import std.core.*\nimport \"mod.helen\" as m\nmain {\n    print(m.transform(5))\n}\n",
+            &[(
+                "mod.helen",
+                "import std.core.*\nfn add_one(x: int): int { return x + 1 }\nfn double(x: int): int { return x * 2 }\nfn transform(x: int): int { return double(add_one(x)) }\n",
+            )],
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "12\n");
+    }
+
+    #[test]
+    fn aliased_import_recursive_function() {
+        // Python `test_recursive_function`.
+        let (r, out) = run_src_with_files(
+            "import std.core.*\nimport \"mod.helen\" as m\nmain {\n    print(m.factorial(5))\n}\n",
+            &[(
+                "mod.helen",
+                "import std.core.*\nfn factorial(n: int): int {\n    if n <= 1 { return 1 }\n    return n * factorial(n - 1)\n}\n",
+            )],
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "120\n");
+    }
+
+    #[test]
+    fn aliased_import_cross_call_with_const() {
+        // Python `test_cross_function_with_const_access`.
+        let (r, out) = run_src_with_files(
+            "import std.core.*\nimport \"mod.helen\" as m\nmain {\n    print(m.scale_double(5))\n}\n",
+            &[(
+                "mod.helen",
+                "import std.core.*\nconst MULTIPLIER = 3\nfn scale(x: int): int { return x * MULTIPLIER }\nfn scale_double(x: int): int { return scale(double(x)) }\nfn double(x: int): int { return x * 2 }\n",
+            )],
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "30\n");
+    }
+
+    #[test]
+    fn aliased_import_stdlib_in_module() {
+        // Python `test_cross_function_with_stdlib_function`: the module's
+        // fn uses its own stdlib import.
+        let (r, out) = run_src_with_files(
+            "import std.core.*\nimport \"mod.helen\" as m\nmain {\n    print(m.greet())\n}\n",
+            &[(
+                "mod.helen",
+                "import std.core.*\nimport std.str.*\nfn greet(): str { return upper(\"hi\") }\n",
+            )],
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "HI\n");
+    }
+
+    #[test]
+    fn non_aliased_import_registers_globals() {
+        // Python `test_non_aliased_import`: no alias → symbols register
+        // directly to the global namespace.
+        let (r, out) = run_src_with_files(
+            "import std.core.*\nimport \"mod.helen\"\nmain {\n    print(double(21))\n}\n",
+            &[(
+                "mod.helen",
+                "import std.core.*\nfn double(x: int): int { return x * 2 }\n",
+            )],
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "42\n");
     }
 }
