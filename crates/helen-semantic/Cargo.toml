@@ -5,4 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Helen language Rust reimplementation — helen-semantic (M0 stub)"
+description = "Helen language Rust reimplementation — helen-semantic (M2 semantic analyzer)"
+
+[dependencies]
+helen-core = { path = "../helen-core" }
+helen-parser = { path = "../helen-parser" }
+serde = { workspace = true }
+serde_json = { workspace = true }

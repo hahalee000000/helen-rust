@@ -1,0 +1,10 @@
+// C2: catch with a non-predefined type → INVALID_CATCH_TYPE (E0342)
+import std.core.*
+
+main {
+    try {
+        throw RuntimeError("boom")
+    } catch CustomError e {
+        print(e)
+    }
+}

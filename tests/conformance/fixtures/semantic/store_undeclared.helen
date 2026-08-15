@@ -1,0 +1,12 @@
+// shared store method referencing undeclared var → UNDECLARED_VARIABLE (E0332)
+import std.core.*
+
+store Counter {
+    let count = 0
+    fn inc() {
+        let x = unknown_var
+    }
+}
+main {
+    print("ok")
+}

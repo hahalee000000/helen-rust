@@ -1,0 +1,8 @@
+// agent without a prompt → MISSING_PROMPT (E0337)
+agent Silent(name: str) {
+    description "no prompt"
+    main { print(name) }
+}
+main {
+    print("ok")
+}

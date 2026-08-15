@@ -1,0 +1,6 @@
+// assign to const → CONST_ASSIGNMENT (E0346)
+main {
+    const MAX = 100
+    MAX = 5
+    print(MAX)
+}

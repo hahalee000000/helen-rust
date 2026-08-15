@@ -1,0 +1,7 @@
+// duplicate parameter names → DUPLICATE_PARAM (E0336)
+fn add(a: int, a: int) -> int {
+    return a
+}
+main {
+    print(add(1, 2))
+}

@@ -254,12 +254,38 @@ def parse_only(source: str, file: str, helen_src: Path):
     return json.dumps({"ast": out}, separators=(",", ":"))
 
 
+def semantic_only(source: str, file: str, helen_src: Path):
+    """Run the reference SemanticAnalyzer and dump E-codes.
+
+    Mirrors the Rust `helen --semantic-only` mode. Output:
+    ``{"exit_code": 0|2, "e_codes": ["E0311", ...]}`` where the codes
+    appear in emission order and ``exit_code`` is 2 if any error was
+    recorded (Python's CLI contract: semantic errors exit 2).
+    """
+    Scanner, Parser_cls, ErrorReporter, SemanticAnalyzer, _, _, _ = _import_reference(helen_src)
+
+    scanner = Scanner(source, file)
+    tokens = scanner.scan_all()
+    parser = Parser_cls(tokens)
+    program = parser.parse()
+
+    reporter = ErrorReporter()
+    analyzer = SemanticAnalyzer(reporter, base_dir=str(Path(file).parent))
+    analyzer.analyze(program)
+    codes = [f"E{e.code.value:04d}" for e in reporter.errors]
+    return json.dumps(
+        {"exit_code": 2 if codes else 0, "e_codes": codes},
+        separators=(",", ":"),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="reference.py")
     parser.add_argument("file", help=".helen source file, or '-' for stdin")
     parser.add_argument("--mock-llm", action="store_true", help="inject MockLLMRuntime")
     parser.add_argument("--lex", action="store_true", help="lex only; dump token stream as JSON")
     parser.add_argument("--parse", action="store_true", help="parse only; dump ASTPrinter output as JSON")
+    parser.add_argument("--semantic-only", action="store_true", help="analyze only; dump E-codes as JSON")
     parser.add_argument(
         "--mode", choices=["inprocess", "cli"], default="inprocess",
         help="inprocess = interpreter in this process (default); cli = python -m helen.cli",
@@ -286,6 +312,16 @@ def main(argv: list[str] | None = None) -> int:
             source = Path(args.file).read_text(encoding="utf-8")
             file = args.file
         print(json.dumps(lex_only(source, file, helen_src)))
+        return 0
+
+    if args.semantic_only:
+        if args.file == "-":
+            source = sys.stdin.read()
+            file = "<stdin>"
+        else:
+            source = Path(args.file).read_text(encoding="utf-8")
+            file = args.file
+        print(semantic_only(source, file, helen_src))
         return 0
 
     if args.mode == "cli":

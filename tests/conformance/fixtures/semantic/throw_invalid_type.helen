@@ -1,0 +1,6 @@
+// C2: throw with non-predefined type → INVALID_CATCH_TYPE (E0342)
+import std.core.*
+
+main {
+    throw MyError("bad")
+}

@@ -1855,6 +1855,7 @@ impl Parser {
                         .join("|")
                 ),
                 span: self.make_span_from_token(&start, &end),
+                kind: TypeRefKind::Union(members),
             };
         }
         first
@@ -1865,12 +1866,14 @@ impl Parser {
         let base = TypeRef {
             name: name_tok.lexeme.clone(),
             span: name_tok.span(),
+            kind: TypeRefKind::Simple,
         };
         if self.check(TokenType::Question) {
             let q = self.advance().clone();
             return TypeRef {
                 name: format!("optional<{}>", base.name),
                 span: self.make_span_from_token(&name_tok, &q),
+                kind: TypeRefKind::Optional(Box::new(base)),
             };
         }
         base
@@ -2535,5 +2538,92 @@ fn span_of(e: &Expr) -> SourceSpan {
         Expr::WildcardPattern(WildcardPattern { span }) => span.clone(),
         Expr::VariablePattern(VariablePattern { span, .. }) => span.clone(),
         Expr::TypePattern(TypePattern { span, .. }) => span.clone(),
+    }
+}
+
+#[cfg(test)]
+mod type_ref_kind_tests {
+    use super::*;
+    use helen_core::lexer::Scanner;
+
+    fn parse_first_fn(src: &str) -> FunctionDecl {
+        let mut scanner = Scanner::new(src, "<test>");
+        let tokens = scanner.scan_all();
+        let mut parser = Parser::new(tokens);
+        let program = parser.parse();
+        match &program.statements[0] {
+            Stmt::FunctionDecl(f) => f.clone(),
+            other => panic!("expected function decl, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn plain_annotation_is_simple() {
+        let f = parse_first_fn("fn f(x: int) {}\n");
+        let ann = f.params[0]
+            .type_annotation
+            .as_ref()
+            .expect("param annotation");
+        assert_eq!(ann.name, "int");
+        assert_eq!(ann.kind, TypeRefKind::Simple);
+    }
+
+    #[test]
+    fn optional_annotation_preserves_inner() {
+        let f = parse_first_fn("fn f(x: int?) {}\n");
+        let ann = f.params[0]
+            .type_annotation
+            .as_ref()
+            .expect("param annotation");
+        assert_eq!(ann.name, "optional<int>");
+        match &ann.kind {
+            TypeRefKind::Optional(inner) => {
+                assert_eq!(inner.name, "int");
+                assert_eq!(inner.kind, TypeRefKind::Simple);
+            }
+            other => panic!("expected Optional kind, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn union_annotation_preserves_members() {
+        let f = parse_first_fn("fn f(x: str|int) {}\n");
+        let ann = f.params[0]
+            .type_annotation
+            .as_ref()
+            .expect("param annotation");
+        assert_eq!(ann.name, "union<str|int>");
+        match &ann.kind {
+            TypeRefKind::Union(members) => {
+                assert_eq!(members.len(), 2);
+                assert_eq!(members[0].name, "str");
+                assert_eq!(members[1].name, "int");
+                assert!(members.iter().all(|m| m.kind == TypeRefKind::Simple));
+            }
+            other => panic!("expected Union kind, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn nested_optional_in_union_keeps_structure() {
+        // `str|int?` → Union[Str, Optional[Int]] (matches Python's
+        // UnionTypeNode(members=[TypeNode, OptionalTypeNode])).
+        let f = parse_first_fn("fn f(x: str|int?) {}\n");
+        let ann = f.params[0]
+            .type_annotation
+            .as_ref()
+            .expect("param annotation");
+        assert_eq!(ann.name, "union<str|optional<int>>");
+        match &ann.kind {
+            TypeRefKind::Union(members) => {
+                assert_eq!(members.len(), 2);
+                assert_eq!(members[0].kind, TypeRefKind::Simple);
+                match &members[1].kind {
+                    TypeRefKind::Optional(inner) => assert_eq!(inner.name, "int"),
+                    other => panic!("expected Optional member, got {other:?}"),
+                }
+            }
+            other => panic!("expected Union kind, got {other:?}"),
+        }
     }
 }

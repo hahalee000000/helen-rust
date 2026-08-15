@@ -1,0 +1,6 @@
+// undeclared variable use → UNDECLARED_VARIABLE (E0332)
+import std.core.*
+
+main {
+    print(undefined_var)
+}

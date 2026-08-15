@@ -1,0 +1,10 @@
+// duplicate function declaration → DUPLICATE_SYMBOL (E0333)
+fn foo() {
+    print("a")
+}
+fn foo() {
+    print("b")
+}
+main {
+    foo()
+}

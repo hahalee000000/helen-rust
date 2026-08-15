@@ -198,11 +198,30 @@ pub struct TemplateRef {
 // Type nodes
 // ---------------------------------------------------------------------------
 
+/// Kind of a type reference: a plain name, or a composite shape.
+///
+/// Python keeps composite annotations as distinct nodes
+/// (`OptionalTypeNode` / `UnionTypeNode`) instead of flattening them into a
+/// name; `TypeRefKind` preserves that structure on the Rust side. The
+/// synthetic `name` (e.g. `optional<int>`, `union<str|int>`) is retained for
+/// span/diagnostic parity with the Python AST printer, which never renders
+/// annotations but does surface names in error messages.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeRefKind {
+    /// Plain named type: `int`, `str`, `MyType`.
+    Simple,
+    /// Optional type: `T?`.
+    Optional(Box<TypeRef>),
+    /// Union type: `A|B|C`.
+    Union(Vec<TypeRef>),
+}
+
 /// Type reference: `int`, `str`, `MyType`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeRef {
     pub name: String,
     pub span: SourceSpan,
+    pub kind: TypeRefKind,
 }
 
 /// Optional type: `T?`.

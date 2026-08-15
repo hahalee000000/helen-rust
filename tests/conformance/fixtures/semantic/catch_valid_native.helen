@@ -1,0 +1,10 @@
+// C2: catch with a predefined native exception type → clean
+import std.core.*
+
+main {
+    try {
+        throw RuntimeError("boom")
+    } catch RuntimeError e {
+        print(e)
+    }
+}

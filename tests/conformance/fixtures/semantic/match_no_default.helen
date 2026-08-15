@@ -1,0 +1,9 @@
+// match without default → MATCH_NO_DEFAULT (E0345)
+import std.core.*
+
+main {
+    match 3 {
+        case 1 { print("one") }
+        case 2 { print("two") }
+    }
+}

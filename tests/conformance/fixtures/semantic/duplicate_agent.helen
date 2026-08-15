@@ -1,0 +1,14 @@
+// duplicate agent name → DUPLICATE_AGENT_NAME (E0335)
+agent Worker(name: str) {
+    description "w"
+    prompt "Hi {{name}}"
+    main { print(name) }
+}
+agent Worker(name: str) {
+    description "w2"
+    prompt "Hi {{name}}"
+    main { print(name) }
+}
+main {
+    print("ok")
+}

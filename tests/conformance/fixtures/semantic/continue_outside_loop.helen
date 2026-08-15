@@ -1,0 +1,6 @@
+// continue outside a loop → CONTINUE_OUTSIDE_LOOP (E0339)
+import std.core.*
+
+main {
+    continue
+}

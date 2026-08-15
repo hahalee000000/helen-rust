@@ -1,0 +1,6 @@
+// break outside a loop → BREAK_OUTSIDE_LOOP (E0338)
+import std.core.*
+
+main {
+    break
+}

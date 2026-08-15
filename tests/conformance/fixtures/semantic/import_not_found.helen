@@ -1,0 +1,6 @@
+// import of a nonexistent file → IMPORT_NOT_FOUND (E0341)
+import std.nonexistent_module.*
+
+main {
+    print("ok")
+}
