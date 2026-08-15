@@ -21,6 +21,7 @@ use helen_core::ast::{
     Access, AgentDecl, Binary, Call, CallArg, Expr, ForStmt, FunctionDecl, IfStmt, Index, Lambda,
     Pipe, Program, Stmt, ThrowStmt, TypeRef, Unary, VarDecl,
 };
+use helen_core::ast_printer::py_str_float;
 use helen_core::source::SourceSpan;
 use helen_core::tokens::{LiteralValue, Token, TokenType};
 use helen_semantic::types::{type_compatible, Type};
@@ -28,6 +29,7 @@ use helen_semantic::types::{type_compatible, Type};
 use crate::closure::{compute_free_variables, Closure};
 use crate::environment::Environment;
 use crate::exceptions::{error_matches, resolve_exception, ExceptionValue, Flow};
+use crate::llm_runtime::{LlmRuntime, MockLlmRuntime};
 use crate::value::{BuiltinFn, Value};
 
 /// Runtime type-check results used by `_call_function`/`_call_closure`.
@@ -57,6 +59,8 @@ pub struct Interpreter {
     pub builtins: HashMap<String, Rc<BuiltinFn>>,
     /// v1.22: current agent (None at top level).
     pub current_agent: Option<Rc<AgentDecl>>,
+    /// Task 3.6: LLM runtime backing `llm if` / `llm act`.
+    pub llm_runtime: Box<dyn LlmRuntime>,
     /// v1.12: shared store instance cache (import reuse).
     pub shared_store_instances: HashMap<String, Value>,
     /// Captured stdout (Python redirects sys.stdout around `interpret`).
@@ -76,11 +80,17 @@ impl Interpreter {
             program_args: Vec::new(),
             builtins: HashMap::new(),
             current_agent: None,
+            llm_runtime: Box::new(MockLlmRuntime::default()),
             shared_store_instances: HashMap::new(),
             stdout: RefCell::new(String::new()),
         };
         interp.register_core_builtins();
         interp
+    }
+
+    /// Inject a custom LLM runtime (tests use `MockLlmRuntime`).
+    pub fn set_llm_runtime(&mut self, runtime: Box<dyn LlmRuntime>) {
+        self.llm_runtime = runtime;
     }
 
     fn register_builtin(&mut self, name: &str, func: BuiltinImpl) {
@@ -1628,35 +1638,93 @@ impl Interpreter {
         }
     }
 
-    /// `llm if` stub (Task 3.6): for M3, route to the first branch whose
-    /// condition is truthy, else default (last branch with no condition).
+    /// `llm if` (HLD 3.6.5/3.6.6): build the branch-name list, route through
+    /// the LLM runtime, and execute the selected branch (or default) in a
+    /// fresh scope. Port of `LlmMixin.visit_llm_if_stmt`.
     fn visit_llm_if(
         &mut self,
         li: &helen_core::ast::LlmIfStmtNode,
     ) -> Result<Flow, ExceptionValue> {
-        for branch in &li.branches {
-            if let Some(c) = &branch.condition {
-                let v = self.eval_expr(c)?;
-                if v.truthy() {
-                    return self.execute_stmts(&branch.body);
-                }
-            } else {
-                return self.execute_stmts(&branch.body);
+        // Branch names (Python: LiteralNode -> str(value); no condition ->
+        // "default"). Non-literal conditions fall back to a debug form.
+        let branch_names: Vec<String> = li
+            .branches
+            .iter()
+            .map(|b| match &b.condition {
+                Some(cond) => self.branch_name(cond),
+                None => "default".to_string(),
+            })
+            .collect();
+
+        // Evaluate the description expression to a string.
+        let desc_val = self.eval_expr(&li.description)?;
+        let desc_str = desc_val.python_str();
+
+        // Route. A runtime failure surfaces a warning and uses the default
+        // branch (Python prints to stderr and sets selected = None).
+        let selected = self
+            .llm_runtime
+            .route(&desc_str, &branch_names, None)
+            .unwrap_or_default();
+        // HLD 3.6.6: the returned branch must be one of the known names.
+        let selected = match &selected {
+            Some(s) if branch_names.iter().any(|b| b == s) => selected,
+            _ => None,
+        };
+
+        // Execute the matching branch in a fresh scope.
+        for (idx, b) in li.branches.iter().enumerate() {
+            if b.condition.is_some() && selected.as_deref() == Some(branch_names[idx].as_str()) {
+                return self.with_scope(None, |s| s.execute_stmts(&b.body));
+            }
+        }
+        // No match -> default branch (condition is None).
+        for b in &li.branches {
+            if b.condition.is_none() {
+                return self.with_scope(None, |s| s.execute_stmts(&b.body));
             }
         }
         Ok(Flow::Normal(None))
     }
 
-    /// `llm act` stub (Task 3.6): returns the prompt string for M3.
-    fn visit_llm_act(&mut self, la: &helen_core::ast::LlmAct) -> Result<Value, ExceptionValue> {
-        if let Some(p) = &la.prompt {
-            let v = self.eval_expr(p)?;
-            match v {
-                Value::Str(s) => Ok(Value::Str(s)),
-                other => Ok(Value::Str(Rc::from(other.python_str().as_str()))),
+    /// Stringify an `llm if` branch condition the way Python's
+    /// `str(LiteralNode.value)` does.
+    fn branch_name(&self, cond: &helen_core::ast::Expr) -> String {
+        if let helen_core::ast::Expr::Literal(lit) = cond {
+            match &lit.value {
+                LiteralValue::Str(s) => s.clone(),
+                LiteralValue::Int(i) => i.to_string(),
+                LiteralValue::Float(f) => py_str_float(*f),
+                LiteralValue::Bool(b) => {
+                    if *b {
+                        "True".to_string()
+                    } else {
+                        "False".to_string()
+                    }
+                }
+                LiteralValue::Null => "None".to_string(),
             }
         } else {
-            Ok(Value::Str(Rc::from("")))
+            format!("{cond:?}")
+        }
+    }
+
+    /// `llm act` (HLD 3.6.5): evaluate the prompt, call the LLM runtime, and
+    /// return the response text (Null when the runtime yields no text).
+    /// Port of `LlmMixin.visit_llm_act_expr` (sync path, no callbacks).
+    fn visit_llm_act(&mut self, la: &helen_core::ast::LlmAct) -> Result<Value, ExceptionValue> {
+        // Evaluate the prompt expression to a string (Python: `_stringify`
+        // for non-str values).
+        let prompt = if let Some(p) = &la.prompt {
+            self.eval_expr(p)?.python_str()
+        } else {
+            String::new()
+        };
+        // M3: no agent context -> empty tools list.
+        let response = self.llm_runtime.act(&prompt, &[])?;
+        match response.text {
+            Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
+            None => Ok(Value::Null),
         }
     }
 
@@ -2317,6 +2385,42 @@ mod m3_tests {
         (r, out)
     }
 
+    fn run_src_with_runtime(
+        src: &str,
+        runtime: Box<dyn crate::llm_runtime::LlmRuntime>,
+    ) -> (Result<Option<Value>, ExceptionValue>, String) {
+        let mut scanner = Scanner::new(src, "t.helen");
+        let tokens = scanner.scan_all();
+        let mut parser = helen_parser::Parser::new(tokens);
+        let program = parser.parse();
+        assert!(
+            parser.errors().is_empty(),
+            "parse errs: {:?}",
+            parser.errors()
+        );
+        let mut interp = Interpreter::new();
+        interp.set_llm_runtime(runtime);
+        let r = interp.interpret(&program);
+        let out = interp.stdout.borrow().clone();
+        (r, out)
+    }
+
+    /// Like `run_src_with_runtime` but returns the mock afterwards so tests
+    /// can inspect its route/act history. The mock's history lives in `Rc`,
+    /// so the caller's clone sees the recorded calls.
+    fn run_src_with_mock(
+        src: &str,
+        mock: MockLlmRuntime,
+    ) -> (
+        Result<Option<Value>, ExceptionValue>,
+        String,
+        MockLlmRuntime,
+    ) {
+        let hist_handle = mock.clone();
+        let (r, out) = run_src_with_runtime(src, Box::new(mock));
+        (r, out, hist_handle)
+    }
+
     #[test]
     fn prints_hello() {
         let (r, out) = run_src("import std.core.*\nmain {\n    print(\"hello\")\n}\n");
@@ -2496,5 +2600,109 @@ mod m3_tests {
         let (r, out) = run_src(src);
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "HELLO\nel\na-b\ntrue\n");
+    }
+    #[test]
+    fn llm_if_routes_to_correct_branch() {
+        // Python `test_route_to_correct_branch`: MockLLMRuntime(route_return="query").
+        let mock = MockLlmRuntime::new(Some("query".to_string()), None);
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nllm if \"classify input\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "Q\n");
+    }
+
+    #[test]
+    fn llm_if_defaults_on_unknown_branch() {
+        // Python `test_route_to_default_on_unknown`: route_return="unknown_branch".
+        let mock = MockLlmRuntime::new(Some("unknown_branch".to_string()), None);
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nllm if \"classify\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "D\n");
+    }
+
+    #[test]
+    fn llm_if_defaults_on_none() {
+        // Python `test_route_to_default_on_parse_failure`: route returns None.
+        let mock = MockLlmRuntime::new(None, None);
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nllm if \"classify\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "D\n");
+    }
+
+    #[test]
+    fn llm_if_routes_and_records_history() {
+        // The runtime receives description + branch names ("default" appended).
+        let mock = MockLlmRuntime::new(Some("query".to_string()), None);
+        let (r, _out, mock) = run_src_with_mock(
+            "import std.core.*\nllm if \"classify input\" { branch \"query\" { print(1) } default { print(0) } }\n",
+            mock,
+        );
+        assert!(r.is_ok(), "{r:?}");
+        let hist = mock.route_history.borrow();
+        assert_eq!(hist.len(), 1);
+        assert_eq!(hist[0].0, "classify input");
+        assert_eq!(hist[0].1, vec!["query".to_string(), "default".to_string()]);
+        assert_eq!(hist[0].2, None);
+    }
+
+    #[test]
+    fn llm_act_returns_canned_text() {
+        // Python `act_return` string -> LLMResponse(text=...).
+        let mock = MockLlmRuntime::with_act_text("ok");
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nprint(llm act \"hello\")\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "ok\n");
+    }
+
+    #[test]
+    fn llm_act_records_prompt() {
+        let mock = MockLlmRuntime::with_act_text("ok");
+        let (r, _out, mock) =
+            run_src_with_mock("import std.core.*\nllm act \"the prompt\"\n", mock);
+        assert!(r.is_ok(), "{r:?}");
+        let hist = mock.act_history.borrow();
+        assert_eq!(hist.len(), 1);
+        assert_eq!(hist[0].0, "the prompt");
+        assert!(hist[0].1.is_empty(), "M3: no tools outside agent context");
+    }
+
+    #[test]
+    fn llm_if_defaults_when_runtime_fails() {
+        // Python `test_route_on_llm_exception`: route() raises -> default.
+        let mut mock = MockLlmRuntime::new(None, None);
+        mock.route_fail = Some(ExceptionValue::new(
+            "RuntimeError",
+            "timeout".to_string(),
+            None,
+        ));
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nllm if \"classify\" { branch \"query\" { print(1) } default { print(42) } }\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "42\n");
+    }
+
+    #[test]
+    fn llm_if_routes_to_middle_branch() {
+        // Python `test_multiple_branches`: any branch can be selected.
+        let mock = MockLlmRuntime::new(Some("command".to_string()), None);
+        let (r, out) = run_src_with_runtime(
+            "import std.core.*\nllm if \"classify\" { branch \"query\" { print(1) } branch \"command\" { print(2) } default { print(0) } }\n",
+            Box::new(mock),
+        );
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "2\n");
     }
 }
