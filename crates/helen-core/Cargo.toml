@@ -5,7 +5,8 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Core primitives for the Helen language: source spans and compile error types"
+description = "Core primitives for the Helen language: source spans, error codes, tokens, lexer"
 
 [dependencies]
 thiserror.workspace = true
+num-bigint.workspace = true

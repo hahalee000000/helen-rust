@@ -1,64 +1,83 @@
-//! Contract tests for helen-core primitives (M0 Task 0.2).
+//! Contract tests for helen-core primitives (M0 Task 0.2, M1-faithful).
 //!
-//! These tests pin the shape of the two types every other crate depends on:
-//! `SourceSpan` (positioning) and `HelenCompileError` (diagnostic envelope).
-//! The display format mirrors the Python CLI's `E<code>: message` style and
-//! `line:col` spans so the differential harness can normalize both sides.
+//! Pins the Python-faithful shapes: `SourceSpan{file, start_line,
+//! start_col, end_line, end_col}` (1-based, end_col exclusive) and the
+//! `ErrorCode` enum (E0300..E0357). Display formats are byte-identical to
+//! the Python `SourceSpan.__str__` / `HelenError.__str__`.
 
-use helen_core::errors::{HelenCompileError, LexError, ParseError, SemanticError};
+use helen_core::errors::{ErrorCode, LexError, ParseError, SemanticError};
 use helen_core::source::SourceSpan;
 
 fn span() -> SourceSpan {
-    SourceSpan::new(0, 5, 12, 34)
+    SourceSpan::new("test.helen", 1, 1, 1, 5)
 }
 
 #[test]
-fn source_span_displays_as_line_col() {
-    assert_eq!(span().to_string(), "12:34");
+fn source_span_single_line_display() {
+    assert_eq!(span().to_string(), "test.helen:1:1-5");
 }
 
 #[test]
-fn source_span_fields_are_accessible() {
+fn source_span_multi_line_display() {
+    let s = SourceSpan::new("main.hl", 1, 1, 3, 2);
+    assert_eq!(s.to_string(), "main.hl:1:1-3:2");
+}
+
+#[test]
+fn source_span_contains() {
     let s = span();
-    assert_eq!((s.start, s.end, s.line, s.col), (0, 5, 12, 34));
+    assert!(s.contains(1, 3));
+    assert!(!s.contains(1, 5)); // end_col exclusive
+    assert!(!s.contains(2, 1)); // past end_line
+    assert!(!s.contains(1, 0)); // before start_col
 }
 
 #[test]
-fn lex_error_displays_ecode_and_message() {
-    let e = LexError::new(300, "unexpected character '#'".to_string(), span());
-    assert_eq!(e.to_string(), "E300: unexpected character '#'");
-    assert_eq!(e.code(), 300);
-    assert_eq!(e.message(), "unexpected character '#'");
+fn error_code_values_match_python() {
+    assert_eq!(ErrorCode::ScannerError.value(), 300);
+    assert_eq!(ErrorCode::UnterminatedString.value(), 306);
+    assert_eq!(ErrorCode::UndeclaredVariable.value(), 332);
+    assert_eq!(ErrorCode::AgentFunctionArgMismatch.value(), 357);
+}
+
+#[test]
+fn lex_error_display_matches_python() {
+    let e = LexError::new(
+        ErrorCode::UnterminatedString,
+        "Unterminated string literal".to_string(),
+        span(),
+    );
+    assert_eq!(
+        e.to_string(),
+        "E0306 at test.helen:1:1-5: Unterminated string literal"
+    );
+    assert_eq!(e.code(), ErrorCode::UnterminatedString);
+    assert_eq!(e.message(), "Unterminated string literal");
     assert_eq!(e.span(), span());
 }
 
 #[test]
-fn parse_error_displays_ecode_and_message() {
-    let e = ParseError::new(302, "expected expression".to_string(), span());
-    assert_eq!(e.to_string(), "E302: expected expression");
+fn parse_error_display_matches_python() {
+    let e = ParseError::new(
+        ErrorCode::UnexpectedToken,
+        "Expected expression, got EOF".to_string(),
+        span(),
+    );
+    assert_eq!(
+        e.to_string(),
+        "E0302 at test.helen:1:1-5: Expected expression, got EOF"
+    );
 }
 
 #[test]
-fn semantic_error_displays_ecode_and_message() {
-    let e = SemanticError::new(332, "undeclared variable 'x'".to_string(), span());
-    assert_eq!(e.to_string(), "E332: undeclared variable 'x'");
-}
-
-#[test]
-fn compile_error_wraps_and_delegates() {
-    let e = HelenCompileError::Lex(LexError::new(305, "invalid escape".to_string(), span()));
-    assert_eq!(e.code(), 305);
-    assert_eq!(e.message(), "invalid escape");
-    assert_eq!(e.span(), span());
-    assert!(e.to_string().contains("E305"));
-}
-
-#[test]
-fn compile_error_variants_cover_all_phases() {
-    let lex = HelenCompileError::Lex(LexError::new(300, "a".into(), span()));
-    let parse = HelenCompileError::Parse(ParseError::new(301, "b".into(), span()));
-    let sem = HelenCompileError::Semantic(SemanticError::new(333, "c".into(), span()));
-    for (e, expected_code) in [(lex, 300), (parse, 301), (sem, 333)] {
-        assert_eq!(e.code(), expected_code);
-    }
+fn semantic_error_display_matches_python() {
+    let e = SemanticError::new(
+        ErrorCode::UndeclaredVariable,
+        "undeclared variable 'x'".to_string(),
+        span(),
+    );
+    assert_eq!(
+        e.to_string(),
+        "E0332 at test.helen:1:1-5: undeclared variable 'x'"
+    );
 }

@@ -5,4 +5,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Helen language Rust reimplementation — helen-rust (M0 stub)"
+description = "Helen language Rust reimplementation — helen-rust (M1: --lex differential mode)"
+
+[[bin]]
+name = "helen"
+path = "src/main.rs"
+
+[dependencies]
+helen-core = { path = "../helen-core" }
+serde_json.workspace = true

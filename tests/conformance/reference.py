@@ -187,10 +187,56 @@ def run_cli(file: str, helen_src: Path) -> dict:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+def lex_only(source: str, file: str, helen_src: Path):
+    """Lex `source` with the reference Scanner and dump tokens as JSON.
+
+    Schema (one object per token):
+        {"type": str, "lexeme": str, "line": int, "col": int,
+         "end_line": int, "end_col": int,
+         "literal": {"kind": "null"|"bool"|"str"|"int"|"float", "value": ...}}
+    Int literals are serialized as decimal strings (arbitrary precision);
+    float literals as their Python `repr` (compared numerically on the
+    Rust side).
+    """
+    Scanner = _import_reference(helen_src)[0]
+    scanner = Scanner(source, file)
+    tokens = scanner.scan_all()
+
+    def lit(t):
+        v = t.literal
+        if v is None:
+            return {"kind": "null"}
+        if isinstance(v, bool):
+            return {"kind": "bool", "value": v}
+        if isinstance(v, str):
+            return {"kind": "str", "value": v}
+        if isinstance(v, int):
+            return {"kind": "int", "value": str(v)}
+        if isinstance(v, float):
+            return {"kind": "float", "value": repr(v)}
+        return {"kind": "null"}
+
+    out = []
+    for t in tokens:
+        out.append(
+            {
+                "type": t.type.name,
+                "lexeme": t.lexeme,
+                "line": t.line,
+                "col": t.col,
+                "end_line": t.end_line,
+                "end_col": t.end_col,
+                "literal": lit(t),
+            }
+        )
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="reference.py")
     parser.add_argument("file", help=".helen source file, or '-' for stdin")
     parser.add_argument("--mock-llm", action="store_true", help="inject MockLLMRuntime")
+    parser.add_argument("--lex", action="store_true", help="lex only; dump token stream as JSON")
     parser.add_argument(
         "--mode", choices=["inprocess", "cli"], default="inprocess",
         help="inprocess = interpreter in this process (default); cli = python -m helen.cli",
@@ -198,6 +244,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     helen_src = _helen_src()
+
+    if args.lex:
+        if args.file == "-":
+            source = sys.stdin.read()
+            file = "<stdin>"
+        else:
+            source = Path(args.file).read_text(encoding="utf-8")
+            file = args.file
+        print(json.dumps(lex_only(source, file, helen_src)))
+        return 0
 
     if args.mode == "cli":
         if args.file == "-":
