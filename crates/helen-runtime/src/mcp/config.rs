@@ -161,8 +161,13 @@ fn normalize_path(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
 
+    static TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
     fn tmp_config(data: &str) -> (std::path::PathBuf, std::path::PathBuf) {
-        let dir = std::env::temp_dir().join(format!("mcp_cfg_{}", std::process::id()));
+        // Unique per-call directory: parallel tests would otherwise overwrite
+        // each other's .mcp.json (shared PID-based name → flaky reads).
+        let n = TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("mcp_cfg_{}_{n}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(".mcp.json");
         std::fs::write(&path, data).unwrap();

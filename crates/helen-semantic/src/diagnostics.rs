@@ -25,6 +25,20 @@ impl Diagnostic {
     }
 }
 
+impl std::fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.span {
+            Some(sp) => write!(f, "E{:04} at {}: {}", self.code.value(), sp, self.message),
+            None => write!(
+                f,
+                "E{:04} at <unknown>: {}",
+                self.code.value(),
+                self.message
+            ),
+        }
+    }
+}
+
 /// Collector for errors and warnings across compilation phases.
 #[derive(Debug, Default, Clone)]
 pub struct ErrorReporter {

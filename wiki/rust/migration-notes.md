@@ -269,3 +269,16 @@ git commit + push origin/main
   with import hook, decorators) and `module-name = "helen_rust._core"` — the shim
   package imports from `._core`. Editable `maturin develop` links the shim from
   source, so .py fixes need no rebuild.
+
+## M12 — CLI, REPL, Formatter, Docgen, LSP lessons
+
+- CLI parity: `helen <file>` exit codes 0/1/2/3; `Error: [E0332] ...` + HLD 3.11.2 caret format; `helen check` → `✓ file: OK`; `helen test` report byte-identical to Python `_format_report`; `--json` matches semantically (key order cosmetic).
+- Formatter caret: width = end_col-1 - (start_col-1) + 1 chars; pad with spaces for multi-line messages; blank source lines get `|` gutter with spaces.
+- LSP port gotchas:
+  - Python `agent_stack.append(sym)` holds a *reference* to the same dict in `symbols` — Rust must use indices (Vec<(indent, usize)>) into the symbols vec, not clones, or children mutations don't propagate.
+  - `re.finditer` positions are char offsets; Rust `regex` match start/end are byte offsets (ASCII-safe here; CJK would need char conversion).
+  - `\b` in Python regex is Unicode-aware; Rust `regex` `\b` is ASCII-only → used explicit `[\w\u4e00-\u9fff]` classes for CJK symbols.
+  - `_uri_to_path` percent-decodes file:// URIs (v1.23.5 import-resolution fix) — pass real fs path into Scanner + base_dir to analyzer.
+  - `int_plus_one` clippy lint: `idx <= col-1` → `idx < col` but `col-1 <= x` is NOT `col <= x` (off-by-one!) — only apply the lint to the `y <= x-1` form.
+- JSON-RPC framing: `Content-Length: N\r\n\r\n` + body; server publishes `textDocument/publishDiagnostics` notifications after didOpen/didChange.
+- MCP config tests had a parallel-test race (shared PID-based temp dir) — fixed with an atomic counter for unique dirs.

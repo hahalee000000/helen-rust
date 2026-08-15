@@ -5,4 +5,15 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Helen language Rust reimplementation — helen-lsp (M0 stub)"
+description = "Helen language Rust reimplementation — helen-lsp (M12)"
+
+[dependencies]
+serde_json = { workspace = true }
+regex = { workspace = true }
+helen-core = { path = "../helen-core" }
+helen-parser = { path = "../helen-parser" }
+helen-semantic = { path = "../helen-semantic" }
+helen-interpreter = { path = "../helen-interpreter" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

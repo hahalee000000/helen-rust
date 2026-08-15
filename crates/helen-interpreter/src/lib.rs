@@ -16,3 +16,9 @@ pub mod native;
 pub mod shared_store;
 pub mod stdlib;
 pub mod value;
+
+/// M12: embedded stdlib catalog (M4 Task 4.1 `stdlib_catalog.json`) for
+/// docgen / LSP completion. Returns the raw JSON document.
+pub fn stdlib_catalog_json() -> &'static str {
+    include_str!("../stdlib_catalog.json")
+}
