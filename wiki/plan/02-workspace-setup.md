@@ -1,5 +1,11 @@
 # M0 — Workspace Setup, CI, and Conformance Harness
 
+> **Status: COMPLETE (2026-08-15)** — commit `742a480`. All DoD items green:
+> workspace + `helen-core` primitives (7 tests), `reference.py` driver,
+> `diff.sh`, golden capture, Tier-A extractor (18 programs from
+> `tests/interpreter`), CI workflow. Candidate comparison activates once a
+> Rust binary exists (M1+ can point `HELEN_CANDIDATE` at a partial build).
+
 **Objective:** A compiling Cargo workspace at `~/helen-rust/` with CI, shared test infra, and a differential-testing harness ready before language work begins. The harness has two halves: (a) a **Python reference driver** (in-process, decision 1a) and (b) a **pytest adoption toolchain** (decision 2).
 
 ## Task 0.1: Initialize workspace
