@@ -1,0 +1,16 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import "utils.helen"
+main {
+    let home = get_home()
+    if len(home) > 0 {
+        print("OK")
+    } else {
+        print("FAIL")
+    }
+}

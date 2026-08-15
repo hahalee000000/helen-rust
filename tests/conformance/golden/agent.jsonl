@@ -1,0 +1,6 @@
+{"file": "test_get_cwd_fallback_without_env.helen", "stdout": "", "stderr": "E0341: import file not found: 'utils.helen'\nE0332: undeclared variable 'get_cwd'", "exit_code": 2, "error_classes": []}
+{"file": "test_get_cwd_with_env_var.helen", "stdout": "", "stderr": "E0341: import file not found: 'utils.helen'\nE0332: undeclared variable 'get_cwd'", "exit_code": 2, "error_classes": []}
+{"file": "test_get_cwd_with_trailing_backslash.helen", "stdout": "", "stderr": "E0341: import file not found: 'utils.helen'\nE0332: undeclared variable 'get_cwd'", "exit_code": 2, "error_classes": []}
+{"file": "test_get_home_prefers_home_env.helen", "stdout": "", "stderr": "E0341: import file not found: 'utils.helen'\nE0332: undeclared variable 'get_home'", "exit_code": 2, "error_classes": []}
+{"file": "test_get_home_returns_nonempty.helen", "stdout": "", "stderr": "E0341: import file not found: 'utils.helen'\nE0332: undeclared variable 'get_home'", "exit_code": 2, "error_classes": []}
+{"file": "test_get_home_uses_userprofile_on_windows.helen", "stdout": "", "stderr": "E0341: import file not found: 'utils.helen'\nE0332: undeclared variable 'get_home'", "exit_code": 2, "error_classes": []}

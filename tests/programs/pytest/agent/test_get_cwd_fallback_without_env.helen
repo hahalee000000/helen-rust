@@ -1,0 +1,17 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import "utils.helen"
+main {
+    let cwd = get_cwd()
+    // cwd should be a non-empty string
+    if len(cwd) > 0 {
+        print("OK")
+    } else {
+        print("FAIL")
+    }
+}

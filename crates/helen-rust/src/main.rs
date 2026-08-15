@@ -122,7 +122,7 @@ fn run_json(stdout: &str, stderr: &str, exit_code: i64, error_classes: &[String]
     )
 }
 
-fn run_mode(path: &str) {
+fn run_mode(path: &str, mock_llm: bool) {
     #[cfg(feature = "python-ffi")]
     {
         // M10: install the Python FFI runtime (import hook + custom
@@ -168,6 +168,18 @@ fn run_mode(path: &str) {
     // Interpret
     let mut interp = Interpreter::new();
     interp.set_source_file(path);
+    if mock_llm {
+        // reference.py --mock-llm: MockLLMRuntime(act_return="MOCK_REPLY",
+        // route_return="__mock__")
+        let mock = helen_interpreter::llm_runtime::MockLlmRuntime::new(
+            Some("__mock__".to_string()),
+            Some(helen_interpreter::llm_runtime::LlmResponse {
+                text: Some("MOCK_REPLY".to_string()),
+                ..Default::default()
+            }),
+        );
+        interp.set_llm_runtime(std::sync::Arc::new(mock));
+    }
     let result = interp.interpret(&program);
     let stdout = interp.stdout.lock().unwrap().clone();
     match result {
@@ -479,7 +491,13 @@ fn main() {
 
     // ── Differential modes (kept for the M1–M3 diff harness) ──
     if args.len() >= 3 && args[1] == "--run" {
-        run_mode(&args[2]);
+        let mut mock = false;
+        let mut path = args[2].clone();
+        if args.len() >= 4 && args[2] == "--mock-llm" {
+            mock = true;
+            path = args[3].clone();
+        }
+        run_mode(&path, mock);
         return;
     }
     if args.len() >= 3 && args[1] == "--semantic-only" {

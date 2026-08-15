@@ -2472,7 +2472,48 @@ impl Interpreter {
         }
 
         let result = self.with_scope(Some(call_env), |s| {
-            if let Some(logic) = &agent.logic {
+            // HLD 3.5.3: register the agent's functions { } block into the
+            // function registry (Python registers agent.functions into
+            // self._functions before running main). Saved/restored so they
+            // do not leak into the caller's scope.
+            let prev_functions: HashMap<String, Rc<FunctionDecl>> = agent
+                .functions
+                .iter()
+                .filter_map(|f| s.functions.get(&f.name).cloned().map(|v| (f.name.clone(), v)))
+                .collect();
+            let mut restored: Vec<String> = Vec::new();
+            for f in &agent.functions {
+                if !s.functions.contains_key(&f.name) {
+                    restored.push(f.name.clone());
+                }
+                s.functions.insert(f.name.clone(), Rc::new(f.clone()));
+            }
+            // Define variables from the functions { } block (let/const
+            // declarations) in the agent's isolated env, sequential order.
+            for var_node in &agent.function_vars {
+                let value = if let Some(init) = &var_node.initializer {
+                    match s.eval_expr(init) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            for name in &restored {
+                                s.functions.remove(name);
+                            }
+                            for (n, v) in &prev_functions {
+                                s.functions.insert(n.clone(), v.clone());
+                            }
+                            return Err(e);
+                        }
+                    }
+                } else {
+                    Value::Null
+                };
+                if s.environment.borrow().get(&var_node.name).is_none() {
+                    s.environment
+                        .borrow_mut()
+                        .define(&var_node.name, value, var_node.mutable);
+                }
+            }
+            let r = if let Some(logic) = &agent.logic {
                 match logic.as_ref() {
                     Stmt::MainBlock(mb) => s.execute_stmts(&mb.body),
                     other => s.execute_stmt(other),
@@ -2485,7 +2526,15 @@ impl Interpreter {
                     .map(|p| p.content.clone())
                     .unwrap_or_default();
                 Ok(Flow::Normal(Some(Value::Str(Rc::from(prompt.as_str())))))
+            };
+            // Restore function registry (do not leak agent functions).
+            for name in &restored {
+                s.functions.remove(name);
             }
+            for (n, v) in &prev_functions {
+                s.functions.insert(n.clone(), v.clone());
+            }
+            r
         });
 
         self.current_agent = prev_agent;

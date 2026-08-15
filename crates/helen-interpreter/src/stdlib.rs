@@ -3878,7 +3878,41 @@ macro_rules! stub_fn {
 }
 
 stub_fn!(stub_clear_context, "clear_context");
-stub_fn!(stub_context_stats, "context_stats");
+
+/// `context_stats()` — port of `stdlib/context.py:_context_stats`.
+/// In batch mode (no transcript store / history wired) Python returns the
+/// "no context available" error dict with `message_count: 0`. The Rust
+/// batch path (conformance `--run`) has no active conversation history, so
+/// it returns the same dict.
+fn stub_context_stats(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    let by_role = indexmap::IndexMap::from([
+        (Value::Str(Rc::from("system")), Value::Int(0.into())),
+        (Value::Str(Rc::from("user")), Value::Int(0.into())),
+        (Value::Str(Rc::from("assistant")), Value::Int(0.into())),
+        (Value::Str(Rc::from("tool")), Value::Int(0.into())),
+    ]);
+    let map = indexmap::IndexMap::from([
+        (Value::Str(Rc::from("status")), Value::Str(Rc::from("error"))),
+        (
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from("No interpreter context available")),
+        ),
+        (Value::Str(Rc::from("message_count")), Value::Int(0.into())),
+        (Value::Str(Rc::from("total_tokens")), Value::Int(0.into())),
+        (
+            Value::Str(Rc::from("usage_ratio")),
+            Value::Float(0.0),
+        ),
+        (Value::Str(Rc::from("max_tokens")), Value::Int(0.into())),
+        (
+            Value::Str(Rc::from("by_role")),
+            Value::Map(Rc::new(RefCell::new(by_role))),
+        ),
+        (Value::Str(Rc::from("compressed_count")), Value::Int(0.into())),
+        (Value::Str(Rc::from("pinned_count")), Value::Int(0.into())),
+    ]);
+    Ok(Value::Map(Rc::new(RefCell::new(map))))
+}
 stub_fn!(stub_context_usage, "context_usage");
 stub_fn!(stub_get_message, "get_message");
 stub_fn!(stub_insert_message, "insert_message");

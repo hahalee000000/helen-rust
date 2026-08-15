@@ -1,0 +1,11 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+import "utils.helen"
+main {
+    print(get_home())
+}
