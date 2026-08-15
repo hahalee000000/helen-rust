@@ -28,6 +28,40 @@ use helen_core::ast_printer::{py_str_float, py_str_repr};
 
 use crate::closure::Closure;
 use crate::exceptions::ExceptionValue;
+use crate::shared_store::SharedStoreInstance;
+
+/// A message payload transferred through a `Channel`.
+///
+/// Wraps `Value`; `unsafe impl Send` is justified by `make_send_owned`: every
+/// value placed in a message is deep-owned first (fresh `Rc` allocations,
+/// deep-copied stores), so no allocation inside a message is shared with the
+/// sending interpreter. This mirrors Python's GIL-safe object sharing while
+/// being intentionally stricter (single-owner transfer).
+#[derive(Clone, Debug)]
+pub struct ChannelMsg(pub Value);
+// SAFETY: payloads are deep-owned at the send boundary (see make_send_owned).
+// Nested Channel/SharedStore references are Arc-based (Send + Sync).
+unsafe impl Send for ChannelMsg {}
+
+impl helen_runtime::channel::Queueable for ChannelMsg {
+    fn sentinel() -> Self {
+        ChannelMsg(Value::Null)
+    }
+}
+
+/// A bound shared-store method (`Counter.increment`).
+#[derive(Clone, Debug)]
+pub struct StoreMethodValue {
+    pub store: std::sync::Arc<SharedStoreInstance>,
+    pub name: String,
+}
+
+/// A bound channel-endpoint method (`mb.receive`).
+#[derive(Clone, Debug)]
+pub struct ChannelMethodValue {
+    pub endpoint: std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>,
+    pub name: String,
+}
 
 /// A stdlib builtin function (M4 registers the full 378; the core subset is
 /// available from the start). Holds a name and an implementation pointer.
@@ -75,6 +109,16 @@ pub enum Value {
     MapMethod(Box<crate::interpreter::MapMethodValue>),
     /// A bound list method (`l.append`, `l.pop`, ...).
     ListMethod(Box<crate::interpreter::ListMethodValue>),
+    /// A channel endpoint (v1.18 spawn) — shared across threads via Arc.
+    Channel(std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>),
+    /// A shared store instance (v1.12).
+    SharedStore(std::sync::Arc<SharedStoreInstance>),
+    /// A bound shared-store method (`Counter.increment`).
+    StoreMethod(Box<StoreMethodValue>),
+    /// A bound channel-endpoint method (`mb.receive`).
+    ChannelMethod(Box<ChannelMethodValue>),
+    /// Read-only wrapper for reference types passed to agents (v1.12).
+    ReadOnly(Rc<RefCell<Value>>),
 }
 
 impl Value {
@@ -91,7 +135,15 @@ impl Value {
             Value::Map(m) => !m.borrow().is_empty(),
             Value::Exception(_) => true,
             Value::BuiltinFn(_) | Value::UserFn(_) | Value::Agent(_) | Value::Closure(_) => true,
-            Value::Range(_, _) | Value::MapMethod(_) | Value::ListMethod(_) => true,
+            Value::Range(_, _)
+            | Value::MapMethod(_)
+            | Value::ListMethod(_)
+            | Value::Channel(_)
+            | Value::SharedStore(_)
+            | Value::StoreMethod(_)
+            | Value::ChannelMethod(_) => true,
+            // v1.12: ReadOnlyView delegates truthiness to underlying data.
+            Value::ReadOnly(r) => r.borrow().truthy(),
         }
     }
 
@@ -113,6 +165,11 @@ impl Value {
             Value::Closure(_) => "function".into(),
             Value::Range(_, _) => "range".into(),
             Value::MapMethod(_) | Value::ListMethod(_) => "method".into(),
+            Value::Channel(_) => "ChannelEndpoint".into(),
+            Value::SharedStore(_) => "SharedStore".into(),
+            Value::StoreMethod(_) => "SharedStoreMethod".into(),
+            Value::ChannelMethod(_) => "method".into(),
+            Value::ReadOnly(r) => r.borrow().type_name(),
         }
     }
 
@@ -168,6 +225,27 @@ impl Value {
             Value::Closure(_) => "<function <lambda>>".into(),
             Value::Range(a, b) => format!("{}..{}", a.python_str(), b.python_str()),
             Value::MapMethod(_) | Value::ListMethod(_) => "<dict method>".into(),
+            Value::Channel(ep) => format!(
+                "ChannelEndpoint({:?}, {})",
+                ep.channel().name,
+                if ep.is_main_thread() {
+                    "main"
+                } else {
+                    "spawned"
+                }
+            ),
+            Value::SharedStore(s) => format!(
+                "<SharedStore {} with {} fields, {} methods>",
+                s.name,
+                s.field_order.len(),
+                s.methods.len()
+            ),
+            Value::StoreMethod(sm) => {
+                format!("<SharedStoreMethod {}.{}>", sm.store.name, sm.name)
+            }
+            Value::ChannelMethod(cm) => format!("<channel method {}.{}>", "endpoint", cm.name),
+            // v1.12: ReadOnlyView stringifies as its underlying data.
+            Value::ReadOnly(r) => r.borrow().python_str(),
         }
     }
 
@@ -208,6 +286,27 @@ impl Value {
             Value::Closure(_) => "<function <lambda>>".into(),
             Value::Range(a, b) => format!("{}..{}", a.python_str(), b.python_str()),
             Value::MapMethod(_) | Value::ListMethod(_) => "<dict method>".into(),
+            Value::Channel(ep) => format!(
+                "ChannelEndpoint({:?}, {})",
+                ep.channel().name,
+                if ep.is_main_thread() {
+                    "main"
+                } else {
+                    "spawned"
+                }
+            ),
+            Value::SharedStore(s) => format!(
+                "<SharedStore {} with {} fields, {} methods>",
+                s.name,
+                s.field_order.len(),
+                s.methods.len()
+            ),
+            Value::StoreMethod(sm) => {
+                format!("<SharedStoreMethod {}.{}>", sm.store.name, sm.name)
+            }
+            Value::ChannelMethod(cm) => format!("<channel method {}.{}>", "endpoint", cm.name),
+            // v1.12: ReadOnlyView repr wraps the data.
+            Value::ReadOnly(r) => format!("ReadOnly({})", r.borrow().python_repr()),
         }
     }
 
@@ -237,6 +336,92 @@ impl Value {
         span: Option<helen_core::source::SourceSpan>,
     ) -> Value {
         Value::Exception(Box::new(ExceptionValue::new(class_name, message, span)))
+    }
+
+    /// Deep-own clone: like `clone_deep` but also reallocates `Rc<str>`
+    /// strings and deep-copies shared stores / channels. The result shares no
+    /// `Rc` allocation with the source — safe to move across threads
+    /// (single-owner transfer).
+    pub fn clone_owned(&self) -> Value {
+        match self {
+            Value::Str(s) => Value::Str(Rc::from(s.as_ref())),
+            Value::List(l) => {
+                let copied = l.borrow().iter().map(Value::clone_owned).collect();
+                Value::List(Rc::new(RefCell::new(copied)))
+            }
+            Value::Tuple(t) => {
+                let copied = t.borrow().iter().map(Value::clone_owned).collect();
+                Value::Tuple(Rc::new(RefCell::new(copied)))
+            }
+            Value::Map(m) => {
+                let copied: IndexMap<Value, Value> = m
+                    .borrow()
+                    .iter()
+                    .map(|(k, v)| (k.clone_owned(), v.clone_owned()))
+                    .collect();
+                Value::Map(Rc::new(RefCell::new(copied)))
+            }
+            Value::SharedStore(s) => Value::SharedStore(s.deep_copy()),
+            Value::Channel(ep) => Value::Channel(ep.clone()), // Arc — shared, Send+Sync
+            Value::BuiltinFn(f) => Value::BuiltinFn(Rc::new(f.as_ref().clone())),
+            Value::UserFn(f) => Value::UserFn(Rc::new(f.as_ref().clone())),
+            Value::Agent(a) => Value::Agent(Rc::new(a.as_ref().clone())),
+            Value::MapMethod(mm) => {
+                let inner: IndexMap<Value, Value> = mm
+                    .map
+                    .borrow()
+                    .iter()
+                    .map(|(k, v)| (k.clone_owned(), v.clone_owned()))
+                    .collect();
+                Value::MapMethod(Box::new(crate::interpreter::MapMethodValue {
+                    kind: mm.kind.clone(),
+                    map: Rc::new(RefCell::new(inner)),
+                }))
+            }
+            Value::ListMethod(lm) => {
+                let inner: Vec<Value> = lm.list.borrow().iter().map(Value::clone_owned).collect();
+                Value::ListMethod(Box::new(crate::interpreter::ListMethodValue {
+                    kind: lm.kind.clone(),
+                    list: Rc::new(RefCell::new(inner)),
+                }))
+            }
+            Value::ReadOnly(r) => Value::ReadOnly(Rc::new(RefCell::new(r.borrow().clone_owned()))),
+            Value::StoreMethod(sm) => Value::StoreMethod(Box::new(StoreMethodValue {
+                store: sm.store.deep_copy(),
+                name: sm.name.clone(),
+            })),
+            Value::ChannelMethod(cm) => Value::ChannelMethod(Box::new(ChannelMethodValue {
+                endpoint: cm.endpoint.clone(), // Arc — shared, Send+Sync
+                name: cm.name.clone(),
+            })),
+            other => other.clone(),
+        }
+    }
+
+    /// Build a deep-owned message payload for `Channel::send`.
+    ///
+    /// Function/closure references cannot be deep-owned; sending them is
+    /// rejected with an error map (documented deviation: Python's GIL would
+    /// share them; Rust is intentionally stricter).
+    pub fn make_send_owned(&self) -> Value {
+        match self {
+            Value::Closure(_) => Value::Map(Rc::new(RefCell::new(IndexMap::from([
+                (Value::Str(Rc::from("__error__")), Value::Bool(true)),
+                (
+                    Value::Str(Rc::from("message")),
+                    Value::Str(Rc::from(
+                        "cannot send a closure through a channel (single-owner transfer)",
+                    )),
+                ),
+            ])))),
+            other => other.clone_owned(),
+        }
+    }
+
+    /// True for reference types wrapped in `ReadOnlyView` (Python
+    /// `_is_mutable_type`: list / dict).
+    pub fn is_mutable_type(&self) -> bool {
+        matches!(self, Value::List(_) | Value::Map(_))
     }
 
     /// Integer value if this is an Int (used by `range` step etc.).
@@ -321,6 +506,19 @@ impl PartialEq for Value {
             (Value::Agent(a), Value::Agent(b)) => a.name == b.name,
             (Value::Closure(a), Value::Closure(b)) => Rc::ptr_eq(a, b),
             (Value::Range(a, b), Value::Range(c, d)) => a == c && b == d,
+            // Identity equality for channels/stores (Python object identity).
+            (Value::Channel(a), Value::Channel(b)) => std::sync::Arc::ptr_eq(a, b),
+            (Value::SharedStore(a), Value::SharedStore(b)) => std::sync::Arc::ptr_eq(a, b),
+            (Value::StoreMethod(a), Value::StoreMethod(b)) => {
+                std::sync::Arc::ptr_eq(&a.store, &b.store) && a.name == b.name
+            }
+            (Value::ChannelMethod(a), Value::ChannelMethod(b)) => {
+                std::sync::Arc::ptr_eq(&a.endpoint, &b.endpoint) && a.name == b.name
+            }
+            // v1.12: ReadOnlyView equality delegates to the underlying data.
+            (Value::ReadOnly(a), Value::ReadOnly(b)) => *a.borrow() == *b.borrow(),
+            (Value::ReadOnly(a), other) => *a.borrow() == *other,
+            (other, Value::ReadOnly(b)) => *other == *b.borrow(),
             _ => false,
         }
     }
@@ -409,10 +607,32 @@ impl Hash for Value {
             }
             Value::Tuple(t) => {
                 0xBu8.hash(state);
-                let tb = t.borrow();
-                for v in tb.iter() {
+                let b = t.borrow();
+                for v in b.iter() {
                     v.hash(state);
                 }
+            }
+            Value::Channel(c) => {
+                0xCu8.hash(state);
+                std::ptr::hash(std::sync::Arc::as_ptr(c), state);
+            }
+            Value::SharedStore(s) => {
+                0xDu8.hash(state);
+                std::ptr::hash(std::sync::Arc::as_ptr(s), state);
+            }
+            Value::StoreMethod(sm) => {
+                0xEu8.hash(state);
+                std::ptr::hash(std::sync::Arc::as_ptr(&sm.store), state);
+                sm.name.hash(state);
+            }
+            Value::ChannelMethod(cm) => {
+                0x10u8.hash(state);
+                std::ptr::hash(std::sync::Arc::as_ptr(&cm.endpoint), state);
+                cm.name.hash(state);
+            }
+            Value::ReadOnly(r) => {
+                0xFu8.hash(state);
+                r.borrow().hash(state);
             }
         }
     }

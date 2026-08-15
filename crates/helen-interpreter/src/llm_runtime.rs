@@ -27,14 +27,14 @@ impl LlmResponse {
 pub trait LlmRuntime {
     /// `llm if` — route to one of the branches by description.
     fn route(
-        &mut self,
+        &self,
         description: &str,
         branches: &[String],
         context: Option<&str>,
     ) -> Result<Option<String>, ExceptionValue>;
     /// `llm act` — execute an autonomous action, returning response text.
     fn act(
-        &mut self,
+        &self,
         prompt: &str,
         tools: &[serde_json::Value],
         model: Option<&str>,
@@ -49,7 +49,7 @@ pub trait LlmRuntime {
     ) -> Result<LlmResponse, ExceptionValue>;
     /// Streaming `llm act` — event callback; returns false to stop.
     fn act_stream(
-        &mut self,
+        &self,
         prompt: &str,
         model: Option<&str>,
         temperature: f64,
@@ -130,7 +130,7 @@ impl MockLlmRuntime {
 
 impl LlmRuntime for MockLlmRuntime {
     fn route(
-        &mut self,
+        &self,
         description: &str,
         branches: &[String],
         context: Option<&str>,
@@ -147,7 +147,7 @@ impl LlmRuntime for MockLlmRuntime {
     }
 
     fn act(
-        &mut self,
+        &self,
         prompt: &str,
         tools: &[serde_json::Value],
         _model: Option<&str>,

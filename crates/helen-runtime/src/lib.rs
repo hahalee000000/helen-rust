@@ -8,6 +8,7 @@
 //! with real-provider support.
 
 pub mod calc;
+pub mod channel;
 pub mod config;
 pub mod fuzzy_match;
 pub mod http_llm;

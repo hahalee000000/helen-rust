@@ -19,7 +19,7 @@ use num_traits::{Signed, ToPrimitive, Zero};
 
 use helen_core::ast::{
     Access, AgentDecl, Binary, Call, CallArg, Expr, ForStmt, FunctionDecl, IfStmt, ImportStmt,
-    Index, Lambda, Pipe, Program, Stmt, ThrowStmt, TypeRef, Unary, VarDecl,
+    Index, Lambda, Pipe, Program, Spawn, Stmt, ThrowStmt, TypeRef, Unary, VarDecl,
 };
 use helen_core::ast_printer::py_str_float;
 use helen_core::source::SourceSpan;
@@ -30,7 +30,7 @@ use crate::closure::{compute_free_variables, Closure};
 use crate::environment::Environment;
 use crate::exceptions::{error_matches, resolve_exception, ExceptionValue, Flow};
 use crate::llm_runtime::{LlmRuntime, MockLlmRuntime};
-use crate::value::{BuiltinFn, Value};
+use crate::value::{BuiltinFn, ChannelMethodValue, ChannelMsg, StoreMethodValue, Value};
 
 /// Runtime type-check results used by `_call_function`/`_call_closure`.
 fn type_of_value(v: &Value) -> Type {
@@ -66,14 +66,80 @@ pub struct Interpreter {
     /// v1.22: current agent (None at top level).
     pub current_agent: Option<Rc<AgentDecl>>,
     /// Task 3.6: LLM runtime backing `llm if` / `llm act`.
-    pub llm_runtime: Box<dyn LlmRuntime>,
+    pub llm_runtime: std::sync::Arc<dyn LlmRuntime>,
     /// v1.12: shared store instance cache (import reuse).
     pub shared_store_instances: HashMap<String, Value>,
     /// Captured stdout (Python redirects sys.stdout around `interpret`).
-    pub stdout: RefCell<String>,
+    pub stdout: std::sync::Arc<std::sync::Mutex<String>>,
+}
+
+/// Everything a spawned agent thread needs, deep-owned so it can be moved
+/// across the thread boundary with single-owner semantics (see `visit_spawn`).
+///
+/// # SAFETY
+/// `Send` is implemented manually: every `Rc` inside is a *fresh, uniquely
+/// owned* allocation created by the parent (registries rebuilt via
+/// `Rc::new(x.as_ref().clone())`, env via `snapshot()` deep-own, args via
+/// `make_send_owned`). No allocation is shared with the parent thread.
+/// Shared items use `Arc` (`llm_runtime`, `stdout`, the endpoint).
+/// Python's GIL makes the equivalent Python code "safe"; Rust documents this
+/// single-owner transfer as intentionally stricter.
+struct SpawnPayload {
+    env: Environment,
+    functions: HashMap<String, Rc<FunctionDecl>>,
+    agents: HashMap<String, Rc<AgentDecl>>,
+    protocols: HashMap<String, Rc<helen_core::ast::ProtocolDecl>>,
+    impls: HashMap<(String, String), Rc<helen_core::ast::ImplDecl>>,
+    builtins: HashMap<String, Rc<BuiltinFn>>,
+    shared_vars: std::collections::HashSet<String>,
+    program_args: Vec<String>,
+    source_file: Option<String>,
+    args: HashMap<String, Value>,
+    agent: Rc<AgentDecl>,
+    span: SourceSpan,
+    llm_runtime: std::sync::Arc<dyn LlmRuntime>,
+    stdout: std::sync::Arc<std::sync::Mutex<String>>,
+    endpoint: std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>,
+}
+
+// SAFETY: see the struct doc — single-owner Rc discipline.
+unsafe impl Send for SpawnPayload {}
+
+/// The spawned-thread runner (Python `run_spawned`): builds a fresh
+/// `Interpreter` from the snapshot, calls the agent, reports errors back over
+/// the channel, and closes the endpoint.
+fn run_spawned(p: SpawnPayload) {
+    let mut interp = Interpreter::new();
+    interp.environment = Rc::new(RefCell::new(p.env));
+    interp.functions = p.functions;
+    interp.agents = p.agents;
+    interp.protocols = p.protocols;
+    interp.impls = p.impls;
+    interp.builtins = p.builtins;
+    interp.shared_vars = p.shared_vars;
+    interp.program_args = p.program_args;
+    interp.source_file = p.source_file;
+    interp.llm_runtime = p.llm_runtime;
+    interp.stdout = p.stdout;
+
+    let result = interp.call_agent(&p.agent, p.args, &p.span);
+    if let Err(e) = result {
+        // Report the error back over the channel (Python sends
+        // {"__error__": true, "message": str(e)}).
+        let mut m = indexmap::IndexMap::new();
+        m.insert(Value::Str(Rc::from("__error__")), Value::Bool(true));
+        m.insert(
+            Value::Str(Rc::from("message")),
+            Value::Str(Rc::from(e.message.clone())),
+        );
+        p.endpoint
+            .send(ChannelMsg(Value::Map(Rc::new(RefCell::new(m)))));
+    }
+    p.endpoint.close();
 }
 
 impl Interpreter {
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new() -> Self {
         let mut interp = Interpreter {
             environment: Rc::new(RefCell::new(Environment::new(None))),
@@ -91,16 +157,16 @@ impl Interpreter {
             program_args: Vec::new(),
             builtins: HashMap::new(),
             current_agent: None,
-            llm_runtime: Box::new(MockLlmRuntime::default()),
+            llm_runtime: std::sync::Arc::new(MockLlmRuntime::default()),
             shared_store_instances: HashMap::new(),
-            stdout: RefCell::new(String::new()),
+            stdout: std::sync::Arc::new(std::sync::Mutex::new(String::new())),
         };
         interp.register_core_builtins();
         interp
     }
 
     /// Inject a custom LLM runtime (tests use `MockLlmRuntime`).
-    pub fn set_llm_runtime(&mut self, runtime: Box<dyn LlmRuntime>) {
+    pub fn set_llm_runtime(&mut self, runtime: std::sync::Arc<dyn LlmRuntime>) {
         self.llm_runtime = runtime;
     }
 
@@ -148,7 +214,7 @@ impl Interpreter {
             return Err(self.runtime_error(
                 Some(span),
                 &format!(
-                    "Unknown stdlib module '{module}'. Available: std.core, std.str, std.list, std.dict, std.math, std.debug"
+                    "Unknown stdlib module '{module}'. Available: std.core, std.str, std.list, std.dict, std.math, std.debug, std.concurrency"
                 ),
             ));
         }
@@ -355,27 +421,9 @@ impl Interpreter {
             }
         }
 
-        // 2. Shared stores -> container maps (fields; methods are a later
-        //    milestone — divergence recorded in wiki/rust/migration-notes.md).
+        // 2. Shared stores -> SharedStoreInstance (fields + methods).
         for ss in &reg.shared_stores {
-            let mut fields = indexmap::IndexMap::new();
-            for f in &ss.fields {
-                let val = if let Some(init) = &f.initializer {
-                    self.with_scope(Some(module_env.clone()), |s| s.eval_expr(init))?
-                } else {
-                    Value::Null
-                };
-                fields.insert(Value::Str(std::rc::Rc::from(f.name.as_str())), val);
-            }
-            let container = Value::Map(Rc::new(RefCell::new(fields)));
-            module_env
-                .borrow_mut()
-                .define(&ss.name, container.clone(), true);
-            if self.environment.borrow().get(&ss.name).is_none() {
-                self.environment
-                    .borrow_mut()
-                    .define(&ss.name, container, true);
-            }
+            self.register_shared_store(ss, module_env.clone())?;
         }
 
         // 3. Functions -> self.functions + their file's module env.
@@ -389,6 +437,45 @@ impl Interpreter {
         for a in &reg.agents {
             self.agents.insert(a.name.clone(), Rc::new(a.clone()));
         }
+        Ok(())
+    }
+
+    /// Register a shared store declaration (Python `_visit_shared_container`):
+    /// evaluate field initializers in `module_env`, bind methods, define the
+    /// store as a const in the module env + global env, and add it to
+    /// `shared_vars` so agents (and spawned children) see it.
+    #[allow(clippy::arc_with_non_send_sync)]
+    fn register_shared_store(
+        &mut self,
+        ss: &helen_core::ast::SharedStoreDecl,
+        module_env: Rc<RefCell<Environment>>,
+    ) -> Result<(), ExceptionValue> {
+        let mut fields = indexmap::IndexMap::new();
+        for f in &ss.fields {
+            let val = if let Some(init) = &f.initializer {
+                self.with_scope(Some(module_env.clone()), |s| s.eval_expr(init))?
+            } else {
+                Value::Null
+            };
+            fields.insert(f.name.clone(), val);
+        }
+        let mut methods = HashMap::new();
+        for m in &ss.methods {
+            methods.insert(m.name.clone(), Rc::new(m.clone()));
+        }
+        let instance = std::sync::Arc::new(crate::shared_store::SharedStoreInstance::new(
+            ss.name.clone(),
+            fields,
+            methods,
+        ));
+        let value = Value::SharedStore(instance);
+        module_env
+            .borrow_mut()
+            .define(&ss.name, value.clone(), true);
+        if self.environment.borrow().get(&ss.name).is_none() {
+            self.environment.borrow_mut().define(&ss.name, value, true);
+        }
+        self.shared_vars.insert(ss.name.clone());
         Ok(())
     }
 
@@ -570,8 +657,8 @@ impl Interpreter {
                 }
                 Ok(Flow::Normal(None))
             }
-            Stmt::SharedStoreDecl(_) => {
-                // Shared stores are implemented with the import resolver (3.7).
+            Stmt::SharedStoreDecl(ss) => {
+                self.register_shared_store(ss, self.environment.clone())?;
                 Ok(Flow::Normal(None))
             }
             Stmt::LlmIf(li) => self.visit_llm_if(li),
@@ -642,11 +729,282 @@ impl Interpreter {
             }
             Expr::TypePattern(_) => Ok(Value::Null),
             Expr::LlmAct(la) => self.visit_llm_act(la),
-            Expr::Spawn(sp) => {
-                let call = sp.call.clone();
-                let result = self.visit_call(&call)?;
-                Ok(result)
+            Expr::Spawn(sp) => self.visit_spawn(sp),
+        }
+    }
+
+    /// `visit_spawn_expr` (v1.18) — spawn an agent in a new thread and return
+    /// the main-thread `Channel` endpoint.
+    ///
+    /// Port of `interpreter.py:visit_spawn_expr`:
+    /// 1. Resolve the agent; evaluate user args.
+    /// 2. Optional `resume("<session_id>")` (carried; loaded in M8).
+    /// 3. Create a bidirectional channel; auto-inject the spawned endpoint
+    ///    as the agent's last argument.
+    /// 4. Deep-own snapshot of the environment (Python `environment.snapshot()`
+    ///    — `deepcopy`), fresh single-owner registries, then run the agent in
+    ///    a new OS thread with a fresh `Interpreter`.
+    /// 5. Errors are sent back as `{"__error__": true, "message": ...}`.
+    /// 6. Return the main endpoint.
+    fn visit_spawn(&mut self, sp: &Spawn) -> Result<Value, ExceptionValue> {
+        use helen_runtime::channel::{Channel, ChannelEndpoint};
+        use std::sync::Arc;
+
+        let call = sp.call.as_ref();
+
+        // 1. Resolve the agent being called.
+        let agent_name = match call.callee.as_ref() {
+            Expr::Variable(v) => v.name.clone(),
+            _ => {
+                return Err(self.runtime_error(Some(&sp.span), "spawn requires an agent call"));
             }
+        };
+        let agent = self.agents.get(&agent_name).cloned().ok_or_else(|| {
+            self.runtime_error(
+                Some(&sp.span),
+                &format!("Undefined agent '{agent_name}' in spawn"),
+            )
+        })?;
+
+        // 2. Evaluate user-provided args (the Channel param is auto-injected).
+        let mut arg_values: Vec<Value> = Vec::new();
+        for arg in &call.arguments {
+            arg_values.push(self.eval_expr(&arg.value)?);
+        }
+
+        // v1.27: resume("<session_id>"). Session loading is M8 (session
+        // manager); we validate and carry the id.
+        let _resume_session_id: Option<String> = if let Some(rs) = &sp.resume_session {
+            match self.eval_expr(rs)? {
+                Value::Str(s) => Some(s.to_string()),
+                other => {
+                    return Err(self.runtime_error(
+                        Some(&sp.span),
+                        &format!(
+                            "spawn resume() requires a string session_id, got {}",
+                            other.type_name()
+                        ),
+                    ));
+                }
+            }
+        } else {
+            None
+        };
+
+        // 3. Bidirectional channel.
+        let channel = Arc::new(Channel::<ChannelMsg>::new(format!("spawn_{agent_name}")));
+        let main_endpoint = Arc::new(ChannelEndpoint::new(channel.clone(), true));
+        let spawned_endpoint = Arc::new(ChannelEndpoint::new(channel, false));
+
+        // Auto-inject the spawned endpoint. Python `visit_spawn_expr` binds
+        // user args positionally to the agent's non-Channel params (the last
+        // param is the auto-injected Channel). Deep-own the evaluated args
+        // (single-owner transfer to the new thread).
+        let mut agent_args: HashMap<String, Value> = HashMap::new();
+        let data_params: Vec<&helen_core::ast::AgentParam> = agent
+            .params
+            .iter()
+            .filter(|p| p.type_annotation.as_ref().map(|t| t.name.as_str()) != Some("Channel"))
+            .collect();
+        let channel_param = agent
+            .params
+            .iter()
+            .find(|p| p.type_annotation.as_ref().map(|t| t.name.as_str()) == Some("Channel"))
+            .or_else(|| agent.params.last());
+        // Unbound non-Channel params default to Null.
+        for p in agent.params.iter() {
+            if p.type_annotation.as_ref().map(|t| t.name.as_str()) != Some("Channel") {
+                agent_args.insert(p.name.clone(), Value::Null);
+            }
+        }
+        for (i, p) in data_params.iter().enumerate() {
+            if i < arg_values.len() {
+                agent_args.insert(p.name.clone(), arg_values[i].make_send_owned());
+            }
+        }
+        if let Some(cp) = channel_param {
+            agent_args.insert(cp.name.clone(), Value::Channel(spawned_endpoint.clone()));
+        }
+
+        // 4. Deep-owned environment snapshot + fresh single-owner registries.
+        let env_snapshot = self.environment.borrow().snapshot();
+        let functions: HashMap<String, Rc<FunctionDecl>> = self
+            .functions
+            .iter()
+            .map(|(k, v)| (k.clone(), Rc::new(v.as_ref().clone())))
+            .collect();
+        let agents: HashMap<String, Rc<AgentDecl>> = self
+            .agents
+            .iter()
+            .map(|(k, v)| (k.clone(), Rc::new(v.as_ref().clone())))
+            .collect();
+        let protocols: HashMap<String, Rc<helen_core::ast::ProtocolDecl>> = self
+            .protocols
+            .iter()
+            .map(|(k, v)| (k.clone(), Rc::new(v.as_ref().clone())))
+            .collect();
+        let impls: HashMap<(String, String), Rc<helen_core::ast::ImplDecl>> = self
+            .impls
+            .iter()
+            .map(|(k, v)| (k.clone(), Rc::new(v.as_ref().clone())))
+            .collect();
+        let builtins: HashMap<String, Rc<BuiltinFn>> = self
+            .builtins
+            .iter()
+            .map(|(k, v)| (k.clone(), Rc::new(v.as_ref().clone())))
+            .collect();
+        let shared_vars: std::collections::HashSet<String> = self.shared_vars.clone();
+        let program_args: Vec<String> = self.program_args.clone();
+        let source_file = self.source_file.clone();
+        let llm_runtime = self.llm_runtime.clone();
+        let stdout = self.stdout.clone();
+
+        let payload = SpawnPayload {
+            env: env_snapshot,
+            functions,
+            agents,
+            protocols,
+            impls,
+            builtins,
+            shared_vars,
+            program_args,
+            source_file,
+            args: agent_args,
+            agent,
+            span: sp.span.clone(),
+            llm_runtime,
+            stdout,
+            endpoint: spawned_endpoint,
+        };
+
+        std::thread::Builder::new()
+            .name(format!("spawn-{agent_name}"))
+            .spawn(move || run_spawned(payload))
+            .map_err(|_| self.runtime_error(Some(&sp.span), "failed to spawn agent thread"))?;
+
+        Ok(Value::Channel(main_endpoint))
+    }
+
+    /// `call_method` on a `ChannelEndpoint` (Python `ChannelEndpoint.call_method`).
+    fn call_channel_method(
+        &mut self,
+        ep: &std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>,
+        name: &str,
+        args: &[Value],
+        span: &SourceSpan,
+    ) -> Result<Value, ExceptionValue> {
+        match name {
+            // send / 发送
+            "send" | "发送" => {
+                if let Some(msg) = args.first() {
+                    ep.send(ChannelMsg(msg.make_send_owned()));
+                } else {
+                    ep.send(ChannelMsg(Value::Null));
+                }
+                Ok(Value::Null)
+            }
+            // receive / 接收 — optional float timeout (seconds).
+            "receive" | "接收" => {
+                let timeout = match args.first() {
+                    Some(Value::Float(f)) if f.is_finite() && *f >= 0.0 => {
+                        Some(std::time::Duration::from_secs_f64(*f))
+                    }
+                    Some(Value::Int(i)) => match i.to_f64() {
+                        Some(f) if f.is_finite() && f >= 0.0 => {
+                            Some(std::time::Duration::from_secs_f64(f))
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                match ep.receive(timeout) {
+                    Some(msg) => Ok(msg.0),
+                    None => Ok(Value::Null),
+                }
+            }
+            // try_receive / 尝试接收
+            "try_receive" | "尝试接收" => match ep.try_receive() {
+                Some(msg) => Ok(msg.0),
+                None => Ok(Value::Null),
+            },
+            // cancel / 取消
+            "cancel" | "取消" => {
+                ep.cancel();
+                Ok(Value::Null)
+            }
+            // close / 关闭
+            "close" | "关闭" => {
+                ep.close();
+                Ok(Value::Null)
+            }
+            // is_closed / 已关闭 / is_channel_closed
+            "is_closed" | "已关闭" | "is_channel_closed" => Ok(Value::Bool(ep.is_closed())),
+            other => {
+                Err(self.runtime_error(Some(span), &format!("Channel has no method '{other}'")))
+            }
+        }
+    }
+
+    /// Execute a shared-store method (Python `SharedStoreMethod.__call__`).
+    ///
+    /// Serializes on the store lock, binds fields as locals, binds params
+    /// (with defaults), executes the body, then writes modified fields back.
+    fn call_store_method(
+        &mut self,
+        store: &std::sync::Arc<crate::shared_store::SharedStoreInstance>,
+        name: &str,
+        args: &[Value],
+        span: &SourceSpan,
+    ) -> Result<Value, ExceptionValue> {
+        let method = store.methods.get(name).cloned().ok_or_else(|| {
+            self.runtime_error(
+                Some(span),
+                &format!("Shared store '{}' has no method '{name}'", store.name),
+            )
+        })?;
+
+        // Snapshot current fields (serialized under the store lock).
+        let fields = store.fields.lock().unwrap().clone();
+
+        // Execution environment: a child of the CALLING interpreter's env so
+        // stdlib/consts resolve in the caller (Python v1.39.3).
+        let call_env = Environment::child(self.environment.clone());
+        {
+            let mut env = call_env.borrow_mut();
+            for (fname, fval) in &fields {
+                env.define(fname, fval.clone(), false);
+            }
+            for (i, p) in method.params.iter().enumerate() {
+                if let Some(a) = args.get(i) {
+                    env.define(&p.name, a.clone(), false);
+                } else if let Some(d) = &p.default_value {
+                    let dv = self.eval_expr(d)?;
+                    env.define(&p.name, dv, false);
+                } else {
+                    env.define(&p.name, Value::Null, false);
+                }
+            }
+        }
+
+        let result = self.with_scope(Some(call_env.clone()), |s| {
+            s.execute_stmts(&method.body.body)
+        })?;
+
+        // Write back any field modifications (Python `method_env.lookup`).
+        {
+            let cb = call_env.borrow();
+            let mut fl = store.fields.lock().unwrap();
+            for fname in &store.field_order {
+                if let Some(v) = cb.get(fname) {
+                    fl.insert(fname.clone(), v);
+                }
+            }
+        }
+
+        match result {
+            Flow::Return(v) => Ok(v.unwrap_or(Value::Null)),
+            Flow::Normal(v) => Ok(v.unwrap_or(Value::Null)),
+            _ => Ok(Value::Null),
         }
     }
 
@@ -1101,6 +1459,10 @@ impl Interpreter {
             }
             Value::MapMethod(m) => m.call(&args),
             Value::ListMethod(m) => m.call(&args),
+            Value::ChannelMethod(cm) => {
+                self.call_channel_method(&cm.endpoint, &cm.name, &args, &c.span)
+            }
+            Value::StoreMethod(sm) => self.call_store_method(&sm.store, &sm.name, &args, &c.span),
             other => Err(self.runtime_error(
                 Some(&c.span),
                 &format!("'{}' is not callable", other.type_name()),
@@ -1137,6 +1499,12 @@ impl Interpreter {
             }
             Value::MapMethod(m) => m.call(&args),
             Value::ListMethod(m) => m.call(&args),
+            Value::ChannelMethod(cm) => {
+                self.call_channel_method(&cm.endpoint, &cm.name, &args, &self.fake_span())
+            }
+            Value::StoreMethod(sm) => {
+                self.call_store_method(&sm.store, &sm.name, &args, &self.fake_span())
+            }
             other => {
                 Err(self.runtime_error(None, &format!("'{}' is not callable", other.type_name())))
             }
@@ -1188,6 +1556,56 @@ impl Interpreter {
                 ))
             }
             Value::Str(s) => self.index_string(s, &index, &i.span),
+            // v1.12: ReadOnlyView __getitem__ delegates; nested mutables wrap.
+            Value::ReadOnly(r) => {
+                let inner = r.borrow().clone();
+                match &inner {
+                    Value::List(l) => match &index {
+                        Value::Int(idx) => {
+                            let items = l.borrow();
+                            let n = items.len() as i64;
+                            let mut real = idx.to_i64().unwrap_or(i64::MAX);
+                            if real < 0 {
+                                real += n;
+                            }
+                            if real < 0 || real >= n {
+                                return Err(
+                                    self.runtime_error(Some(&i.span), "list index out of range")
+                                );
+                            }
+                            let v = items[real as usize].clone();
+                            Ok(if v.is_mutable_type() {
+                                Value::ReadOnly(Rc::new(RefCell::new(v)))
+                            } else {
+                                v
+                            })
+                        }
+                        other => Err(self.runtime_error(
+                            Some(&i.span),
+                            &format!("List index must be integer, got {}", other.type_name()),
+                        )),
+                    },
+                    Value::Map(m) => {
+                        let map = m.borrow();
+                        if let Some(v) = map.get(&index) {
+                            let v = v.clone();
+                            return Ok(if v.is_mutable_type() {
+                                Value::ReadOnly(Rc::new(RefCell::new(v)))
+                            } else {
+                                v
+                            });
+                        }
+                        Err(self.runtime_error(
+                            Some(&i.span),
+                            &format!("Map key {} not found", index.python_repr()),
+                        ))
+                    }
+                    other => Err(self.runtime_error(
+                        Some(&i.span),
+                        &format!("Type {} does not support indexing", other.type_name()),
+                    )),
+                }
+            }
             other => Err(self.runtime_error(
                 Some(&i.span),
                 &format!("Type {} does not support indexing", other.type_name()),
@@ -1266,6 +1684,12 @@ impl Interpreter {
                 m.borrow_mut().insert(index.clone(), right.clone());
                 Ok(right)
             }
+            // v1.12: mutation through a ReadOnlyView raises ScopeViolationError.
+            Value::ReadOnly(_) => Err(ExceptionValue::new(
+                "ScopeViolationError",
+                String::from("cannot modify a read-only value (agent parameter isolation)"),
+                Some((*span).clone()),
+            )),
             other => Err(self.runtime_error(
                 Some(span),
                 &format!("Type {} does not support indexing", other.type_name()),
@@ -1353,6 +1777,64 @@ impl Interpreter {
                     &format!("'list' has no property '{}'", a.property),
                 ))
             }
+            Value::Channel(ep) => {
+                // ChannelEndpoint methods (Python `ChannelEndpoint.call_method`).
+                let methods = [
+                    "send",
+                    "receive",
+                    "try_receive",
+                    "cancel",
+                    "close",
+                    "is_closed",
+                    "is_channel_closed",
+                    "发送",
+                    "接收",
+                    "尝试接收",
+                    "取消",
+                    "关闭",
+                    "已关闭",
+                ];
+                if methods.contains(&prop.as_str()) {
+                    Ok(Value::ChannelMethod(Box::new(ChannelMethodValue {
+                        endpoint: ep.clone(),
+                        name: prop.clone(),
+                    })))
+                } else {
+                    Err(self
+                        .runtime_error(Some(&a.span), &format!("Channel has no method '{prop}'")))
+                }
+            }
+            Value::SharedStore(store) => {
+                // Methods first (Python __getattr__: methods win over fields).
+                if store.methods.contains_key(prop) {
+                    return Ok(Value::StoreMethod(Box::new(StoreMethodValue {
+                        store: store.clone(),
+                        name: prop.clone(),
+                    })));
+                }
+                if let Some(v) = store.get_field(prop) {
+                    return Ok(v);
+                }
+                Err(self.runtime_error(
+                    Some(&a.span),
+                    &format!(
+                        "Shared store '{}' has no field or method '{prop}'",
+                        store.name
+                    ),
+                ))
+            }
+            Value::ReadOnly(_) => {
+                // v1.12: ReadOnlyView has no __getattr__ delegation — method
+                // access raises (Python: AttributeError), which is exactly the
+                // mutation guard. Reads go through __getitem__/__iter__.
+                Err(self.runtime_error(
+                    Some(&a.span),
+                    &format!(
+                        "ReadOnlyView has no attribute '{prop}' \
+                         (read-only wrapper for agent params)"
+                    ),
+                ))
+            }
             other => Err(self.runtime_error(
                 Some(&a.span),
                 &format!("'{}' has no property '{}'", other.type_name(), a.property),
@@ -1371,6 +1853,21 @@ impl Interpreter {
             m.borrow_mut()
                 .insert(Value::Str(Rc::from(prop)), right.clone());
             return Ok(right);
+        }
+        // Shared-store field assignment: `Store.field = value`.
+        if let Value::SharedStore(store) = target {
+            store
+                .set_field(prop, right.clone())
+                .map_err(|e| self.runtime_error(Some(span), &e))?;
+            return Ok(right);
+        }
+        // v1.12: ReadOnlyView blocks attribute mutation.
+        if let Value::ReadOnly(_) = target {
+            return Err(ExceptionValue::new(
+                "ScopeViolationError",
+                String::from("cannot modify a read-only value (agent parameter isolation)"),
+                Some((*span).clone()),
+            ));
         }
         Err(self.runtime_error(
             Some(span),
@@ -1820,6 +2317,7 @@ impl Interpreter {
                         to_inject.push((name.clone(), value.clone()));
                     }
                 }
+
                 drop(borrowed);
                 for (name, value) in to_inject {
                     if env.get(&name).is_none() {
@@ -1838,10 +2336,17 @@ impl Interpreter {
                     }
                 }
             }
-            // 4. Bind params.
+            // 4. Bind params. v1.12: wrap mutable reference types (list, dict)
+            //    in a ReadOnlyView so the agent cannot modify the caller's
+            //    data (L1 isolation; Python ReadOnlyView).
             for p in &agent.params {
                 let value = args.get(&p.name).cloned().unwrap_or(Value::Null);
-                env.define(&p.name, value, false);
+                let bound = if value.is_mutable_type() {
+                    Value::ReadOnly(Rc::new(RefCell::new(value)))
+                } else {
+                    value
+                };
+                env.define(&p.name, bound, false);
             }
         }
 
@@ -2670,8 +3175,8 @@ pub type BuiltinImpl = fn(&mut Interpreter, &[Value]) -> Result<Value, Exception
 fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let parts: Vec<String> = args.iter().map(|a| a.to_display(true)).collect();
     let result = parts.join(" ");
-    interp.stdout.borrow_mut().push_str(&result);
-    interp.stdout.borrow_mut().push('\n');
+    interp.stdout.lock().unwrap().push_str(&result);
+    interp.stdout.lock().unwrap().push('\n');
     Ok(Value::Str(Rc::from(result.as_str())))
 }
 
@@ -2962,13 +3467,13 @@ mod m3_tests {
         );
         let mut interp = Interpreter::new();
         let r = interp.interpret(&program);
-        let out = interp.stdout.borrow().clone();
+        let out = interp.stdout.lock().unwrap().clone();
         (r, out)
     }
 
     fn run_src_with_runtime(
         src: &str,
-        runtime: Box<dyn crate::llm_runtime::LlmRuntime>,
+        runtime: std::sync::Arc<dyn crate::llm_runtime::LlmRuntime>,
     ) -> (Result<Option<Value>, ExceptionValue>, String) {
         let mut scanner = Scanner::new(src, "t.helen");
         let tokens = scanner.scan_all();
@@ -2982,7 +3487,7 @@ mod m3_tests {
         let mut interp = Interpreter::new();
         interp.set_llm_runtime(runtime);
         let r = interp.interpret(&program);
-        let out = interp.stdout.borrow().clone();
+        let out = interp.stdout.lock().unwrap().clone();
         (r, out)
     }
 
@@ -2998,7 +3503,7 @@ mod m3_tests {
         MockLlmRuntime,
     ) {
         let hist_handle = mock.clone();
-        let (r, out) = run_src_with_runtime(src, Box::new(mock));
+        let (r, out) = run_src_with_runtime(src, std::sync::Arc::new(mock));
         (r, out, hist_handle)
     }
 
@@ -3036,7 +3541,7 @@ mod m3_tests {
         let mut interp = Interpreter::new();
         interp.set_source_file(main_path.to_str().unwrap());
         let r = interp.interpret(&program);
-        let out = interp.stdout.borrow().clone();
+        let out = interp.stdout.lock().unwrap().clone();
         (r, out)
     }
 
@@ -3227,7 +3732,7 @@ mod m3_tests {
         let mock = MockLlmRuntime::new(Some("query".to_string()), None);
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify input\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "Q\n");
@@ -3239,7 +3744,7 @@ mod m3_tests {
         let mock = MockLlmRuntime::new(Some("unknown_branch".to_string()), None);
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "D\n");
@@ -3251,7 +3756,7 @@ mod m3_tests {
         let mock = MockLlmRuntime::new(None, None);
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "D\n");
@@ -3279,7 +3784,7 @@ mod m3_tests {
         let mock = MockLlmRuntime::with_act_text("ok");
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nprint(llm act \"hello\")\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "ok\n");
@@ -3342,7 +3847,7 @@ print(A())
         ));
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(1) } default { print(42) } }\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "42\n");
@@ -3354,7 +3859,7 @@ print(A())
         let mock = MockLlmRuntime::new(Some("command".to_string()), None);
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(1) } branch \"command\" { print(2) } default { print(0) } }\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "2\n");
@@ -3464,7 +3969,7 @@ print(A())
         let mock = MockLlmRuntime::with_act_text("story");
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nmain {\n    let r = llm act \"Hi\" on_chunk fn(chunk: str) { print(\"C:\" + chunk) } on_complete fn() { print(\"DONE\") }\n    print(\"RET:\" + r)\n}\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "C:story\nDONE\nRET:story\n");
@@ -3477,7 +3982,7 @@ print(A())
         let mock = MockLlmRuntime::with_act_text("story");
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nmain {\n    let r = llm act \"Hi\" on_chunk fn(chunk: str) { print(\"C:\" + chunk) return false } on_complete fn() { print(\"DONE\") }\n    print(\"RET:\" + r)\n}\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "C:story\nRET:story\n");
@@ -3491,7 +3996,7 @@ print(A())
         let mock = MockLlmRuntime::new(None, None);
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nmain {\n    let r = llm act \"Hi\" on_chunk fn(chunk: str) { print(chunk) } on_complete fn() { print(\"DONE\") }\n    print(\"[\" + r + \"]\")\n}\n",
-            Box::new(mock),
+            std::sync::Arc::new(mock),
         );
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "DONE\n[]\n");
@@ -3645,6 +4150,207 @@ main {
         let msg = format!("{:?}", r.err());
         assert!(
             msg.contains("hidden_var") || msg.contains("not defined") || msg.contains("NameError"),
+            "{msg}"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // M7: concurrency — spawn, channel, shared store, mailbox, read-only
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn spawn_channel_round_trip() {
+        let src = r#"import std.core.*
+agent Worker(reply: Channel) {
+    main {
+        reply.send({"status": "ok", "value": 42})
+        reply.close()
+    }
+}
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["status"])
+    print(r["value"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "spawn failed: {:?}", r.err());
+        assert_eq!(out.trim(), "ok\n42");
+    }
+
+    #[test]
+    fn spawn_shared_store_methods_work_and_are_independent() {
+        // Mirrors Python test_spawn_sharedstore_methods.py: parent increments
+        // once (count=1); child deep-copies the store, increments twice
+        // (count=3) and reports back; parent remains 1.
+        let src = r#"import std.core.*
+shared store Counter {
+    let count: int = 0
+    fn increment() { count = count + 1 }
+    fn get(): int { return count }
+}
+
+agent Worker(reply: Channel) {
+    main {
+        Counter.increment()
+        Counter.increment()
+        reply.send({"count": Counter.get()})
+        reply.close()
+    }
+}
+
+main {
+    Counter.increment()
+    let parent_count = Counter.get()
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(parent_count)
+    print(r["count"])
+    print(Counter.get())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "spawn failed: {:?}", r.err());
+        assert_eq!(out.trim(), "1\n3\n1");
+    }
+
+    #[test]
+    fn spawn_shared_let_visible_in_child() {
+        let src = r#"import std.core.*
+shared let shared_value = "hello-from-parent"
+
+agent Worker(reply: Channel) {
+    main {
+        reply.send({"value": shared_value})
+        reply.close()
+    }
+}
+
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["value"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "spawn failed: {:?}", r.err());
+        assert_eq!(out.trim(), "hello-from-parent");
+    }
+
+    #[test]
+    fn spawn_agent_with_positional_args() {
+        let src = r#"import std.core.*
+agent Adder(reply: Channel, x: int, y: int) {
+    main {
+        reply.send({"sum": x + y})
+        reply.close()
+    }
+}
+main {
+    let mb = spawn Adder(20, 22)
+    let r = mb.receive()
+    print(r["sum"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "spawn failed: {:?}", r.err());
+        assert_eq!(out.trim(), "42");
+    }
+
+    #[test]
+    fn spawn_send_after_close_is_ignored() {
+        let src = r#"import std.core.*
+agent Worker(reply: Channel) {
+    main {
+        reply.send({"first": 1})
+        reply.close()
+        reply.send({"second": 2})
+    }
+}
+main {
+    let mb = spawn Worker()
+    let r = mb.receive()
+    print(r["first"])
+    let r2 = mb.receive()
+    print(r2)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "spawn failed: {:?}", r.err());
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        // Close sentinel is delivered as None (printed as "None").
+        assert_eq!(lines[1], "None");
+    }
+
+    #[test]
+    fn shared_store_field_read_write_direct() {
+        let src = r#"import std.core.*
+shared store State {
+    let value: int = 10
+    fn set_value(v: int) { value = v }
+    fn get_value(): int { return value }
+}
+main {
+    print(State.value)
+    State.value = 25
+    print(State.get_value())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "store field ops failed: {:?}", r.err());
+        assert_eq!(out.trim(), "10\n25");
+    }
+
+    #[test]
+    fn mailbox_select_returns_first_available() {
+        let src = r#"import std.core.*
+import std.concurrency.*
+import std.time.*
+agent Slow(reply: Channel) {
+    main {
+        sleep(0.2)
+        reply.send({"who": "slow"})
+        reply.close()
+    }
+}
+agent Fast(reply: Channel) {
+    main {
+        reply.send({"who": "fast"})
+        reply.close()
+    }
+}
+main {
+    let m1 = spawn Slow()
+    let m2 = spawn Fast()
+    let sel = mailbox_select([m1, m2], 5.0)
+    print(sel["message"]["who"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "mailbox failed: {:?}", r.err());
+        assert_eq!(out.trim(), "fast");
+    }
+
+    #[test]
+    fn readonly_agent_param_mutation_raises() {
+        let src = r#"import std.core.*
+agent A(items: list) {
+    main {
+        items.append(99)
+        print(items)
+    }
+}
+main {
+    A([1, 2, 3])
+}
+"#;
+        let (r, _out) = run_src(src);
+        assert!(r.is_err(), "read-only mutation must fail: {r:?}");
+        let msg = format!("{:?}", r.err());
+        assert!(
+            msg.contains("read-only") || msg.contains("ScopeViolation"),
             "{msg}"
         );
     }

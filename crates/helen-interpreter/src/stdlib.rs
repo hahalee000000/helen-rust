@@ -2195,8 +2195,8 @@ fn debug_debug(interp: &mut Interpreter, args: &[Value]) -> Result<Value, Except
     } else {
         format!("[debug] {msg} {data}")
     };
-    interp.stdout.borrow_mut().push_str(&out);
-    interp.stdout.borrow_mut().push('\n');
+    interp.stdout.lock().unwrap().push_str(&out);
+    interp.stdout.lock().unwrap().push('\n');
     Ok(Value::Str(Rc::from(out.as_str())))
 }
 
@@ -3184,8 +3184,8 @@ fn io_mkdir_p(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionVa
 
 fn io_stream_print(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let text = arg_str(args, 0)?;
-    _i.stdout.borrow_mut().push_str(text);
-    _i.stdout.borrow_mut().push('\n');
+    _i.stdout.lock().unwrap().push_str(text);
+    _i.stdout.lock().unwrap().push('\n');
     Ok(Value::Str(Rc::from(text)))
 }
 
@@ -3617,8 +3617,8 @@ macro_rules! log_fn {
         fn $name(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
             let msg = arg_str(args, 0)?;
             let out = format!("[{level}] {msg}", level = $level);
-            interp.stdout.borrow_mut().push_str(&out);
-            interp.stdout.borrow_mut().push('\n');
+            interp.stdout.lock().unwrap().push_str(&out);
+            interp.stdout.lock().unwrap().push('\n');
             Ok(Value::Str(Rc::from(out.as_str())))
         }
     };
@@ -3984,7 +3984,52 @@ stub_fn!(stub_cleanup_sessions, "cleanup_sessions");
 stub_fn!(stub_release_session_lock, "release_session_lock");
 stub_fn!(stub_invocation_path, "invocation_path");
 stub_fn!(stub_get_compression_audit, "get_compression_audit");
-stub_fn!(stub_mailbox_select, "mailbox_select");
+
+/// `mailbox_select(channels, timeout=None)` (Task 7.5) — port of
+/// `helen/stdlib/mailbox.py::_mailbox_select`.
+///
+/// Polls each channel endpoint in order (10ms interval) and returns the first
+/// available message as `{"endpoint": ..., "message": ...}`, or null on
+/// timeout. Non-list input returns null.
+fn builtin_mailbox_select(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
+    use std::time::{Duration, Instant};
+    let channels = match args.first() {
+        Some(Value::List(l)) => l.borrow().clone(),
+        _ => return Ok(Value::Null),
+    };
+    let timeout = match args.get(1) {
+        Some(Value::Float(f)) if f.is_finite() && *f >= 0.0 => Some(*f),
+        Some(Value::Int(i)) => i.to_f64(),
+        _ => None,
+    };
+    let deadline = timeout.map(|t| Instant::now() + Duration::from_secs_f64(t));
+
+    loop {
+        for endpoint in &channels {
+            if let Value::Channel(ep) = endpoint {
+                if let Some(msg) = ep.try_receive() {
+                    // Python: `if msg is not None` — a None message (or the
+                    // close sentinel) is skipped, indistinguishable in Python.
+                    if !matches!(msg.0, Value::Null) {
+                        let mut m = indexmap::IndexMap::new();
+                        m.insert(Value::Str(Rc::from("endpoint")), Value::Channel(ep.clone()));
+                        m.insert(Value::Str(Rc::from("message")), msg.0);
+                        return Ok(Value::Map(Rc::new(RefCell::new(m))));
+                    }
+                }
+            }
+        }
+        if let Some(dl) = deadline {
+            if Instant::now() >= dl {
+                return Ok(Value::Null);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
 
 // Debug observability (runtime-dependent, but `debug` itself works).
 stub_fn!(stub_trace_on, "trace_on");
@@ -5463,7 +5508,7 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
 
 pub static CONCURRENCY_EXPORTS: &[StdlibExport] = &[StdlibExport {
     name: "mailbox_select",
-    func: stub_mailbox_select,
+    func: builtin_mailbox_select,
 }];
 
 /// Resolve a stdlib module name to its export table.

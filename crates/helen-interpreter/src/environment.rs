@@ -120,7 +120,7 @@ impl Environment {
             .map(|p| Rc::new(RefCell::new(p.borrow().snapshot())));
         let mut new_env = Environment::new(parent_snapshot);
         for (k, v) in &self.store {
-            new_env.store.insert(k.clone(), v.clone_deep());
+            new_env.store.insert(k.clone(), v.clone_owned());
         }
         new_env.consts = self.consts.clone();
         new_env

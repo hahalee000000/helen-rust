@@ -151,7 +151,7 @@ fn run_mode(path: &str) {
     let mut interp = Interpreter::new();
     interp.set_source_file(path);
     let result = interp.interpret(&program);
-    let stdout = interp.stdout.borrow().clone();
+    let stdout = interp.stdout.lock().unwrap().clone();
     match result {
         Ok(_) => {
             println!("{}", run_json(&stdout, "", 0, &[]));

@@ -12,5 +12,6 @@ pub mod exceptions;
 pub mod import_resolver;
 pub mod interpreter;
 pub mod llm_runtime;
+pub mod shared_store;
 pub mod stdlib;
 pub mod value;
