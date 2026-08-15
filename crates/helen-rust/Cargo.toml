@@ -15,4 +15,5 @@ path = "src/main.rs"
 helen-core = { path = "../helen-core" }
 helen-parser = { path = "../helen-parser" }
 helen-semantic = { path = "../helen-semantic" }
+helen-interpreter = { path = "../helen-interpreter" }
 serde_json.workspace = true

@@ -499,9 +499,11 @@ impl Parser {
         let right = self.expression(iprec + 1);
         Expr::Binary(Binary {
             left: Box::new(left),
-            operator,
+            operator: operator.clone(),
             right: Box::new(right),
-            span: self.make_span_from_token(self.previous(), self.previous()),
+            // Python `_binary`: span = _make_span(operator, previous) — the
+            // span starts at the OPERATOR token, not the left operand.
+            span: self.make_span_from_token(&operator, self.previous()),
         })
     }
 

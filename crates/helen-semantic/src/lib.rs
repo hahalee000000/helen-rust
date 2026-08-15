@@ -11,5 +11,5 @@ pub mod symbols;
 pub mod type_utils;
 pub mod types;
 
-pub use analyzer::{analyze_codes, SemanticAnalyzer};
+pub use analyzer::{analyze_codes, analyze_messages, SemanticAnalyzer};
 pub use diagnostics::{Diagnostic, ErrorReporter};

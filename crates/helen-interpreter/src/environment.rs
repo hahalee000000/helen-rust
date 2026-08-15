@@ -57,7 +57,7 @@ impl Environment {
 
     /// `assign(name, value)` — update in the defining scope.
     pub fn assign(&mut self, name: &str, value: Value) -> Result<(), AssignError> {
-        if self.store.get(name).is_some() {
+        if self.store.contains_key(name) {
             if self.consts.contains(name) {
                 return Err(AssignError::Const(ConstAssignmentError {
                     name: name.to_string(),

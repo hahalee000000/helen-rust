@@ -2204,6 +2204,25 @@ pub fn analyze_codes(program: &Program) -> Vec<String> {
         .collect()
 }
 
+/// Full diagnostic strings in Python's `Diagnostic.__str__` format:
+/// `E{code:04d} at {loc}: {message}` where `loc` is the span or `<unknown>`.
+/// Used by `--run` mode (stderr is later span-normalized, mirroring the
+/// reference CLI).
+pub fn analyze_messages(program: &Program) -> Vec<String> {
+    let reporter = ErrorReporter::new();
+    let mut analyzer = SemanticAnalyzer::new(reporter, ".");
+    analyzer.analyze(program);
+    analyzer
+        .errors
+        .errors()
+        .iter()
+        .map(|d| match &d.span {
+            Some(sp) => format!("E{:04} at {}: {}", d.code.value(), sp, d.message),
+            None => format!("E{:04} at <unknown>: {}", d.code.value(), d.message),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

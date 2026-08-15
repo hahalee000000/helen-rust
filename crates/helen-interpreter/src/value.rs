@@ -23,9 +23,26 @@ use indexmap::IndexMap;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 
+use helen_core::ast::{AgentDecl, FunctionDecl};
 use helen_core::ast_printer::{py_str_float, py_str_repr};
 
+use crate::closure::Closure;
 use crate::exceptions::ExceptionValue;
+
+/// A stdlib builtin function (M4 registers the full 378; the core subset is
+/// available from the start). Holds a name and an implementation pointer.
+#[derive(Clone)]
+pub struct BuiltinFn {
+    pub name: String,
+    pub module: &'static str,
+    pub func: fn(&mut crate::interpreter::Interpreter, &[Value]) -> Result<Value, ExceptionValue>,
+}
+
+impl std::fmt::Debug for BuiltinFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<builtin {}>", self.name)
+    }
+}
 
 /// A Helen runtime value.
 #[derive(Clone, Debug)]
@@ -42,6 +59,20 @@ pub enum Value {
     Map(Rc<RefCell<IndexMap<Value, Value>>>),
     /// A thrown/raised Helen exception (catch binds this to the error var).
     Exception(Box<ExceptionValue>),
+    /// A stdlib builtin function.
+    BuiltinFn(Rc<BuiltinFn>),
+    /// A user-defined function referenced as a first-class value.
+    UserFn(Rc<FunctionDecl>),
+    /// An agent referenced as a first-class value.
+    Agent(Rc<AgentDecl>),
+    /// A closure (lambda + captured environment).
+    Closure(Rc<Closure>),
+    /// A `start..end` range pattern (internal match marker).
+    Range(Box<Value>, Box<Value>),
+    /// A bound dict method (`m.get`, `m.keys`, ...).
+    MapMethod(Box<crate::interpreter::MapMethodValue>),
+    /// A bound list method (`l.append`, `l.pop`, ...).
+    ListMethod(Box<crate::interpreter::ListMethodValue>),
 }
 
 impl Value {
@@ -56,6 +87,8 @@ impl Value {
             Value::List(l) => !l.borrow().is_empty(),
             Value::Map(m) => !m.borrow().is_empty(),
             Value::Exception(_) => true,
+            Value::BuiltinFn(_) | Value::UserFn(_) | Value::Agent(_) | Value::Closure(_) => true,
+            Value::Range(_, _) | Value::MapMethod(_) | Value::ListMethod(_) => true,
         }
     }
 
@@ -70,6 +103,12 @@ impl Value {
             Value::List(_) => "list".into(),
             Value::Map(_) => "dict".into(),
             Value::Exception(e) => e.class_name.clone(),
+            Value::BuiltinFn(b) => b.name.clone(),
+            Value::UserFn(f) => f.name.clone(),
+            Value::Agent(a) => a.name.clone(),
+            Value::Closure(_) => "function".into(),
+            Value::Range(_, _) => "range".into(),
+            Value::MapMethod(_) | Value::ListMethod(_) => "method".into(),
         }
     }
 
@@ -115,6 +154,12 @@ impl Value {
                 format!("{{{}}}", items.join(", "))
             }
             Value::Exception(e) => e.to_display_string(),
+            Value::BuiltinFn(b) => format!("<built-in function {}>", b.name),
+            Value::UserFn(f) => format!("<function {}>", f.name),
+            Value::Agent(a) => format!("<agent {}>", a.name),
+            Value::Closure(_) => "<function <lambda>>".into(),
+            Value::Range(a, b) => format!("{}..{}", a.python_str(), b.python_str()),
+            Value::MapMethod(_) | Value::ListMethod(_) => "<dict method>".into(),
         }
     }
 
@@ -145,6 +190,12 @@ impl Value {
                 format!("{{{}}}", items.join(", "))
             }
             Value::Exception(e) => e.to_display_string(),
+            Value::BuiltinFn(b) => format!("<built-in function {}>", b.name),
+            Value::UserFn(f) => format!("<function {}>", f.name),
+            Value::Agent(a) => format!("<agent {}>", a.name),
+            Value::Closure(_) => "<function <lambda>>".into(),
+            Value::Range(a, b) => format!("{}..{}", a.python_str(), b.python_str()),
+            Value::MapMethod(_) | Value::ListMethod(_) => "<dict method>".into(),
         }
     }
 
@@ -249,6 +300,14 @@ impl PartialEq for Value {
             }
             (Value::Int(i), Value::Float(f)) => float_eq_int(*f, i),
             (Value::Float(f), Value::Int(i)) => float_eq_int(*f, i),
+            (Value::Exception(a), Value::Exception(b)) => {
+                a.class_name == b.class_name && a.message == b.message && a.span == b.span
+            }
+            (Value::BuiltinFn(a), Value::BuiltinFn(b)) => a.name == b.name,
+            (Value::UserFn(a), Value::UserFn(b)) => a.name == b.name,
+            (Value::Agent(a), Value::Agent(b)) => a.name == b.name,
+            (Value::Closure(a), Value::Closure(b)) => Rc::ptr_eq(a, b),
+            (Value::Range(a, b), Value::Range(c, d)) => a == c && b == d,
             _ => false,
         }
     }
@@ -305,6 +364,35 @@ impl Hash for Value {
                 0x3u8.hash(state);
                 e.class_name.hash(state);
                 e.message.hash(state);
+            }
+            Value::BuiltinFn(b) => {
+                0x4u8.hash(state);
+                b.name.hash(state);
+            }
+            Value::UserFn(f) => {
+                0x5u8.hash(state);
+                f.name.hash(state);
+            }
+            Value::Agent(a) => {
+                0x6u8.hash(state);
+                a.name.hash(state);
+            }
+            Value::Closure(c) => {
+                0x7u8.hash(state);
+                std::ptr::hash(Rc::as_ptr(c), state);
+            }
+            Value::Range(a, b) => {
+                0x8u8.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            Value::MapMethod(m) => {
+                0x9u8.hash(state);
+                std::ptr::hash(Rc::as_ptr(&m.map), state);
+            }
+            Value::ListMethod(m) => {
+                0xAu8.hash(state);
+                std::ptr::hash(Rc::as_ptr(&m.list), state);
             }
         }
     }

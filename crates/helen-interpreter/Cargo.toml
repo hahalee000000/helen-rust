@@ -9,7 +9,11 @@ description = "Helen language Rust reimplementation — helen-interpreter (M3 in
 
 [dependencies]
 helen-core = { path = "../helen-core" }
-indexmap = { workspace = true }
-num-bigint = { workspace = true }
-num-traits = { workspace = true }
+helen-semantic = { path = "../helen-semantic" }
+num-bigint.workspace = true
+num-traits.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+helen-parser = { path = "../helen-parser" }
 ryu = { workspace = true }
