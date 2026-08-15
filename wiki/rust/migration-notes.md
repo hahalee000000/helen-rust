@@ -19,6 +19,73 @@ run differential (29/29) is unaffected either way.
 
 ---
 
+# M8 — context management lessons (session/transcript/history/compression/memory/observability)
+
+## Reference quirks to match, not "fix"
+
+1. **`_truncate_compress` break condition is unreachable.** Walking newest-first
+   with `MIN_RECENT_MESSAGES=5`, the `break` never fires — the reference keeps
+   ALL messages. Verified empirically: identical input → Python returns all 25,
+   so does the port. Match observable behavior, not intent.
+2. **`estimate_list_tokens` is `sum(chars) // 4`** (one division at the end),
+   NOT per-item division — my first port dropped 4x more tokens than Python.
+   Verified empirically before fixing.
+3. **Reactive semantic recovery requires `llm_client is not None`.** Without a
+   client only the structural path fires. The `is not None` gate is part of the
+   observable contract; Rust must model it with an `Option<LlmClient>`.
+4. **Two different context-window defaults live in different modules**:
+   `token_utils.py` defaults to 131072, `history.py` to 128000. Port each
+   module's own constant — do not "unify" them.
+5. **Summary message content is a plain string**, not `{"text": ...}` — the
+   latter was my wrapper assumption. Byte-verified against Python.
+6. **`session_exists` requires `transcript.jsonl`**, not just the session dir —
+   `create_session()` alone does not make a session "exist".
+7. **Deprecated `Message.to_dict()` omits agent fields** (role/content/uuid/
+   ts/mtype/priority only); the non-deprecated `message_to_dict` includes them.
+8. **`role` defaults to `"user"`** when the field is missing on load.
+
+## Constants / parity infrastructure
+
+- `scripts/check_constants_parity.sh` greps Python `constants.py` for
+  `NAME: Final[...] = value` and diffs against Rust `constants.rs`; exits
+  non-zero on drift. Runs in CI-style gate, not just once.
+- A constant that "looks right" can still be wrong: my earlier
+  `assign_priority("user") = 100` diverged from Python's **90**. Re-verify
+  every constant against the reference when porting the next dependent module.
+
+## SQLite backend (byte-compat)
+
+- Python-exact schema, WAL mode, `JSON_EXTRACT` query pushdown.
+- Provenance: Rust reads a DB **written by the Python reference**
+  (`crates/helen-runtime/tests/fixtures/python_session.db`, generated with a
+  `python3 -c` script checked into `tests/fixtures/`). Round-trip test asserts
+  meta, boundary markers, pinned flags, and message rows survive.
+- rusqlite needs `--features bundled` (vendored libsqlite3, no system dep).
+
+## Session lifecycle
+
+- Session ID format `session_{ts}_{salt}_{short_uuid}` = **44 chars**.
+- `get_session_id()` **lazily auto-creates** a session when none exists
+  (Python v1.29.14 parity) — tests written against the old eager behavior
+  must be updated to expect the extra lazy session.
+- `create_session` is **NOT a stdlib export** (internal to SessionManager).
+  Session functions live in **`std.transcript`** (`TRANSCRIPT_EXPORTS`),
+  NOT `std.core` — `import std.core.*` does not bring them in.
+
+## Misc Rust facts
+
+- `PathBuf` needs `.display()` inside `format!` (no Display for PathBuf).
+- `now_iso_utc` parity: Python `datetime.utcnow().isoformat() + "Z"`.
+- Multimodal token count: `text_tokens + 85/media + 4` overhead.
+- New deps: `indexmap` (serde feature) for insertion-ordered Value maps;
+  `rusqlite` bundled.
+- Task 8.6 modules (9): `observability`, `diagnostics` (error-diagnostics),
+  `validator` (output-validator), `coverage`, `recording` (cassette),
+  `transcript_replay`, `data_lineage` (SQLite-backed), `context_awareness`,
+  `context_recovery`.
+
+---
+
 # Porting playbook — hard-won lessons (M1–M7)
 
 ## Differential testing methodology
