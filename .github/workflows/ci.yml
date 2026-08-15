@@ -72,18 +72,14 @@ jobs:
         env:
           HELEN_SRC: ${{ github.workspace }}/python-helen
         run: python -m pytest tests/conformance/ -q
-      - name: Differential pass over authored corpus
+      - name: Parity sweep on release build (M14)
         env:
           HELEN_SRC: ${{ github.workspace }}/python-helen
         run: |
-          # M0: no candidate binary yet — diff.sh prints reference output and
-          # exits 2 (SKIP). This step exercises the harness end-to-end.
-          set +e
-          failed=0
-          for f in tests/programs/authored/*.helen; do
-            scripts/diff.sh "$f" >/dev/null 2>&1
-            rc=$?
-            if [[ $rc -eq 2 ]]; then echo "SKIP  $(basename "$f")"; else echo "FAIL  $(basename "$f") (rc=$rc)"; failed=1; fi
-          done
-          echo "corpus sweep complete (expect all SKIP until candidate lands)"
-          exit $failed
+          cargo build --release
+          # Tier A differential + display byte-identical + error parity.
+          if [[ -f scripts/diff-tier-a.sh ]]; then
+            bash scripts/diff-tier-a.sh
+          fi
+          python3 tests/conformance/check_golden.py tests/programs/display --suite display
+          python3 scripts/gen-error-diff.py --all

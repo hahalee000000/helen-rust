@@ -1,0 +1,3325 @@
+{
+  "agents": [],
+  "builtins": [
+    {
+      "aliases": [
+        "绝对值"
+      ],
+      "category": "core",
+      "description": "Absolute value",
+      "name": "abs",
+      "signature": "abs(value)"
+    },
+    {
+      "aliases": [
+        "反余弦"
+      ],
+      "category": "math",
+      "description": "Arc cosine",
+      "name": "acos",
+      "signature": "acos(x)"
+    },
+    {
+      "aliases": [
+        "后置所有"
+      ],
+      "category": "test",
+      "description": "Register after-all hook",
+      "name": "after_all",
+      "signature": "after_all(fn)"
+    },
+    {
+      "aliases": [
+        "后置每个"
+      ],
+      "category": "test",
+      "description": "Register after-each hook",
+      "name": "after_each",
+      "signature": "after_each(fn)"
+    },
+    {
+      "aliases": [
+        "分析代码"
+      ],
+      "category": "quality",
+      "description": "Analyze code metrics",
+      "name": "analyze_code",
+      "signature": "analyze_code(source, filename?)"
+    },
+    {
+      "aliases": [
+        "追加文件"
+      ],
+      "category": "io",
+      "description": "Append to file",
+      "name": "append_file",
+      "signature": "append_file(path, content)"
+    },
+    {
+      "aliases": [
+        "反正弦"
+      ],
+      "category": "math",
+      "description": "Arc sine",
+      "name": "asin",
+      "signature": "asin(x)"
+    },
+    {
+      "aliases": [
+        "断言包含"
+      ],
+      "category": "test",
+      "description": "Assert container contains item",
+      "name": "assert_contains",
+      "signature": "assert_contains(container, item, message?)"
+    },
+    {
+      "aliases": [
+        "断言相等"
+      ],
+      "category": "test",
+      "description": "Assert equality",
+      "name": "assert_equal",
+      "signature": "assert_equal(actual, expected, message?)"
+    },
+    {
+      "aliases": [
+        "断言不等"
+      ],
+      "category": "test",
+      "description": "Assert inequality",
+      "name": "assert_not_equal",
+      "signature": "assert_not_equal(actual, expected, message?)"
+    },
+    {
+      "aliases": [
+        "断言抛出"
+      ],
+      "category": "test",
+      "description": "Assert function throws",
+      "name": "assert_throws",
+      "signature": "assert_throws(fn, error_type?)"
+    },
+    {
+      "aliases": [
+        "断言为真"
+      ],
+      "category": "test",
+      "description": "Assert condition is truthy",
+      "name": "assert_true",
+      "signature": "assert_true(condition, message?)"
+    },
+    {
+      "aliases": [
+        "反正切"
+      ],
+      "category": "math",
+      "description": "Arc tangent",
+      "name": "atan",
+      "signature": "atan(x)"
+    },
+    {
+      "aliases": [
+        "反正切二"
+      ],
+      "category": "math",
+      "description": "Arc tangent of y/x",
+      "name": "atan2",
+      "signature": "atan2(y, x)"
+    },
+    {
+      "aliases": [
+        "base64解码"
+      ],
+      "category": "string",
+      "description": "Base64 decode",
+      "name": "base64_decode",
+      "signature": "base64_decode(s)"
+    },
+    {
+      "aliases": [
+        "base64编码"
+      ],
+      "category": "string",
+      "description": "Base64 encode",
+      "name": "base64_encode",
+      "signature": "base64_encode(s)"
+    },
+    {
+      "aliases": [
+        "前置所有"
+      ],
+      "category": "test",
+      "description": "Register before-all hook",
+      "name": "before_all",
+      "signature": "before_all(fn)"
+    },
+    {
+      "aliases": [
+        "前置每个"
+      ],
+      "category": "test",
+      "description": "Register before-each hook",
+      "name": "before_each",
+      "signature": "before_each(fn)"
+    },
+    {
+      "category": "math",
+      "description": "Bitwise AND",
+      "name": "bit_and",
+      "signature": "bit_and(a, b)"
+    },
+    {
+      "category": "math",
+      "description": "Bitwise NOT",
+      "name": "bit_not",
+      "signature": "bit_not(a)"
+    },
+    {
+      "category": "math",
+      "description": "Bitwise OR",
+      "name": "bit_or",
+      "signature": "bit_or(a, b)"
+    },
+    {
+      "category": "math",
+      "description": "Bitwise left shift",
+      "name": "bit_shift_left",
+      "signature": "bit_shift_left(a, n)"
+    },
+    {
+      "category": "math",
+      "description": "Bitwise right shift",
+      "name": "bit_shift_right",
+      "signature": "bit_shift_right(a, n)"
+    },
+    {
+      "category": "math",
+      "description": "Bitwise XOR",
+      "name": "bit_xor",
+      "signature": "bit_xor(a, b)"
+    },
+    {
+      "aliases": [
+        "布尔"
+      ],
+      "category": "core",
+      "description": "Convert to boolean",
+      "name": "bool",
+      "signature": "bool(value)"
+    },
+    {
+      "aliases": [
+        "计算表达式"
+      ],
+      "category": "tools",
+      "description": "Evaluate math expression",
+      "name": "calculate",
+      "signature": "calculate(expression)"
+    },
+    {
+      "aliases": [
+        "取消所有大模型调用"
+      ],
+      "category": "llm",
+      "description": "Cancel all active streaming LLM calls",
+      "name": "cancel_all_llm_calls",
+      "signature": "cancel_all_llm_calls()"
+    },
+    {
+      "aliases": [
+        "取消大模型调用"
+      ],
+      "category": "llm",
+      "description": "Cancel an in-flight streaming LLM call",
+      "name": "cancel_llm_call",
+      "signature": "cancel_llm_call(call_id)"
+    },
+    {
+      "aliases": [
+        "向上取整"
+      ],
+      "category": "math",
+      "description": "Ceiling value",
+      "name": "ceil",
+      "signature": "ceil(value)"
+    },
+    {
+      "aliases": [
+        "居中"
+      ],
+      "category": "string",
+      "description": "Center string",
+      "name": "center",
+      "signature": "center(s, width, char?)"
+    },
+    {
+      "aliases": [
+        "安全检查"
+      ],
+      "category": "quality",
+      "description": "Check security issues",
+      "name": "check_security",
+      "signature": "check_security(source)"
+    },
+    {
+      "aliases": [
+        "随机选择"
+      ],
+      "category": "crypto",
+      "description": "Choose random item",
+      "name": "choice",
+      "signature": "choice(items)"
+    },
+    {
+      "aliases": [
+        "字符"
+      ],
+      "category": "string",
+      "description": "Unicode code point to character",
+      "name": "chr",
+      "signature": "chr(code)"
+    },
+    {
+      "aliases": [
+        "分块"
+      ],
+      "category": "collection",
+      "description": "Split into chunks",
+      "name": "chunk",
+      "signature": "chunk(lst, size)"
+    },
+    {
+      "aliases": [
+        "清理会话"
+      ],
+      "category": "transcript",
+      "description": "Clean up old sessions (v1.23.7: cascade=true deletes spawned)",
+      "name": "cleanup_sessions",
+      "signature": "cleanup_sessions(keep_count?, older_than_days?, cascade?)"
+    },
+    {
+      "aliases": [
+        "清除上下文"
+      ],
+      "category": "context",
+      "description": "Clear conversation context",
+      "name": "clear_context",
+      "signature": "clear_context()"
+    },
+    {
+      "aliases": [
+        "压缩上下文"
+      ],
+      "category": "context",
+      "description": "Compress conversation context",
+      "name": "compress_context",
+      "signature": "compress_context(strategy?)"
+    },
+    {
+      "aliases": [
+        "定向压缩"
+      ],
+      "category": "context",
+      "description": "Compress context by target type",
+      "name": "compress_context_target",
+      "signature": "compress_context_target(target, keep_recent?)"
+    },
+    {
+      "aliases": [
+        "包含"
+      ],
+      "category": "string",
+      "description": "Check if contains substring",
+      "name": "contains",
+      "signature": "contains(s, sub)"
+    },
+    {
+      "aliases": [
+        "上下文切片"
+      ],
+      "category": "context",
+      "description": "Extract a slice of conversation history",
+      "name": "context_slice",
+      "signature": "context_slice(start?, end?, role?)"
+    },
+    {
+      "aliases": [
+        "上下文统计"
+      ],
+      "category": "context",
+      "description": "Return detailed statistics about current context",
+      "name": "context_stats",
+      "signature": "context_stats()"
+    },
+    {
+      "aliases": [
+        "上下文占用率"
+      ],
+      "category": "context",
+      "description": "Return current context usage ratio (0.0-1.0)",
+      "name": "context_usage",
+      "signature": "context_usage()"
+    },
+    {
+      "aliases": [
+        "复制文件"
+      ],
+      "category": "file",
+      "description": "Copy file",
+      "name": "copy_file",
+      "signature": "copy_file(src, dst)"
+    },
+    {
+      "aliases": [
+        "相关系数"
+      ],
+      "category": "math",
+      "description": "Pearson correlation",
+      "name": "correlation",
+      "signature": "correlation(x, y)"
+    },
+    {
+      "aliases": [
+        "余弦"
+      ],
+      "category": "math",
+      "description": "Cosine",
+      "name": "cos",
+      "signature": "cos(radians)"
+    },
+    {
+      "aliases": [
+        "计数"
+      ],
+      "category": "string",
+      "description": "Count substring",
+      "name": "count",
+      "signature": "count(s, sub)"
+    },
+    {
+      "category": "debug",
+      "description": "Disable coverage tracking",
+      "name": "coverage_off",
+      "signature": "coverage_off()"
+    },
+    {
+      "category": "debug",
+      "description": "Enable coverage tracking",
+      "name": "coverage_on",
+      "signature": "coverage_on()"
+    },
+    {
+      "category": "debug",
+      "description": "Generate coverage report",
+      "name": "coverage_report",
+      "signature": "coverage_report(format?)"
+    },
+    {
+      "category": "debug",
+      "description": "Get coverage summary",
+      "name": "coverage_summary",
+      "signature": "coverage_summary()"
+    },
+    {
+      "aliases": [
+        "CPU核心数"
+      ],
+      "category": "system",
+      "description": "Get CPU core count",
+      "name": "cpu_count",
+      "signature": "cpu_count()"
+    },
+    {
+      "aliases": [
+        "csv加载"
+      ],
+      "category": "data",
+      "description": "Load CSV from file",
+      "name": "csv_load",
+      "signature": "csv_load(path, delimiter?)"
+    },
+    {
+      "aliases": [
+        "csv解析"
+      ],
+      "category": "data",
+      "description": "Parse CSV",
+      "name": "csv_parse",
+      "signature": "csv_parse(text, delimiter?)"
+    },
+    {
+      "aliases": [
+        "csv保存"
+      ],
+      "category": "data",
+      "description": "Save CSV to file",
+      "name": "csv_save",
+      "signature": "csv_save(path, rows, delimiter?)"
+    },
+    {
+      "aliases": [
+        "csv序列化"
+      ],
+      "category": "data",
+      "description": "Stringify to CSV",
+      "name": "csv_stringify",
+      "signature": "csv_stringify(rows, delimiter?)"
+    },
+    {
+      "aliases": [
+        "当前大模型调用id"
+      ],
+      "category": "llm",
+      "description": "Get the current active streaming call ID",
+      "name": "current_llm_call_id",
+      "signature": "current_llm_call_id()"
+    },
+    {
+      "aliases": [
+        "日期"
+      ],
+      "category": "time",
+      "description": "Create/get date",
+      "name": "date",
+      "signature": "date(year?, month?, day?)"
+    },
+    {
+      "aliases": [
+        "日期相加"
+      ],
+      "category": "time",
+      "description": "Add to date",
+      "name": "date_add",
+      "signature": "date_add(date_str, days?, hours?, minutes?, seconds?)"
+    },
+    {
+      "aliases": [
+        "日"
+      ],
+      "category": "time",
+      "description": "Extract day",
+      "name": "date_day",
+      "signature": "date_day(date_str)"
+    },
+    {
+      "aliases": [
+        "日期相减"
+      ],
+      "category": "time",
+      "description": "Date difference",
+      "name": "date_diff",
+      "signature": "date_diff(date1, date2, unit?)"
+    },
+    {
+      "aliases": [
+        "日期格式化"
+      ],
+      "category": "time",
+      "description": "Format date",
+      "name": "date_format",
+      "signature": "date_format(date_str, format_str)"
+    },
+    {
+      "aliases": [
+        "月"
+      ],
+      "category": "time",
+      "description": "Extract month",
+      "name": "date_month",
+      "signature": "date_month(date_str)"
+    },
+    {
+      "aliases": [
+        "日期解析"
+      ],
+      "category": "time",
+      "description": "Parse date",
+      "name": "date_parse",
+      "signature": "date_parse(date_str, format_str)"
+    },
+    {
+      "aliases": [
+        "星期"
+      ],
+      "category": "time",
+      "description": "Day of week",
+      "name": "date_weekday",
+      "signature": "date_weekday(date_str)"
+    },
+    {
+      "aliases": [
+        "年"
+      ],
+      "category": "time",
+      "description": "Extract year",
+      "name": "date_year",
+      "signature": "date_year(date_str)"
+    },
+    {
+      "aliases": [
+        "日期时间"
+      ],
+      "category": "time",
+      "description": "Create/get datetime",
+      "name": "datetime",
+      "signature": "datetime(year?, month?, day?, hour?, minute?, second?)"
+    },
+    {
+      "aliases": [
+        "调试"
+      ],
+      "category": "debug",
+      "description": "Output structured debug info",
+      "name": "debug",
+      "signature": "debug(message, data?)"
+    },
+    {
+      "aliases": [
+        "删除当前会话"
+      ],
+      "category": "transcript",
+      "description": "Permanently delete current session (v1.23.7: cascade=true deletes spawned)",
+      "name": "delete_current_session",
+      "signature": "delete_current_session(confirm?, cascade?)"
+    },
+    {
+      "aliases": [
+        "删除目录"
+      ],
+      "category": "file",
+      "description": "Delete directory",
+      "name": "delete_dir",
+      "signature": "delete_dir(path, recursive?)"
+    },
+    {
+      "aliases": [
+        "删除文件"
+      ],
+      "category": "file",
+      "description": "Delete file",
+      "name": "delete_file",
+      "signature": "delete_file(path)"
+    },
+    {
+      "aliases": [
+        "删除消息"
+      ],
+      "category": "context",
+      "description": "Delete a message by UUID",
+      "name": "delete_message",
+      "signature": "delete_message(uuid)"
+    },
+    {
+      "aliases": [
+        "删除会话"
+      ],
+      "category": "transcript",
+      "description": "Permanently delete a session (v1.23.7: cascade=true deletes spawned sessions)",
+      "name": "delete_session",
+      "signature": "delete_session(session_id, cascade?)"
+    },
+    {
+      "aliases": [
+        "描述"
+      ],
+      "category": "test",
+      "description": "Define a test suite",
+      "name": "describe",
+      "signature": "describe(name, fn)"
+    },
+    {
+      "aliases": [
+        "字典"
+      ],
+      "category": "core",
+      "description": "Convert to dict or create empty dict",
+      "name": "dict",
+      "signature": "dict(value?)"
+    },
+    {
+      "aliases": [
+        "结尾是"
+      ],
+      "category": "string",
+      "description": "Check suffix",
+      "name": "endswith",
+      "signature": "endswith(s, suffix)"
+    },
+    {
+      "aliases": [
+        "键值对"
+      ],
+      "category": "collection",
+      "description": "Get dict entries",
+      "name": "entries",
+      "signature": "entries(dict)"
+    },
+    {
+      "aliases": [
+        "环境变量删除"
+      ],
+      "category": "system",
+      "description": "Delete environment variable",
+      "name": "env_delete",
+      "signature": "env_delete(key)"
+    },
+    {
+      "aliases": [
+        "环境变量获取"
+      ],
+      "category": "system",
+      "description": "Get environment variable",
+      "name": "env_get",
+      "signature": "env_get(key, default?)"
+    },
+    {
+      "aliases": [
+        "环境变量列表"
+      ],
+      "category": "system",
+      "description": "List all environment variables",
+      "name": "env_list",
+      "signature": "env_list()"
+    },
+    {
+      "aliases": [
+        "环境变量设置"
+      ],
+      "category": "system",
+      "description": "Set environment variable",
+      "name": "env_set",
+      "signature": "env_set(key, value)"
+    },
+    {
+      "category": "debug",
+      "description": "Extract diagnostic category from error dict",
+      "name": "error_category",
+      "signature": "error_category(err)"
+    },
+    {
+      "category": "debug",
+      "description": "Extract data flow from error dict",
+      "name": "error_data_flow",
+      "signature": "error_data_flow(err)"
+    },
+    {
+      "category": "debug",
+      "description": "Extract suggestion from error dict",
+      "name": "error_suggestion",
+      "signature": "error_suggestion(err)"
+    },
+    {
+      "aliases": [
+        "全部满足"
+      ],
+      "category": "collection",
+      "description": "Check all elements",
+      "name": "every",
+      "signature": "every(lst, fn)"
+    },
+    {
+      "aliases": [
+        "执行"
+      ],
+      "category": "system",
+      "description": "Execute command",
+      "name": "exec",
+      "signature": "exec(command, shell?, timeout?)"
+    },
+    {
+      "aliases": [
+        "异步执行"
+      ],
+      "category": "system",
+      "description": "Execute command asynchronously",
+      "name": "exec_async",
+      "signature": "exec_async(command, shell?)"
+    },
+    {
+      "aliases": [
+        "退出"
+      ],
+      "category": "system",
+      "description": "Exit program",
+      "name": "exit",
+      "signature": "exit(code?)"
+    },
+    {
+      "aliases": [
+        "指数"
+      ],
+      "category": "math",
+      "description": "Exponential (e^x)",
+      "name": "exp",
+      "signature": "exp(x)"
+    },
+    {
+      "aliases": [
+        "期望"
+      ],
+      "category": "test",
+      "description": "Create chainable expectation",
+      "name": "expect",
+      "signature": "expect(value)"
+    },
+    {
+      "aliases": [
+        "导出上下文"
+      ],
+      "category": "context",
+      "description": "Export current context as serializable dict",
+      "name": "export_context",
+      "signature": "export_context()"
+    },
+    {
+      "aliases": [
+        "导出会话"
+      ],
+      "category": "transcript",
+      "description": "Export transcript to file (v1.23.7: include_spawned)",
+      "name": "export_transcript",
+      "signature": "export_transcript(output_path, format?, session_id?, include_spawned?)"
+    },
+    {
+      "aliases": [
+        "提取邮箱"
+      ],
+      "category": "string",
+      "description": "Extract emails",
+      "name": "extract_emails",
+      "signature": "extract_emails(text)"
+    },
+    {
+      "aliases": [
+        "提取链接"
+      ],
+      "category": "string",
+      "description": "Extract URLs",
+      "name": "extract_urls",
+      "signature": "extract_urls(text)"
+    },
+    {
+      "aliases": [
+        "失败"
+      ],
+      "category": "test",
+      "description": "Explicitly fail a test",
+      "name": "fail",
+      "signature": "fail(message?)"
+    },
+    {
+      "aliases": [
+        "文件修改时间"
+      ],
+      "category": "file",
+      "description": "File modification time",
+      "name": "file_modified",
+      "signature": "file_modified(path)"
+    },
+    {
+      "aliases": [
+        "文件大小"
+      ],
+      "category": "file",
+      "description": "File size in bytes",
+      "name": "file_size",
+      "signature": "file_size(path)"
+    },
+    {
+      "aliases": [
+        "过滤"
+      ],
+      "category": "collection",
+      "description": "Filter list by predicate",
+      "name": "filter",
+      "signature": "filter(lst, fn)"
+    },
+    {
+      "aliases": [
+        "查找"
+      ],
+      "category": "string",
+      "description": "Find substring index",
+      "name": "find",
+      "signature": "find(s, sub)"
+    },
+    {
+      "aliases": [
+        "从位置查找"
+      ],
+      "category": "string",
+      "description": "Find substring from position",
+      "name": "find_from",
+      "signature": "find_from(s, sub, start)"
+    },
+    {
+      "aliases": [
+        "条件查找"
+      ],
+      "category": "collection",
+      "description": "Find element by predicate",
+      "name": "find_if",
+      "signature": "find_if(lst, fn)"
+    },
+    {
+      "aliases": [
+        "展平"
+      ],
+      "category": "collection",
+      "description": "Flatten nested lists",
+      "name": "flatten",
+      "signature": "flatten(lst)"
+    },
+    {
+      "aliases": [
+        "浮点"
+      ],
+      "category": "core",
+      "description": "Convert to float",
+      "name": "float",
+      "signature": "float(value)"
+    },
+    {
+      "aliases": [
+        "向下取整"
+      ],
+      "category": "math",
+      "description": "Floor value",
+      "name": "floor",
+      "signature": "floor(value)"
+    },
+    {
+      "aliases": [
+        "分叉上下文"
+      ],
+      "category": "context",
+      "description": "Create a deep-copy snapshot of current context",
+      "name": "fork_context",
+      "signature": "fork_context()"
+    },
+    {
+      "aliases": [
+        "格式化浮点"
+      ],
+      "category": "string",
+      "description": "Format float with decimals",
+      "name": "format_float",
+      "signature": "format_float(value, decimals)"
+    },
+    {
+      "category": "time",
+      "description": "Unix timestamp to datetime",
+      "name": "fromtimestamp",
+      "signature": "fromtimestamp(timestamp)"
+    },
+    {
+      "aliases": [
+        "获取"
+      ],
+      "category": "collection",
+      "description": "Get value with default",
+      "name": "get",
+      "signature": "get(dict, key, default?)"
+    },
+    {
+      "category": "debug",
+      "description": "Get current call stack",
+      "name": "get_call_stack",
+      "signature": "get_call_stack()"
+    },
+    {
+      "aliases": [
+        "命令行参数"
+      ],
+      "category": "system",
+      "description": "Get CLI arguments",
+      "name": "get_cli_args",
+      "signature": "get_cli_args()"
+    },
+    {
+      "aliases": [
+        "压缩审计"
+      ],
+      "category": "transcript",
+      "description": "Get compression event history",
+      "name": "get_compression_audit",
+      "signature": "get_compression_audit()"
+    },
+    {
+      "aliases": [
+        "获取上下文配置"
+      ],
+      "category": "context",
+      "description": "Get current context management config",
+      "name": "get_context_config",
+      "signature": "get_context_config()"
+    },
+    {
+      "category": "debug",
+      "description": "Get the complete data lineage graph",
+      "name": "get_data_lineage",
+      "signature": "get_data_lineage()"
+    },
+    {
+      "aliases": [
+        "获取描述"
+      ],
+      "category": "llm",
+      "description": "Get agent description (read-only)",
+      "name": "get_description",
+      "signature": "get_description()"
+    },
+    {
+      "aliases": [
+        "获取调用"
+      ],
+      "category": "transcript",
+      "description": "Get metadata for a specific invocation",
+      "name": "get_invocation",
+      "signature": "get_invocation(invocation_id, session_id?)"
+    },
+    {
+      "aliases": [
+        "获取调用树"
+      ],
+      "category": "transcript",
+      "description": "Get the full invocation tree for a session (agent calls)",
+      "name": "get_invocation_tree",
+      "signature": "get_invocation_tree(session_id?)"
+    },
+    {
+      "category": "debug",
+      "description": "Get last error snapshot with context",
+      "name": "get_last_error",
+      "signature": "get_last_error()"
+    },
+    {
+      "category": "debug",
+      "description": "Get recent LLM call audit log",
+      "name": "get_llm_log",
+      "signature": "get_llm_log(n?)"
+    },
+    {
+      "aliases": [
+        "获取最大tokens"
+      ],
+      "category": "llm",
+      "description": "Get effective max-tokens",
+      "name": "get_max_tokens",
+      "signature": "get_max_tokens()"
+    },
+    {
+      "aliases": [
+        "获取最大轮次"
+      ],
+      "category": "llm",
+      "description": "Get effective max-turns",
+      "name": "get_max_turns",
+      "signature": "get_max_turns()"
+    },
+    {
+      "aliases": [
+        "获取消息"
+      ],
+      "category": "context",
+      "description": "Retrieve a message by UUID",
+      "name": "get_message",
+      "signature": "get_message(uuid)"
+    },
+    {
+      "aliases": [
+        "获取模型"
+      ],
+      "category": "llm",
+      "description": "Get current model (read-only)",
+      "name": "get_model",
+      "signature": "get_model()"
+    },
+    {
+      "aliases": [
+        "获取提供商"
+      ],
+      "category": "llm",
+      "description": "Get current provider (read-only)",
+      "name": "get_provider",
+      "signature": "get_provider()"
+    },
+    {
+      "aliases": [
+        "获取推理强度"
+      ],
+      "category": "llm",
+      "description": "Get effective reasoning-effort",
+      "name": "get_reasoning_effort",
+      "signature": "get_reasoning_effort()"
+    },
+    {
+      "aliases": [
+        "获取会话目录"
+      ],
+      "category": "transcript",
+      "description": "Get resolved transcript session directory",
+      "name": "get_session_dir",
+      "signature": "get_session_dir()"
+    },
+    {
+      "aliases": [
+        "获取会话id"
+      ],
+      "category": "transcript",
+      "description": "Get current transcript session ID",
+      "name": "get_session_id",
+      "signature": "get_session_id()"
+    },
+    {
+      "aliases": [
+        "获取会话元数据"
+      ],
+      "category": "transcript",
+      "description": "Get session metadata (argv, timestamp, version)",
+      "name": "get_session_meta",
+      "signature": "get_session_meta(session_id?)"
+    },
+    {
+      "aliases": [
+        "获取会话树"
+      ],
+      "category": "transcript",
+      "description": "Get the full session spawn tree (nested spawns)",
+      "name": "get_spawn_tree",
+      "signature": "get_spawn_tree(session_id?)"
+    },
+    {
+      "aliases": [
+        "获取子会话"
+      ],
+      "category": "transcript",
+      "description": "Get sessions spawned by the given session",
+      "name": "get_spawned_sessions",
+      "signature": "get_spawned_sessions(session_id?)"
+    },
+    {
+      "aliases": [
+        "获取温度"
+      ],
+      "category": "llm",
+      "description": "Get effective temperature",
+      "name": "get_temperature",
+      "signature": "get_temperature()"
+    },
+    {
+      "aliases": [
+        "获取思考模式"
+      ],
+      "category": "llm",
+      "description": "Get effective thinking-mode",
+      "name": "get_thinking_mode",
+      "signature": "get_thinking_mode()"
+    },
+    {
+      "aliases": [
+        "获取跟踪"
+      ],
+      "category": "debug",
+      "description": "Get recent execution trace",
+      "name": "get_trace",
+      "signature": "get_trace(n?)"
+    },
+    {
+      "aliases": [
+        "查找文件"
+      ],
+      "category": "file",
+      "description": "Recursively find files matching glob pattern",
+      "name": "glob_files",
+      "signature": "glob_files(path, pattern?)"
+    },
+    {
+      "aliases": [
+        "搜索内容"
+      ],
+      "category": "file",
+      "description": "Search file contents for a pattern",
+      "name": "grep_files",
+      "signature": "grep_files(path, pattern, regex?, case_sensitive?, max_results?)"
+    },
+    {
+      "aliases": [
+        "包含键"
+      ],
+      "category": "collection",
+      "description": "Check key exists",
+      "name": "has_key",
+      "signature": "has_key(dict, key)"
+    },
+    {
+      "aliases": [
+        "文件哈希"
+      ],
+      "category": "crypto",
+      "description": "Calculate hash of file",
+      "name": "hash_file",
+      "signature": "hash_file(path, algorithm?)"
+    },
+    {
+      "aliases": [
+        "hmac_sha256"
+      ],
+      "category": "crypto",
+      "description": "Calculate HMAC-SHA256",
+      "name": "hmac_sha256",
+      "signature": "hmac_sha256(key, message)"
+    },
+    {
+      "aliases": [
+        "主机名"
+      ],
+      "category": "system",
+      "description": "Get hostname",
+      "name": "hostname",
+      "signature": "hostname()"
+    },
+    {
+      "aliases": [
+        "html转义"
+      ],
+      "category": "string",
+      "description": "HTML escape",
+      "name": "html_escape",
+      "signature": "html_escape(s)"
+    },
+    {
+      "aliases": [
+        "html链接"
+      ],
+      "category": "data",
+      "description": "Extract HTML links",
+      "name": "html_links",
+      "signature": "html_links(html)"
+    },
+    {
+      "aliases": [
+        "html解析"
+      ],
+      "category": "data",
+      "description": "Parse HTML",
+      "name": "html_parse",
+      "signature": "html_parse(text)"
+    },
+    {
+      "aliases": [
+        "html选择"
+      ],
+      "category": "data",
+      "description": "CSS select elements",
+      "name": "html_select",
+      "signature": "html_select(html, selector)"
+    },
+    {
+      "aliases": [
+        "html文本"
+      ],
+      "category": "data",
+      "description": "Extract HTML text",
+      "name": "html_text",
+      "signature": "html_text(html)"
+    },
+    {
+      "aliases": [
+        "html反转义"
+      ],
+      "category": "string",
+      "description": "HTML unescape",
+      "name": "html_unescape",
+      "signature": "html_unescape(s)"
+    },
+    {
+      "aliases": [
+        "http删除"
+      ],
+      "category": "network",
+      "description": "HTTP DELETE request",
+      "name": "http_delete",
+      "signature": "http_delete(url, headers?)"
+    },
+    {
+      "aliases": [
+        "http下载"
+      ],
+      "category": "network",
+      "description": "Download file from URL",
+      "name": "http_download",
+      "signature": "http_download(url, path)"
+    },
+    {
+      "aliases": [
+        "http获取"
+      ],
+      "category": "network",
+      "description": "HTTP GET request",
+      "name": "http_get",
+      "signature": "http_get(url, headers?)"
+    },
+    {
+      "aliases": [
+        "http发布"
+      ],
+      "category": "network",
+      "description": "HTTP POST request",
+      "name": "http_post",
+      "signature": "http_post(url, data?, headers?)"
+    },
+    {
+      "aliases": [
+        "http提交"
+      ],
+      "category": "network",
+      "description": "HTTP PUT request",
+      "name": "http_put",
+      "signature": "http_put(url, data?, headers?)"
+    },
+    {
+      "aliases": [
+        "导入上下文"
+      ],
+      "category": "context",
+      "description": "Import a previously exported context",
+      "name": "import_context",
+      "signature": "import_context(data)"
+    },
+    {
+      "aliases": [
+        "查找索引"
+      ],
+      "category": "string",
+      "description": "Find substring index",
+      "name": "index",
+      "signature": "index(s, sub)"
+    },
+    {
+      "aliases": [
+        "输入"
+      ],
+      "category": "core",
+      "description": "Read line from stdin",
+      "name": "input",
+      "signature": "input(prompt?)"
+    },
+    {
+      "aliases": [
+        "插入消息"
+      ],
+      "category": "context",
+      "description": "Insert a new message into context",
+      "name": "insert_message",
+      "signature": "insert_message(role, content, position?)"
+    },
+    {
+      "aliases": [
+        "整数"
+      ],
+      "category": "core",
+      "description": "Convert to integer",
+      "name": "int",
+      "signature": "int(value)"
+    },
+    {
+      "aliases": [
+        "插值"
+      ],
+      "category": "string",
+      "description": "Template string interpolation",
+      "name": "interpolate",
+      "signature": "interpolate(template, vars)"
+    },
+    {
+      "aliases": [
+        "调用路径"
+      ],
+      "category": "transcript",
+      "description": "Get human-readable path string for an invocation",
+      "name": "invocation_path",
+      "signature": "invocation_path(invocation_id, session_id?)"
+    },
+    {
+      "aliases": [
+        "是音频"
+      ],
+      "category": "media",
+      "description": "Check if MediaPart is audio",
+      "name": "is_audio",
+      "signature": "is_audio(value)"
+    },
+    {
+      "aliases": [
+        "是图片"
+      ],
+      "category": "media",
+      "description": "Check if MediaPart is an image",
+      "name": "is_image",
+      "signature": "is_image(value)"
+    },
+    {
+      "aliases": [
+        "是媒体"
+      ],
+      "category": "media",
+      "description": "Check if value is MediaPart",
+      "name": "is_media",
+      "signature": "is_media(value)"
+    },
+    {
+      "aliases": [
+        "是视频"
+      ],
+      "category": "media",
+      "description": "Check if MediaPart is a video",
+      "name": "is_video",
+      "signature": "is_video(value)"
+    },
+    {
+      "aliases": [
+        "类型判断"
+      ],
+      "category": "core",
+      "description": "Type check",
+      "name": "isinstance",
+      "signature": "isinstance(value, type_name)"
+    },
+    {
+      "aliases": [
+        "它"
+      ],
+      "category": "test",
+      "description": "Define a test case",
+      "name": "it",
+      "signature": "it(name, fn)"
+    },
+    {
+      "aliases": [
+        "跳过它"
+      ],
+      "category": "test",
+      "description": "Define a skipped test case",
+      "name": "it_skip",
+      "signature": "it_skip(name, fn?)"
+    },
+    {
+      "aliases": [
+        "连接"
+      ],
+      "category": "string",
+      "description": "Join strings",
+      "name": "join",
+      "signature": "join(items, sep)"
+    },
+    {
+      "aliases": [
+        "json加载"
+      ],
+      "category": "data",
+      "description": "Load JSON from file",
+      "name": "json_load",
+      "signature": "json_load(path)"
+    },
+    {
+      "aliases": [
+        "json解析"
+      ],
+      "category": "data",
+      "description": "Parse JSON",
+      "name": "json_parse",
+      "signature": "json_parse(text)"
+    },
+    {
+      "category": "data",
+      "description": "Parse JSON with markdown fence stripping",
+      "name": "json_parse_lenient",
+      "signature": "json_parse_lenient(text)"
+    },
+    {
+      "aliases": [
+        "json保存"
+      ],
+      "category": "data",
+      "description": "Save JSON to file",
+      "name": "json_save",
+      "signature": "json_save(path, value, indent?)"
+    },
+    {
+      "aliases": [
+        "json序列化"
+      ],
+      "category": "data",
+      "description": "Stringify to JSON",
+      "name": "json_stringify",
+      "signature": "json_stringify(value, indent?)"
+    },
+    {
+      "aliases": [
+        "键"
+      ],
+      "category": "collection",
+      "description": "Get dict keys",
+      "name": "keys",
+      "signature": "keys(dict)"
+    },
+    {
+      "aliases": [
+        "终止进程"
+      ],
+      "category": "system",
+      "description": "Send signal to process",
+      "name": "kill",
+      "signature": "kill(pid, signal?)"
+    },
+    {
+      "category": "debug",
+      "description": "Get detailed error with diagnostic category and suggestion",
+      "name": "last_error_detail",
+      "signature": "last_error_detail()"
+    },
+    {
+      "aliases": [
+        "长度"
+      ],
+      "category": "core",
+      "description": "Return length of string/list/dict",
+      "name": "len",
+      "signature": "len(value)"
+    },
+    {
+      "aliases": [
+        "编辑距离"
+      ],
+      "category": "string",
+      "description": "Edit distance",
+      "name": "levenshtein",
+      "signature": "levenshtein(s1, s2)"
+    },
+    {
+      "aliases": [
+        "列表"
+      ],
+      "category": "core",
+      "description": "Convert to list or create empty list",
+      "name": "list",
+      "signature": "list(iterable?)"
+    },
+    {
+      "aliases": [
+        "列出目录"
+      ],
+      "category": "file",
+      "description": "List directory",
+      "name": "list_dir",
+      "signature": "list_dir(path, pattern?)"
+    },
+    {
+      "aliases": [
+        "列出调用"
+      ],
+      "category": "transcript",
+      "description": "List invocations with optional filtering",
+      "name": "list_invocations",
+      "signature": "list_invocations(session_id?, agent?, limit?, offset?)"
+    },
+    {
+      "aliases": [
+        "已钉住消息",
+        "钉住列表"
+      ],
+      "category": "context",
+      "description": "List all pinned messages (uuid, role, snippet)",
+      "name": "list_pinned_messages",
+      "signature": "list_pinned_messages()"
+    },
+    {
+      "aliases": [
+        "列出会话"
+      ],
+      "category": "transcript",
+      "description": "List all transcript sessions",
+      "name": "list_sessions",
+      "signature": "list_sessions()"
+    },
+    {
+      "aliases": [
+        "列出技能引用"
+      ],
+      "category": "tools",
+      "description": "List reference documents for a skill",
+      "name": "list_skill_references",
+      "signature": "list_skill_references(name)"
+    },
+    {
+      "aliases": [
+        "加载技能"
+      ],
+      "category": "tools",
+      "description": "Load a skill by name",
+      "name": "load_skill",
+      "signature": "load_skill(name, include_references?)"
+    },
+    {
+      "aliases": [
+        "对数"
+      ],
+      "category": "math",
+      "description": "Logarithm",
+      "name": "log",
+      "signature": "log(x, base?)"
+    },
+    {
+      "aliases": [
+        "对数十"
+      ],
+      "category": "math",
+      "description": "Base-10 logarithm",
+      "name": "log10",
+      "signature": "log10(x)"
+    },
+    {
+      "aliases": [
+        "对数二"
+      ],
+      "category": "math",
+      "description": "Base-2 logarithm",
+      "name": "log2",
+      "signature": "log2(x)"
+    },
+    {
+      "aliases": [
+        "日志严重"
+      ],
+      "category": "system",
+      "description": "Log critical message",
+      "name": "log_critical",
+      "signature": "log_critical(message)"
+    },
+    {
+      "aliases": [
+        "日志调试"
+      ],
+      "category": "system",
+      "description": "Log debug message",
+      "name": "log_debug",
+      "signature": "log_debug(message)"
+    },
+    {
+      "aliases": [
+        "日志错误"
+      ],
+      "category": "system",
+      "description": "Log error message",
+      "name": "log_error",
+      "signature": "log_error(message)"
+    },
+    {
+      "aliases": [
+        "日志信息"
+      ],
+      "category": "system",
+      "description": "Log info message",
+      "name": "log_info",
+      "signature": "log_info(message)"
+    },
+    {
+      "aliases": [
+        "日志设置级别"
+      ],
+      "category": "system",
+      "description": "Set logging level",
+      "name": "log_set_level",
+      "signature": "log_set_level(level)"
+    },
+    {
+      "aliases": [
+        "日志写入文件"
+      ],
+      "category": "system",
+      "description": "Set log output to file",
+      "name": "log_to_file",
+      "signature": "log_to_file(path)"
+    },
+    {
+      "aliases": [
+        "日志警告"
+      ],
+      "category": "system",
+      "description": "Log warning message",
+      "name": "log_warn",
+      "signature": "log_warn(message)"
+    },
+    {
+      "aliases": [
+        "转小写"
+      ],
+      "category": "string",
+      "description": "Lowercase string",
+      "name": "lower",
+      "signature": "lower(s)"
+    },
+    {
+      "aliases": [
+        "邮箱选择"
+      ],
+      "category": "concurrency",
+      "description": "Receive first available message from multiple channels",
+      "name": "mailbox_select",
+      "signature": "mailbox_select(channels, timeout?)"
+    },
+    {
+      "aliases": [
+        "构造集合"
+      ],
+      "category": "collection",
+      "description": "Create set",
+      "name": "make_set",
+      "signature": "make_set(items)"
+    },
+    {
+      "aliases": [
+        "映射"
+      ],
+      "category": "collection",
+      "description": "Map function over list",
+      "name": "map",
+      "signature": "map(lst, fn)"
+    },
+    {
+      "aliases": [
+        "md提取标题"
+      ],
+      "category": "data",
+      "description": "Extract Markdown headings",
+      "name": "markdown_extract_headings",
+      "signature": "markdown_extract_headings(text)"
+    },
+    {
+      "aliases": [
+        "md解析"
+      ],
+      "category": "data",
+      "description": "Parse Markdown to blocks",
+      "name": "markdown_parse",
+      "signature": "markdown_parse(text)"
+    },
+    {
+      "aliases": [
+        "md转html"
+      ],
+      "category": "data",
+      "description": "Convert Markdown to HTML",
+      "name": "markdown_to_html",
+      "signature": "markdown_to_html(text)"
+    },
+    {
+      "aliases": [
+        "最大值"
+      ],
+      "category": "core",
+      "description": "Maximum value",
+      "name": "max",
+      "signature": "max(*args)"
+    },
+    {
+      "aliases": [
+        "md5"
+      ],
+      "category": "crypto",
+      "description": "Calculate MD5 hash",
+      "name": "md5",
+      "signature": "md5(text)"
+    },
+    {
+      "aliases": [
+        "平均值"
+      ],
+      "category": "math",
+      "description": "Arithmetic mean",
+      "name": "mean",
+      "signature": "mean(numbers)"
+    },
+    {
+      "aliases": [
+        "媒体"
+      ],
+      "category": "media",
+      "description": "Create media from file/URL/MediaPart (passthrough + multi-arg)",
+      "name": "media",
+      "signature": "media(source|MediaPart, ...) | media(source, type?)"
+    },
+    {
+      "aliases": [
+        "媒体base64"
+      ],
+      "category": "media",
+      "description": "Create media from base64 data",
+      "name": "media_base64",
+      "signature": "media_base64(data, mime, type?)"
+    },
+    {
+      "aliases": [
+        "媒体转base64"
+      ],
+      "category": "media",
+      "description": "Convert MediaPart content to base64 string",
+      "name": "media_to_base64",
+      "signature": "media_to_base64(part)"
+    },
+    {
+      "aliases": [
+        "媒体类型"
+      ],
+      "category": "media",
+      "description": "Get media type",
+      "name": "media_type",
+      "signature": "media_type(value)"
+    },
+    {
+      "aliases": [
+        "中位数"
+      ],
+      "category": "math",
+      "description": "Median value",
+      "name": "median",
+      "signature": "median(numbers)"
+    },
+    {
+      "aliases": [
+        "内存信息"
+      ],
+      "category": "system",
+      "description": "Get memory information",
+      "name": "memory_info",
+      "signature": "memory_info()"
+    },
+    {
+      "aliases": [
+        "合并"
+      ],
+      "category": "collection",
+      "description": "Merge dicts",
+      "name": "merge",
+      "signature": "merge(*dicts)"
+    },
+    {
+      "aliases": [
+        "最小值"
+      ],
+      "category": "core",
+      "description": "Minimum value",
+      "name": "min",
+      "signature": "min(*args)"
+    },
+    {
+      "aliases": [
+        "创建目录"
+      ],
+      "category": "io",
+      "description": "Create directory",
+      "name": "mkdir",
+      "signature": "mkdir(path)"
+    },
+    {
+      "aliases": [
+        "递归创建目录"
+      ],
+      "category": "io",
+      "description": "Create directory tree",
+      "name": "mkdir_p",
+      "signature": "mkdir_p(path)"
+    },
+    {
+      "aliases": [
+        "众数"
+      ],
+      "category": "math",
+      "description": "Most frequent values",
+      "name": "mode",
+      "signature": "mode(numbers)"
+    },
+    {
+      "aliases": [
+        "移动文件"
+      ],
+      "category": "file",
+      "description": "Move file",
+      "name": "move_file",
+      "signature": "move_file(src, dst)"
+    },
+    {
+      "aliases": [
+        "多行输入"
+      ],
+      "category": "core",
+      "description": "Read multiple lines (empty line ends)",
+      "name": "multiline_input",
+      "signature": "multiline_input(prompt?)"
+    },
+    {
+      "aliases": [
+        "规范化空白"
+      ],
+      "category": "string",
+      "description": "Normalize whitespace",
+      "name": "normalize_whitespace",
+      "signature": "normalize_whitespace(text)"
+    },
+    {
+      "aliases": [
+        "当前时间戳"
+      ],
+      "category": "time",
+      "description": "Current datetime",
+      "name": "now",
+      "signature": "now()"
+    },
+    {
+      "aliases": [
+        "剔除"
+      ],
+      "category": "collection",
+      "description": "Omit dict keys",
+      "name": "omit",
+      "signature": "omit(dict, keys)"
+    },
+    {
+      "aliases": [
+        "压缩回调"
+      ],
+      "category": "context",
+      "description": "Register callback for compression events",
+      "name": "on_compression",
+      "signature": "on_compression(callback?)"
+    },
+    {
+      "aliases": [
+        "溢出回调"
+      ],
+      "category": "context",
+      "description": "Register callback for context overflow",
+      "name": "on_context_overflow",
+      "signature": "on_context_overflow(callback?)"
+    },
+    {
+      "aliases": [
+        "码点"
+      ],
+      "category": "string",
+      "description": "Character to Unicode code point",
+      "name": "ord",
+      "signature": "ord(char)"
+    },
+    {
+      "aliases": [
+        "左填充"
+      ],
+      "category": "string",
+      "description": "Pad left",
+      "name": "pad_left",
+      "signature": "pad_left(s, width, char?)"
+    },
+    {
+      "aliases": [
+        "右填充"
+      ],
+      "category": "string",
+      "description": "Pad right",
+      "name": "pad_right",
+      "signature": "pad_right(s, width, char?)"
+    },
+    {
+      "aliases": [
+        "解析命令行参数"
+      ],
+      "category": "system",
+      "description": "Parse CLI arguments",
+      "name": "parse_cli_args",
+      "signature": "parse_cli_args(spec?)"
+    },
+    {
+      "aliases": [
+        "修补文件"
+      ],
+      "category": "tools",
+      "description": "Patch a file",
+      "name": "patch_file",
+      "signature": "patch_file(path, old_string, new_string, replace_all?)"
+    },
+    {
+      "aliases": [
+        "路径基础名"
+      ],
+      "category": "path",
+      "description": "Base name",
+      "name": "path_basename",
+      "signature": "path_basename(path)"
+    },
+    {
+      "aliases": [
+        "路径目录名"
+      ],
+      "category": "path",
+      "description": "Directory name",
+      "name": "path_dirname",
+      "signature": "path_dirname(path)"
+    },
+    {
+      "aliases": [
+        "路径存在"
+      ],
+      "category": "path",
+      "description": "Check if path exists",
+      "name": "path_exists",
+      "signature": "path_exists(path)"
+    },
+    {
+      "aliases": [
+        "是否目录"
+      ],
+      "category": "path",
+      "description": "Check if path is directory",
+      "name": "path_is_dir",
+      "signature": "path_is_dir(path)"
+    },
+    {
+      "aliases": [
+        "是否文件"
+      ],
+      "category": "path",
+      "description": "Check if path is file",
+      "name": "path_is_file",
+      "signature": "path_is_file(path)"
+    },
+    {
+      "aliases": [
+        "路径拼接"
+      ],
+      "category": "path",
+      "description": "Join path components",
+      "name": "path_join",
+      "signature": "path_join(*parts)"
+    },
+    {
+      "aliases": [
+        "百分位"
+      ],
+      "category": "math",
+      "description": "Percentile value",
+      "name": "percentile",
+      "signature": "percentile(numbers, p)"
+    },
+    {
+      "aliases": [
+        "选取"
+      ],
+      "category": "collection",
+      "description": "Pick dict keys",
+      "name": "pick",
+      "signature": "pick(dict, keys)"
+    },
+    {
+      "aliases": [
+        "进程ID"
+      ],
+      "category": "system",
+      "description": "Get current process ID",
+      "name": "pid",
+      "signature": "pid()"
+    },
+    {
+      "aliases": [
+        "钉住消息"
+      ],
+      "category": "context",
+      "description": "Pin a message by UUID (immune to compression)",
+      "name": "pin_message",
+      "signature": "pin_message(uuid)"
+    },
+    {
+      "aliases": [
+        "操作系统"
+      ],
+      "category": "system",
+      "description": "Get OS name",
+      "name": "platform",
+      "signature": "platform()"
+    },
+    {
+      "aliases": [
+        "系统版本"
+      ],
+      "category": "system",
+      "description": "Get detailed platform info",
+      "name": "platform_version",
+      "signature": "platform_version()"
+    },
+    {
+      "aliases": [
+        "幂"
+      ],
+      "category": "math",
+      "description": "Power",
+      "name": "pow",
+      "signature": "pow(base, exponent)"
+    },
+    {
+      "aliases": [
+        "打印"
+      ],
+      "category": "core",
+      "description": "Print values to stdout",
+      "name": "print",
+      "signature": "print(*args)"
+    },
+    {
+      "aliases": [
+        "求积"
+      ],
+      "category": "math",
+      "description": "Product of numbers",
+      "name": "product",
+      "signature": "product(numbers)"
+    },
+    {
+      "aliases": [
+        "进度条"
+      ],
+      "category": "io",
+      "description": "Display progress bar",
+      "name": "progress_bar",
+      "signature": "progress_bar(current, total, width?)"
+    },
+    {
+      "aliases": [
+        "Python版本"
+      ],
+      "category": "system",
+      "description": "Get Python version",
+      "name": "python_version",
+      "signature": "python_version()"
+    },
+    {
+      "aliases": [
+        "质量报告"
+      ],
+      "category": "quality",
+      "description": "Generate quality report",
+      "name": "quality_report",
+      "signature": "quality_report(source, filename?)"
+    },
+    {
+      "aliases": [
+        "质量评分"
+      ],
+      "category": "quality",
+      "description": "Calculate quality score",
+      "name": "quality_score",
+      "signature": "quality_score(source, file_path?)"
+    },
+    {
+      "category": "transcript",
+      "description": "Query transcript with filtering and pagination (v1.40+)",
+      "name": "query_transcript",
+      "signature": "query_transcript(session_id?, role?, agent?, invocation_id?, since?, until?, content_regex?, message_type?, limit?, offset?)"
+    },
+    {
+      "aliases": [
+        "随机整数"
+      ],
+      "category": "crypto",
+      "description": "Generate random integer",
+      "name": "randint",
+      "signature": "randint(min, max)"
+    },
+    {
+      "aliases": [
+        "随机"
+      ],
+      "category": "crypto",
+      "description": "Generate random float",
+      "name": "random",
+      "signature": "random()"
+    },
+    {
+      "aliases": [
+        "随机Base64"
+      ],
+      "category": "crypto",
+      "description": "Generate random base64 string",
+      "name": "random_base64",
+      "signature": "random_base64(n)"
+    },
+    {
+      "aliases": [
+        "随机字节"
+      ],
+      "category": "crypto",
+      "description": "Generate random bytes as hex",
+      "name": "random_bytes",
+      "signature": "random_bytes(n)"
+    },
+    {
+      "aliases": [
+        "随机十六进制"
+      ],
+      "category": "crypto",
+      "description": "Generate random hex string",
+      "name": "random_hex",
+      "signature": "random_hex(n)"
+    },
+    {
+      "aliases": [
+        "范围"
+      ],
+      "category": "core",
+      "description": "Integer range",
+      "name": "range",
+      "signature": "range(start, stop?, step?)"
+    },
+    {
+      "aliases": [
+        "读文件"
+      ],
+      "category": "core",
+      "description": "Read file content",
+      "name": "read_file",
+      "signature": "read_file(path)"
+    },
+    {
+      "category": "debug",
+      "description": "Manually record a data flow event",
+      "name": "record_data_flow",
+      "signature": "record_data_flow(producer_uuid, consumer_uuid, flow_type, metadata?)"
+    },
+    {
+      "category": "debug",
+      "description": "Start recording LLM interactions to cassette",
+      "name": "record_session",
+      "signature": "record_session(cassette_path)"
+    },
+    {
+      "aliases": [
+        "归约"
+      ],
+      "category": "collection",
+      "description": "Reduce list to value",
+      "name": "reduce",
+      "signature": "reduce(lst, fn, initial?)"
+    },
+    {
+      "aliases": [
+        "正则查找全部"
+      ],
+      "category": "string",
+      "description": "Regex find all",
+      "name": "regex_findall",
+      "signature": "regex_findall(pattern, s)"
+    },
+    {
+      "aliases": [
+        "正则匹配"
+      ],
+      "category": "string",
+      "description": "Regex match at start",
+      "name": "regex_match",
+      "signature": "regex_match(pattern, s)"
+    },
+    {
+      "aliases": [
+        "正则替换"
+      ],
+      "category": "string",
+      "description": "Regex replace",
+      "name": "regex_replace",
+      "signature": "regex_replace(pattern, s, replacement)"
+    },
+    {
+      "aliases": [
+        "正则搜索"
+      ],
+      "category": "string",
+      "description": "Regex search anywhere",
+      "name": "regex_search",
+      "signature": "regex_search(pattern, s)"
+    },
+    {
+      "aliases": [
+        "正则分割"
+      ],
+      "category": "string",
+      "description": "Regex split",
+      "name": "regex_split",
+      "signature": "regex_split(pattern, s)"
+    },
+    {
+      "aliases": [
+        "正则测试"
+      ],
+      "category": "string",
+      "description": "Regex test returns bool",
+      "name": "regex_test",
+      "signature": "regex_test(pattern, s)"
+    },
+    {
+      "aliases": [
+        "释放会话锁"
+      ],
+      "category": "transcript",
+      "description": "Release cross-process session lock (called on actor exit to prevent stale locks)",
+      "name": "release_session_lock",
+      "signature": "release_session_lock(session_id)"
+    },
+    {
+      "aliases": [
+        "删除键"
+      ],
+      "category": "collection",
+      "description": "Remove single key",
+      "name": "remove_key",
+      "signature": "remove_key(dict, key)"
+    },
+    {
+      "aliases": [
+        "去标点"
+      ],
+      "category": "string",
+      "description": "Remove punctuation",
+      "name": "remove_punctuation",
+      "signature": "remove_punctuation(text)"
+    },
+    {
+      "aliases": [
+        "重复"
+      ],
+      "category": "string",
+      "description": "Repeat string",
+      "name": "repeat",
+      "signature": "repeat(s, n)"
+    },
+    {
+      "aliases": [
+        "替换"
+      ],
+      "category": "string",
+      "description": "Replace substring",
+      "name": "replace",
+      "signature": "replace(s, old, new)"
+    },
+    {
+      "aliases": [
+        "替换消息"
+      ],
+      "category": "context",
+      "description": "Replace a message's content by UUID",
+      "name": "replace_message",
+      "signature": "replace_message(uuid, new_content)"
+    },
+    {
+      "aliases": [
+        "回放完整会话"
+      ],
+      "category": "transcript",
+      "description": "Replay transcript from session and all spawned sessions (v1.23.7+)",
+      "name": "replay_full_session",
+      "signature": "replay_full_session(session_id?)"
+    },
+    {
+      "category": "debug",
+      "description": "Replay LLM interactions from cassette",
+      "name": "replay_session",
+      "signature": "replay_session(cassette_path)"
+    },
+    {
+      "aliases": [
+        "回放会话"
+      ],
+      "category": "transcript",
+      "description": "Replay transcript messages with optional invocation filtering",
+      "name": "replay_transcript",
+      "signature": "replay_transcript(session_id?, include_compressed?, agent?, invocation_id?, last_only?, include_subtree?)"
+    },
+    {
+      "aliases": [
+        "恢复上下文"
+      ],
+      "category": "context",
+      "description": "Restore active context from a previous transcript session",
+      "name": "restore_context",
+      "signature": "restore_context(session_id, invocation_id?, agent?, last_only?, include_subtree?)"
+    },
+    {
+      "aliases": [
+        "恢复会话"
+      ],
+      "category": "transcript",
+      "description": "Resume a previous transcript session",
+      "name": "resume_session",
+      "signature": "resume_session(session_id)"
+    },
+    {
+      "aliases": [
+        "反转"
+      ],
+      "category": "string",
+      "description": "Reverse string",
+      "name": "reverse",
+      "signature": "reverse(s)"
+    },
+    {
+      "aliases": [
+        "四舍五入"
+      ],
+      "category": "math",
+      "description": "Round number",
+      "name": "round",
+      "signature": "round(value, ndigits?)"
+    },
+    {
+      "aliases": [
+        "运行测试"
+      ],
+      "category": "test",
+      "description": "Execute all tests and print report",
+      "name": "run_tests",
+      "signature": "run_tests(only?, suite?, filter?)"
+    },
+    {
+      "aliases": [
+        "运行测试json"
+      ],
+      "category": "test",
+      "description": "Execute tests and return JSON",
+      "name": "run_tests_json",
+      "signature": "run_tests_json(only?, suite?, filter?)"
+    },
+    {
+      "aliases": [
+        "随机抽样"
+      ],
+      "category": "crypto",
+      "description": "Sample items randomly",
+      "name": "sample",
+      "signature": "sample(items, k)"
+    },
+    {
+      "aliases": [
+        "保存媒体"
+      ],
+      "category": "media",
+      "description": "Save MediaPart to file",
+      "name": "save_media",
+      "signature": "save_media(part, path?)"
+    },
+    {
+      "aliases": [
+        "搜索上下文"
+      ],
+      "category": "context",
+      "description": "Search context for messages matching query",
+      "name": "search_context",
+      "signature": "search_context(query, role?, limit?)"
+    },
+    {
+      "aliases": [
+        "搜索会话"
+      ],
+      "category": "transcript",
+      "description": "Search transcript messages by content (v1.23.7: include_spawned)",
+      "name": "search_transcript",
+      "signature": "search_transcript(query, session_id?, scope?, role?, regex?, limit?, include_spawned?)"
+    },
+    {
+      "aliases": [
+        "设置缓存感知"
+      ],
+      "category": "context",
+      "description": "Enable/disable cache-aware compression at runtime",
+      "name": "set_cache_aware",
+      "signature": "set_cache_aware(enabled)"
+    },
+    {
+      "aliases": [
+        "设置压缩策略"
+      ],
+      "category": "context",
+      "description": "Set compression strategy at runtime",
+      "name": "set_compression_strategy",
+      "signature": "set_compression_strategy(strategy)"
+    },
+    {
+      "aliases": [
+        "设置上下文窗口"
+      ],
+      "category": "context",
+      "description": "Set context window size at runtime",
+      "name": "set_context_window",
+      "signature": "set_context_window(tokens)"
+    },
+    {
+      "aliases": [
+        "集合差"
+      ],
+      "category": "collection",
+      "description": "Set difference",
+      "name": "set_difference",
+      "signature": "set_difference(s1, s2)"
+    },
+    {
+      "aliases": [
+        "集合包含"
+      ],
+      "category": "collection",
+      "description": "Check set membership",
+      "name": "set_has",
+      "signature": "set_has(set, item)"
+    },
+    {
+      "aliases": [
+        "集合交"
+      ],
+      "category": "collection",
+      "description": "Set intersection",
+      "name": "set_intersection",
+      "signature": "set_intersection(s1, s2)"
+    },
+    {
+      "aliases": [
+        "设置键"
+      ],
+      "category": "collection",
+      "description": "Set key-value pair",
+      "name": "set_key",
+      "signature": "set_key(dict, key, value)"
+    },
+    {
+      "aliases": [
+        "设置最大tokens"
+      ],
+      "category": "llm",
+      "description": "Set max output tokens",
+      "name": "set_max_tokens",
+      "signature": "set_max_tokens(4000)"
+    },
+    {
+      "aliases": [
+        "设置最大轮次"
+      ],
+      "category": "llm",
+      "description": "Set max tool-calling turns",
+      "name": "set_max_turns",
+      "signature": "set_max_turns(5)"
+    },
+    {
+      "aliases": [
+        "设置推理强度"
+      ],
+      "category": "llm",
+      "description": "Set reasoning effort level",
+      "name": "set_reasoning_effort",
+      "signature": "set_reasoning_effort(\"high\")"
+    },
+    {
+      "aliases": [
+        "设置会话目录"
+      ],
+      "category": "transcript",
+      "description": "Set transcript session directory at runtime",
+      "name": "set_session_dir",
+      "signature": "set_session_dir(path)"
+    },
+    {
+      "aliases": [
+        "设置温度"
+      ],
+      "category": "llm",
+      "description": "Set temperature for subsequent llm act calls",
+      "name": "set_temperature",
+      "signature": "set_temperature(0.7)"
+    },
+    {
+      "aliases": [
+        "设置测试超时"
+      ],
+      "category": "test",
+      "description": "Set per-test timeout",
+      "name": "set_test_timeout",
+      "signature": "set_test_timeout(seconds)"
+    },
+    {
+      "aliases": [
+        "设置思考模式"
+      ],
+      "category": "llm",
+      "description": "Enable/disable thinking mode",
+      "name": "set_thinking_mode",
+      "signature": "set_thinking_mode(true)"
+    },
+    {
+      "aliases": [
+        "集合并"
+      ],
+      "category": "collection",
+      "description": "Set union",
+      "name": "set_union",
+      "signature": "set_union(s1, s2)"
+    },
+    {
+      "aliases": [
+        "设置工作记忆开关"
+      ],
+      "category": "context",
+      "description": "Enable/disable working memory at runtime",
+      "name": "set_working_memory_enabled",
+      "signature": "set_working_memory_enabled(enabled)"
+    },
+    {
+      "aliases": [
+        "sha1"
+      ],
+      "category": "crypto",
+      "description": "Calculate SHA1 hash",
+      "name": "sha1",
+      "signature": "sha1(text)"
+    },
+    {
+      "aliases": [
+        "sha256"
+      ],
+      "category": "crypto",
+      "description": "Calculate SHA256 hash",
+      "name": "sha256",
+      "signature": "sha256(text)"
+    },
+    {
+      "aliases": [
+        "sha512"
+      ],
+      "category": "crypto",
+      "description": "Calculate SHA512 hash",
+      "name": "sha512",
+      "signature": "sha512(text)"
+    },
+    {
+      "aliases": [
+        "执行命令"
+      ],
+      "category": "tools",
+      "description": "Execute shell command",
+      "name": "shell_exec",
+      "signature": "shell_exec(command, timeout?, shell?)"
+    },
+    {
+      "aliases": [
+        "洗牌"
+      ],
+      "category": "crypto",
+      "description": "Shuffle list randomly",
+      "name": "shuffle",
+      "signature": "shuffle(items)"
+    },
+    {
+      "aliases": [
+        "相似度"
+      ],
+      "category": "string",
+      "description": "String similarity",
+      "name": "similarity",
+      "signature": "similarity(s1, s2)"
+    },
+    {
+      "aliases": [
+        "正弦"
+      ],
+      "category": "math",
+      "description": "Sine",
+      "name": "sin",
+      "signature": "sin(radians)"
+    },
+    {
+      "aliases": [
+        "休眠"
+      ],
+      "category": "time",
+      "description": "Pause execution",
+      "name": "sleep",
+      "signature": "sleep(seconds)"
+    },
+    {
+      "aliases": [
+        "部分满足"
+      ],
+      "category": "collection",
+      "description": "Check any element",
+      "name": "some",
+      "signature": "some(lst, fn)"
+    },
+    {
+      "aliases": [
+        "排序"
+      ],
+      "category": "collection",
+      "description": "Sort list",
+      "name": "sort",
+      "signature": "sort(lst, compare?)"
+    },
+    {
+      "aliases": [
+        "分割"
+      ],
+      "category": "string",
+      "description": "Split string",
+      "name": "split",
+      "signature": "split(s, sep?)"
+    },
+    {
+      "aliases": [
+        "平方根"
+      ],
+      "category": "math",
+      "description": "Square root",
+      "name": "sqrt",
+      "signature": "sqrt(value)"
+    },
+    {
+      "aliases": [
+        "开头是"
+      ],
+      "category": "string",
+      "description": "Check prefix",
+      "name": "startswith",
+      "signature": "startswith(s, prefix)"
+    },
+    {
+      "aliases": [
+        "统计最大"
+      ],
+      "category": "math",
+      "description": "Maximum value (stats)",
+      "name": "stats_max",
+      "signature": "stats_max(numbers)"
+    },
+    {
+      "aliases": [
+        "统计最小"
+      ],
+      "category": "math",
+      "description": "Minimum value (stats)",
+      "name": "stats_min",
+      "signature": "stats_min(numbers)"
+    },
+    {
+      "aliases": [
+        "标准差"
+      ],
+      "category": "math",
+      "description": "Standard deviation",
+      "name": "stddev",
+      "signature": "stddev(numbers, population?)"
+    },
+    {
+      "category": "debug",
+      "description": "Stop recording LLM interactions",
+      "name": "stop_recording",
+      "signature": "stop_recording()"
+    },
+    {
+      "aliases": [
+        "经过时间"
+      ],
+      "category": "time",
+      "description": "Get elapsed time",
+      "name": "stopwatch_elapsed",
+      "signature": "stopwatch_elapsed(start_time)"
+    },
+    {
+      "aliases": [
+        "计时分段"
+      ],
+      "category": "time",
+      "description": "Get lap time",
+      "name": "stopwatch_lap",
+      "signature": "stopwatch_lap(start_time)"
+    },
+    {
+      "aliases": [
+        "开始计时"
+      ],
+      "category": "time",
+      "description": "Start stopwatch",
+      "name": "stopwatch_start",
+      "signature": "stopwatch_start()"
+    },
+    {
+      "aliases": [
+        "字符串"
+      ],
+      "category": "core",
+      "description": "Convert to string",
+      "name": "str",
+      "signature": "str(value)"
+    },
+    {
+      "aliases": [
+        "流式清除"
+      ],
+      "category": "io",
+      "description": "Clear current line",
+      "name": "stream_clear",
+      "signature": "stream_clear()"
+    },
+    {
+      "aliases": [
+        "光标下移"
+      ],
+      "category": "io",
+      "description": "Move cursor down",
+      "name": "stream_cursor_down",
+      "signature": "stream_cursor_down(n?)"
+    },
+    {
+      "aliases": [
+        "光标上移"
+      ],
+      "category": "io",
+      "description": "Move cursor up",
+      "name": "stream_cursor_up",
+      "signature": "stream_cursor_up(n?)"
+    },
+    {
+      "aliases": [
+        "流式打印"
+      ],
+      "category": "io",
+      "description": "Print without newline",
+      "name": "stream_print",
+      "signature": "stream_print(text)"
+    },
+    {
+      "aliases": [
+        "去除空白"
+      ],
+      "category": "string",
+      "description": "Trim whitespace",
+      "name": "strip",
+      "signature": "strip(s)"
+    },
+    {
+      "aliases": [
+        "子串"
+      ],
+      "category": "string",
+      "description": "Extract substring",
+      "name": "substring",
+      "signature": "substring(s, start, end?)"
+    },
+    {
+      "aliases": [
+        "求和"
+      ],
+      "category": "math",
+      "description": "Sum of numbers",
+      "name": "sum",
+      "signature": "sum(numbers)"
+    },
+    {
+      "aliases": [
+        "正切"
+      ],
+      "category": "math",
+      "description": "Tangent",
+      "name": "tan",
+      "signature": "tan(radians)"
+    },
+    {
+      "aliases": [
+        "临时目录"
+      ],
+      "category": "file",
+      "description": "Create temp directory",
+      "name": "temp_dir",
+      "signature": "temp_dir(suffix?, prefix?, dir?)"
+    },
+    {
+      "aliases": [
+        "临时文件"
+      ],
+      "category": "file",
+      "description": "Create temp file",
+      "name": "temp_file",
+      "signature": "temp_file(suffix?, prefix?, dir?)"
+    },
+    {
+      "aliases": [
+        "测试用例"
+      ],
+      "category": "test",
+      "description": "Register a test case",
+      "name": "test_case",
+      "signature": "test_case(name, fn)"
+    },
+    {
+      "aliases": [
+        "跳过测试用例"
+      ],
+      "category": "test",
+      "description": "Register a skipped test",
+      "name": "test_case_skip",
+      "signature": "test_case_skip(name, fn?)"
+    },
+    {
+      "aliases": [
+        "测试计数"
+      ],
+      "category": "test",
+      "description": "Count registered tests",
+      "name": "test_count",
+      "signature": "test_count()"
+    },
+    {
+      "aliases": [
+        "结束测试套件"
+      ],
+      "category": "test",
+      "description": "End current test suite",
+      "name": "test_end_suite",
+      "signature": "test_end_suite()"
+    },
+    {
+      "aliases": [
+        "重置测试"
+      ],
+      "category": "test",
+      "description": "Clear all registered tests",
+      "name": "test_reset",
+      "signature": "test_reset()"
+    },
+    {
+      "aliases": [
+        "测试套件"
+      ],
+      "category": "test",
+      "description": "Start a test suite",
+      "name": "test_suite",
+      "signature": "test_suite(name)"
+    },
+    {
+      "aliases": [
+        "当前时间"
+      ],
+      "category": "time",
+      "description": "Unix timestamp",
+      "name": "time",
+      "signature": "time()"
+    },
+    {
+      "aliases": [
+        "转Claude格式"
+      ],
+      "category": "media",
+      "description": "Convert MediaParts to Claude content format",
+      "name": "to_claude_parts",
+      "signature": "to_claude_parts(parts)"
+    },
+    {
+      "aliases": [
+        "转Gemini格式"
+      ],
+      "category": "media",
+      "description": "Convert MediaParts to Gemini content format",
+      "name": "to_gemini_parts",
+      "signature": "to_gemini_parts(parts)"
+    },
+    {
+      "aliases": [
+        "转OpenAI格式"
+      ],
+      "category": "media",
+      "description": "Convert MediaParts to OpenAI content format",
+      "name": "to_openai_parts",
+      "signature": "to_openai_parts(parts)"
+    },
+    {
+      "aliases": [
+        "分词"
+      ],
+      "category": "string",
+      "description": "Tokenize text",
+      "name": "tokenize",
+      "signature": "tokenize(text)"
+    },
+    {
+      "aliases": [
+        "toml加载"
+      ],
+      "category": "data",
+      "description": "Load TOML from file",
+      "name": "toml_load",
+      "signature": "toml_load(path)"
+    },
+    {
+      "aliases": [
+        "toml解析"
+      ],
+      "category": "data",
+      "description": "Parse TOML",
+      "name": "toml_parse",
+      "signature": "toml_parse(text)"
+    },
+    {
+      "aliases": [
+        "toml保存"
+      ],
+      "category": "data",
+      "description": "Save TOML to file",
+      "name": "toml_save",
+      "signature": "toml_save(path, value)"
+    },
+    {
+      "aliases": [
+        "toml序列化"
+      ],
+      "category": "data",
+      "description": "Stringify to TOML",
+      "name": "toml_stringify",
+      "signature": "toml_stringify(value)"
+    },
+    {
+      "aliases": [
+        "关闭跟踪"
+      ],
+      "category": "debug",
+      "description": "Disable execution tracing",
+      "name": "trace_off",
+      "signature": "trace_off()"
+    },
+    {
+      "aliases": [
+        "开启跟踪"
+      ],
+      "category": "debug",
+      "description": "Enable execution tracing",
+      "name": "trace_on",
+      "signature": "trace_on()"
+    },
+    {
+      "category": "debug",
+      "description": "Trace the consumers of data produced by a message",
+      "name": "trace_value_consumers",
+      "signature": "trace_value_consumers(message_uuid)"
+    },
+    {
+      "category": "debug",
+      "description": "Trace the origin of data consumed by a message",
+      "name": "trace_value_origin",
+      "signature": "trace_value_origin(message_uuid)"
+    },
+    {
+      "aliases": [
+        "去前缀"
+      ],
+      "category": "string",
+      "description": "Remove prefix",
+      "name": "trim_prefix",
+      "signature": "trim_prefix(s, prefix)"
+    },
+    {
+      "aliases": [
+        "去后缀"
+      ],
+      "category": "string",
+      "description": "Remove suffix",
+      "name": "trim_suffix",
+      "signature": "trim_suffix(s, suffix)"
+    },
+    {
+      "aliases": [
+        "类型"
+      ],
+      "category": "core",
+      "description": "Type name",
+      "name": "type",
+      "signature": "type(value)"
+    },
+    {
+      "aliases": [
+        "去重"
+      ],
+      "category": "collection",
+      "description": "Remove duplicates",
+      "name": "unique",
+      "signature": "unique(lst)"
+    },
+    {
+      "aliases": [
+        "取消钉住"
+      ],
+      "category": "context",
+      "description": "Unpin a previously pinned message",
+      "name": "unpin_message",
+      "signature": "unpin_message(uuid)"
+    },
+    {
+      "aliases": [
+        "转大写"
+      ],
+      "category": "string",
+      "description": "Uppercase string",
+      "name": "upper",
+      "signature": "upper(s)"
+    },
+    {
+      "aliases": [
+        "链接构建"
+      ],
+      "category": "network",
+      "description": "Build URL",
+      "name": "url_build",
+      "signature": "url_build(scheme, host, path?, query?)"
+    },
+    {
+      "aliases": [
+        "链接解码"
+      ],
+      "category": "network",
+      "description": "URL decode",
+      "name": "url_decode",
+      "signature": "url_decode(s)"
+    },
+    {
+      "aliases": [
+        "链接编码"
+      ],
+      "category": "network",
+      "description": "URL encode",
+      "name": "url_encode",
+      "signature": "url_encode(s)"
+    },
+    {
+      "aliases": [
+        "链接解析"
+      ],
+      "category": "network",
+      "description": "Parse URL",
+      "name": "url_parse",
+      "signature": "url_parse(url)"
+    },
+    {
+      "aliases": [
+        "解析UUID"
+      ],
+      "category": "crypto",
+      "description": "Parse UUID from string",
+      "name": "uuid_from_string",
+      "signature": "uuid_from_string(s)"
+    },
+    {
+      "aliases": [
+        "生成UUID"
+      ],
+      "category": "crypto",
+      "description": "Generate UUID",
+      "name": "uuid_generate",
+      "signature": "uuid_generate()"
+    },
+    {
+      "aliases": [
+        "空UUID"
+      ],
+      "category": "crypto",
+      "description": "Return nil UUID",
+      "name": "uuid_nil",
+      "signature": "uuid_nil()"
+    },
+    {
+      "category": "debug",
+      "description": "Validate output against contract (json/text/schema)",
+      "name": "validate_output",
+      "signature": "validate_output(output, contract)"
+    },
+    {
+      "aliases": [
+        "值"
+      ],
+      "category": "collection",
+      "description": "Get dict values",
+      "name": "values",
+      "signature": "values(dict)"
+    },
+    {
+      "aliases": [
+        "方差"
+      ],
+      "category": "math",
+      "description": "Variance",
+      "name": "variance",
+      "signature": "variance(numbers, population?)"
+    },
+    {
+      "aliases": [
+        "遍历目录"
+      ],
+      "category": "file",
+      "description": "Walk directory tree",
+      "name": "walk_dir",
+      "signature": "walk_dir(path)"
+    },
+    {
+      "aliases": [
+        "网页获取"
+      ],
+      "category": "tools",
+      "description": "Fetch web page content",
+      "name": "web_fetch",
+      "signature": "web_fetch(url)"
+    },
+    {
+      "aliases": [
+        "网页搜索"
+      ],
+      "category": "tools",
+      "description": "Search the web",
+      "name": "web_search",
+      "signature": "web_search(query, limit?)"
+    },
+    {
+      "aliases": [
+        "词频统计"
+      ],
+      "category": "string",
+      "description": "Count word frequencies",
+      "name": "word_count",
+      "signature": "word_count(text)"
+    },
+    {
+      "aliases": [
+        "清空工作记忆"
+      ],
+      "category": "context",
+      "description": "Clear all working memory",
+      "name": "working_memory_clear",
+      "signature": "working_memory_clear()"
+    },
+    {
+      "aliases": [
+        "获取工作记忆"
+      ],
+      "category": "context",
+      "description": "Read working memory contents",
+      "name": "working_memory_get",
+      "signature": "working_memory_get(key?)"
+    },
+    {
+      "aliases": [
+        "移除工作记忆"
+      ],
+      "category": "context",
+      "description": "Remove a working memory entry",
+      "name": "working_memory_remove",
+      "signature": "working_memory_remove(key, item?)"
+    },
+    {
+      "aliases": [
+        "设置工作记忆"
+      ],
+      "category": "context",
+      "description": "Set a working memory field",
+      "name": "working_memory_set",
+      "signature": "working_memory_set(key, value)"
+    },
+    {
+      "aliases": [
+        "写文件"
+      ],
+      "category": "io",
+      "description": "Write to file",
+      "name": "write_file",
+      "signature": "write_file(path, content)"
+    },
+    {
+      "aliases": [
+        "xml加载"
+      ],
+      "category": "data",
+      "description": "Load XML from file",
+      "name": "xml_load",
+      "signature": "xml_load(path)"
+    },
+    {
+      "aliases": [
+        "xml解析"
+      ],
+      "category": "data",
+      "description": "Parse XML",
+      "name": "xml_parse",
+      "signature": "xml_parse(text)"
+    },
+    {
+      "aliases": [
+        "xml保存"
+      ],
+      "category": "data",
+      "description": "Save XML to file",
+      "name": "xml_save",
+      "signature": "xml_save(path, value, root?)"
+    },
+    {
+      "aliases": [
+        "xml序列化"
+      ],
+      "category": "data",
+      "description": "Stringify to XML",
+      "name": "xml_stringify",
+      "signature": "xml_stringify(value, root?)"
+    },
+    {
+      "aliases": [
+        "yaml加载"
+      ],
+      "category": "data",
+      "description": "Load YAML from file",
+      "name": "yaml_load",
+      "signature": "yaml_load(path)"
+    },
+    {
+      "aliases": [
+        "yaml解析"
+      ],
+      "category": "data",
+      "description": "Parse YAML",
+      "name": "yaml_parse",
+      "signature": "yaml_parse(text)"
+    },
+    {
+      "aliases": [
+        "yaml保存"
+      ],
+      "category": "data",
+      "description": "Save YAML to file",
+      "name": "yaml_save",
+      "signature": "yaml_save(path, value)"
+    },
+    {
+      "aliases": [
+        "yaml序列化"
+      ],
+      "category": "data",
+      "description": "Stringify to YAML",
+      "name": "yaml_stringify",
+      "signature": "yaml_stringify(value)"
+    },
+    {
+      "aliases": [
+        "压缩"
+      ],
+      "category": "collection",
+      "description": "Zip lists",
+      "name": "zip",
+      "signature": "zip(*lists)"
+    }
+  ],
+  "functions": []
+}

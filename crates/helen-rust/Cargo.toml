@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Helen language Rust reimplementation — helen-rust (M1: --lex differential mode)"
+description = "Helen language Rust reimplementation — installable CLI package (binary: helen)"
 
 [[bin]]
 name = "helen"

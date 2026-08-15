@@ -33,6 +33,10 @@ cd "$HELEN_SRC"
 export PATH="$BIN_DIR:$PATH"
 export HELEN_API_KEY="test-dummy-key-for-ci"
 export HELEN_BINARY="$CAND"
+# The reference test suite assumes debug output is enabled; an ambient
+# HELEN_DEBUG=0 in the caller's environment would flip `_debug()` to "" and
+# fail py-side tests that are actually about the *candidate* binary.
+export HELEN_DEBUG=1
 
 failed=0
 for suite in "${suites[@]}"; do

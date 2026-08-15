@@ -1,0 +1,2 @@
+{"compressed":false,"content":"rust wrote this","message_type":null,"pinned":false,"priority":50,"role":"user","tool_call_id":null,"tool_calls":[],"type":"message","uuid":"r-1"}
+{"compressed":false,"content":"and rust replied","message_type":null,"pinned":false,"priority":50,"role":"assistant","tool_call_id":null,"tool_calls":[],"type":"message","uuid":"r-2"}

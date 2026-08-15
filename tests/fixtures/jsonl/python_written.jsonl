@@ -1,0 +1,2 @@
+{"type": "message", "role": "user", "content": "hello from python", "tool_calls": [], "tool_call_id": null, "uuid": "u-1", "message_type": null, "priority": 50, "compressed": false, "pinned": false}
+{"type": "message", "role": "assistant", "content": "hi there", "tool_calls": [], "tool_call_id": null, "uuid": "u-2", "message_type": null, "priority": 50, "compressed": false, "pinned": false}
