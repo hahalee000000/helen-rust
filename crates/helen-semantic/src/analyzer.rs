@@ -1796,7 +1796,7 @@ impl SemanticAnalyzer {
                     };
                     self.define_user_symbol(name, sym, Some(&node.span));
                 }
-                // v1.39: also register aliases (e.g. Chinese 长度 for len).
+                // v1.39: also register aliases (e.g. the Chinese alias "长度" for len).
                 let aliases: Vec<(String, String)> = stdlib::all_aliases();
                 for (alias, canonical) in aliases {
                     if exports.contains(&canonical) {
