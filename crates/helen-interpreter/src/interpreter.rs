@@ -92,18 +92,125 @@ impl Interpreter {
         self.builtins.insert(name.to_string(), bf.clone());
     }
 
-    /// Bind the core builtin exports into the global environment — the
-    /// observable effect of `import std.core.*` (v1.39: stdlib is NOT
-    /// auto-registered; only explicit imports bind names).
-    fn bind_core_exports(&mut self) {
-        let names: Vec<String> = self.builtins.keys().cloned().collect();
-        for n in names {
-            if let Some(bf) = self.builtins.get(&n) {
-                self.environment
-                    .borrow_mut()
-                    .define(&n, Value::BuiltinFn(bf.clone()), false);
+    /// Register all exports of a stdlib module into `self.builtins`
+    /// (canonical name -> BuiltinFn). Idempotent.
+    fn register_stdlib_module(&mut self, module: &str) {
+        if module == "std.core" {
+            return; // already registered in register_core_builtins
+        }
+        let Some(exports) = crate::stdlib::module_exports(module) else {
+            return;
+        };
+        let tag = crate::stdlib::module_tag(module);
+        for e in exports {
+            let bf = Rc::new(BuiltinFn {
+                name: e.name.to_string(),
+                module: tag,
+                func: e.func,
+            });
+            self.builtins.insert(e.name.to_string(), bf.clone());
+        }
+    }
+
+    /// Execute a stdlib module import (v1.34/v1.38): the three forms are
+    /// `import std.X.*`, `import std.X.{a,b}`, and `import std.X as NS`.
+    fn import_stdlib_module(
+        &mut self,
+        module: &str,
+        imported_names: Option<&[String]>,
+        namespace: Option<&str>,
+        span: &SourceSpan,
+    ) -> Result<(), ExceptionValue> {
+        // std.core exports live in the `builtins` map; other modules are
+        // registered on first use (idempotent).
+        if module != "std.core" && crate::stdlib::module_exports(module).is_none() {
+            return Err(self.runtime_error(
+                Some(span),
+                &format!(
+                    "Unknown stdlib module '{module}'. Available: std.core, std.str, std.list, std.dict, std.math, std.debug"
+                ),
+            ));
+        }
+        self.register_stdlib_module(module);
+
+        let all_names: Vec<String> = if module == "std.core" {
+            crate::stdlib::CORE_EXPORTS
+                .iter()
+                .map(|s| s.to_string())
+                .collect()
+        } else {
+            crate::stdlib::module_exports(module)
+                .unwrap()
+                .iter()
+                .map(|e| e.name.to_string())
+                .collect()
+        };
+
+        if let Some(ns) = namespace {
+            // Namespace import: `import std.X as NS` — a module object (map)
+            // of name -> BuiltinFn, defined const (Python: is_const=True).
+            let mut m = indexmap::IndexMap::new();
+            for name in &all_names {
+                if let Some(bf) = self.builtins.get(name) {
+                    m.insert(
+                        Value::Str(Rc::from(name.as_str())),
+                        Value::BuiltinFn(bf.clone()),
+                    );
+                }
+            }
+            let module_obj = Value::Map(Rc::new(RefCell::new(m)));
+            self.environment.borrow_mut().define(ns, module_obj, true);
+            return Ok(());
+        }
+
+        let star = imported_names
+            .map(|n| n.iter().any(|x| x == "*"))
+            .unwrap_or(true);
+        if star {
+            // Wildcard: bind all exports + Chinese aliases (v1.39).
+            for name in &all_names {
+                if let Some(bf) = self.builtins.get(name) {
+                    self.environment
+                        .borrow_mut()
+                        .define(name, Value::BuiltinFn(bf.clone()), true);
+                }
+            }
+            let aliases: Vec<(String, String)> = helen_semantic::stdlib::all_aliases();
+            for (alias, canonical) in aliases {
+                if all_names.contains(&canonical) {
+                    if let Some(bf) = self.builtins.get(&canonical) {
+                        self.environment.borrow_mut().define(
+                            &alias,
+                            Value::BuiltinFn(bf.clone()),
+                            true,
+                        );
+                    }
+                }
+            }
+            return Ok(());
+        }
+
+        // Selective: `import std.X.{a, b}` — error on unknown names.
+        let names = imported_names.unwrap_or_default();
+        for name in names {
+            if !all_names.contains(name) {
+                return Err(self.runtime_error(
+                    Some(span),
+                    &format!(
+                        "Function '{name}' not found in module '{module}'. Available: {}",
+                        all_names.join(", ")
+                    ),
+                ));
             }
         }
+        for name in names {
+            if let Some(bf) = self.builtins.get(name) {
+                self.environment
+                    .borrow_mut()
+                    .define(name, Value::BuiltinFn(bf.clone()), true);
+            }
+        }
+        Ok(())
     }
 
     fn register_core_builtins(&mut self) {
@@ -237,20 +344,15 @@ impl Interpreter {
                 Ok(Flow::Normal(None))
             }
             Stmt::Import(imp) => {
-                // M3 partial import support: `import std.core.*` binds the
-                // core builtin exports (v1.39 parity). Other modules/files are
-                // resolved in Task 3.7.
-                let star = imp
-                    .imported_names
-                    .as_ref()
-                    .map(|n| n.len() == 1 && n[0] == "*")
-                    .unwrap_or(false);
-                if imp.is_stdlib_module
-                    && imp.module_name.as_deref() == Some("std.core")
-                    && star
-                    && imp.namespace.is_none()
-                {
-                    self.bind_core_exports();
+                // v1.34/v1.38 stdlib module imports: wildcard, selective,
+                // and namespace (`as NS`) forms. Non-stdlib file imports are
+                // Task 3.7b (file resolver).
+                if imp.is_stdlib_module {
+                    let module = imp.module_name.clone().unwrap_or_default();
+                    let names = imp.imported_names.clone();
+                    let ns = imp.namespace.clone();
+                    let span = imp.span.clone();
+                    self.import_stdlib_module(&module, names.as_deref(), ns.as_deref(), &span)?;
                 }
                 Ok(Flow::Normal(None))
             }
@@ -798,6 +900,38 @@ impl Interpreter {
             out.push(self.eval_expr(&a.value)?);
         }
         Ok(out)
+    }
+
+    /// Generic call dispatch for a value (used by stdlib higher-order
+    /// functions like `map`/`filter`/`reduce`/`sort` that receive closures).
+    pub fn call_value(&mut self, callee: Value, args: Vec<Value>) -> Result<Value, ExceptionValue> {
+        match callee {
+            Value::UserFn(f) => {
+                let parent_env = self.function_module_envs.get(&f.name).cloned();
+                self.call_function(&f, args, parent_env, &self.fake_span())
+            }
+            Value::Closure(cl) => self.call_closure(&cl, args, &self.fake_span()),
+            Value::BuiltinFn(b) => (b.func)(self, &args),
+            Value::Agent(a) => {
+                let mut agent_args = HashMap::new();
+                for (i, arg) in args.into_iter().enumerate() {
+                    if i < a.params.len() {
+                        agent_args.insert(a.params[i].name.clone(), arg);
+                    }
+                }
+                self.call_agent(&a, agent_args, &self.fake_span())
+            }
+            Value::MapMethod(m) => m.call(&args),
+            Value::ListMethod(m) => m.call(&args),
+            other => {
+                Err(self.runtime_error(None, &format!("'{}' is not callable", other.type_name())))
+            }
+        }
+    }
+
+    /// A zero-width span for synthetic calls (stdlib higher-order functions).
+    fn fake_span(&self) -> SourceSpan {
+        SourceSpan::new("", 0, 0, 0, 0)
     }
 
     fn visit_index(&mut self, i: &Index) -> Result<Value, ExceptionValue> {
@@ -1607,7 +1741,7 @@ fn py_mod(a: &BigInt, b: &BigInt) -> BigInt {
 }
 
 /// Cross-type numeric comparison (None if NaN involved).
-fn cmp_values(a: &Value, b: &Value) -> Option<Ordering> {
+pub fn cmp_values(a: &Value, b: &Value) -> Option<Ordering> {
     match (a, b) {
         (Value::Int(x), Value::Int(y)) => Some(x.cmp(y)),
         (Value::Float(x), Value::Float(y)) => x.partial_cmp(y),
@@ -1878,7 +2012,7 @@ impl ListMethodValue {
     }
 }
 
-type BuiltinImpl = fn(&mut Interpreter, &[Value]) -> Result<Value, ExceptionValue>;
+pub type BuiltinImpl = fn(&mut Interpreter, &[Value]) -> Result<Value, ExceptionValue>;
 
 // ---------------------------------------------------------------------------
 // Core builtins (stdlib subset; M4 registers the full set)
@@ -2284,5 +2418,83 @@ mod m3_tests {
         let (r, out) = run_src(src);
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "42\n43\n");
+    }
+
+    // ------------------------------------------------------------------
+    // Task 3.7: stdlib module imports (three forms)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn stdlib_wildcard_import() {
+        // `import std.list.*` binds sort; `import std.math.*` binds round.
+        let src = "import std.core.*\nimport std.list.*\nimport std.math.*\nmain {\n    print(sort([3, 1, 2]))\n    print(round(3.7))\n}\n";
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "[1, 2, 3]\n4.0\n");
+    }
+
+    #[test]
+    fn stdlib_selective_import() {
+        // `import std.str.{upper, lower}` binds only the named exports.
+        let src = "import std.core.*\nimport std.str.{upper, lower}\nmain {\n    print(upper(\"hi\"))\n    print(lower(\"HI\"))\n}\n";
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "HI\nhi\n");
+    }
+
+    #[test]
+    fn stdlib_namespace_import() {
+        // `import std.dict as D` creates a module object (map of fns).
+        let src = "import std.core.*\nimport std.dict as D\nmain {\n    let d = {\"a\": 1}\n    print(D.keys(d))\n}\n";
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "['a']\n");
+    }
+
+    #[test]
+    fn stdlib_unknown_module_errors() {
+        // Python parity: `_runtime_error` on unknown module.
+        let src = "import std.core.*\nimport std.nope.*\nmain {\n    print(1)\n}\n";
+        let (r, out) = run_src(src);
+        assert!(r.is_err(), "should raise");
+        let e = r.unwrap_err();
+        assert!(
+            e.message.contains("Unknown stdlib module 'std.nope'"),
+            "msg: {}",
+            e.message
+        );
+        assert_eq!(out, "");
+    }
+
+    #[test]
+    fn stdlib_unknown_function_errors() {
+        // Python parity: selective import of an unknown export errors.
+        let src = "import std.core.*\nimport std.str.{nope}\nmain {\n    print(1)\n}\n";
+        let (r, _out) = run_src(src);
+        assert!(r.is_err(), "should raise");
+        let e = r.unwrap_err();
+        assert!(
+            e.message
+                .contains("Function 'nope' not found in module 'std.str'"),
+            "msg: {}",
+            e.message
+        );
+    }
+
+    #[test]
+    fn stdlib_higher_order_functions() {
+        // map/filter/reduce receive closures (Python `_map`/`_filter`/`_reduce`).
+        let src = "import std.core.*\nimport std.list.*\nmain {\n    let nums = [1, 2, 3, 4, 5]\n    let doubled = map(nums, fn(x) { return x * 2 })\n    let evens = filter(nums, fn(x) { return x % 2 == 0 })\n    let total = reduce(nums, fn(acc, x) { return acc + x }, 0)\n    print(doubled)\n    print(evens)\n    print(total)\n}\n";
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "[2, 4, 6, 8, 10]\n[2, 4]\n15\n");
+    }
+
+    #[test]
+    fn stdlib_str_functions() {
+        let src = "import std.core.*\nimport std.str.*\nmain {\n    print(upper(\"Hello\"))\n    print(substring(\"Hello\", 1, 3))\n    print(join(\"-\", [\"a\", \"b\"]))\n    print(contains(\"hello\", \"ell\"))\n}\n";
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "HELLO\nel\na-b\ntrue\n");
     }
 }

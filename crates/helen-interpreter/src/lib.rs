@@ -4,8 +4,11 @@
 //! exceptions,closure,pattern_mixin,exception_mixin,readonly_view,
 //! shared_store,import_mixin}.py`.
 
+#![allow(clippy::result_large_err)]
+
 pub mod closure;
 pub mod environment;
 pub mod exceptions;
 pub mod interpreter;
+pub mod stdlib;
 pub mod value;
