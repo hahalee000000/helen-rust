@@ -7,20 +7,11 @@
 | 类别 | Python 测试数 | Rust 等价测试 | 覆盖率 |
 |------|--------------|--------------|--------|
 | **语言级测试** (可提取为 .helen) | ~233 | 92 个 .helen 程序 | 39.5% |
-| **运行时组件测试** (Python 内部) | ~3781 | 551 个 Rust 单元测试 | 14.6% |
-| **总计** | 4014 | 643 (92 + 551) | 16.0% |
+| **运行时组件测试** (Python 内部) | ~3781 | 719 个 Rust 单元测试 | 19.0% |
+| **总计** | 4014 | 811 (92 + 719) | 20.2% |
 
-**实际 Rust 测试统计：**
-- helen-core: 9 tests
-- helen-parser: 53 tests
-- helen-semantic: 53 tests
-- helen-interpreter: 122 tests
-- helen-runtime: 230 tests
-- helen-rust: 30 tests
-- helen-ffi: 0 tests
-- helen-lsp: 45 tests
-- helen-python-bridge: 9 tests
-- **总计: 551 Rust 单元测试**
+**实际 Rust 测试统计（cargo test --workspace 实测）：**
+- **总计: 719 Rust 单元测试**（含 lib + integration）
 
 ---
 
