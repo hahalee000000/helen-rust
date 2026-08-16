@@ -155,20 +155,25 @@ pub fn llm_get_provider(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, 
     }
 }
 
-pub fn llm_cancel_llm_call(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _call_id = arg_str(args, 0)?;
-    // Stub: streaming cancellation not yet implemented
-    Ok(Value::Bool(false))
+pub fn llm_cancel_llm_call(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let call_id = arg_str(args, 0)?;
+    // Cancel a specific in-flight LLM streaming call
+    let cancelled = i.call_tracker.cancel_call(&call_id);
+    Ok(Value::Bool(cancelled))
 }
 
-pub fn llm_current_llm_call_id(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    // Stub: no active streaming call tracking yet
-    Ok(Value::Null)
+pub fn llm_current_llm_call_id(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    // Return the ID of the current active streaming LLM call, or None
+    match i.call_tracker.get_current_call_id() {
+        Some(id) => Ok(Value::Str(std::rc::Rc::from(id))),
+        None => Ok(Value::Null),
+    }
 }
 
-pub fn llm_cancel_all_llm_calls(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    // Stub: streaming cancellation not yet implemented
-    Ok(Value::Int(BigInt::from(0)))
+pub fn llm_cancel_all_llm_calls(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    // Cancel all active streaming LLM calls
+    let count = i.call_tracker.cancel_all();
+    Ok(Value::Int(num_bigint::BigInt::from(count)))
 }
 
 // ---------------------------------------------------------------------------

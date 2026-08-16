@@ -640,9 +640,11 @@ fn arg_closure(args: &[Value], i: usize) -> Result<Rc<crate::closure::Closure>, 
 }
 
 /// Create an expectation for chainable assertions.
+///
+/// Returns the value wrapped in a map with metadata. This is a basic implementation
+/// that provides a foundation for future chainable assertion methods.
 pub fn test_expect(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let value = args.get(0).cloned().unwrap_or(Value::Null);
-    // Stub: chainable expectations not yet fully implemented
     // Returns the value wrapped in a map for now
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("value")), value);
