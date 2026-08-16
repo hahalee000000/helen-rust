@@ -378,7 +378,7 @@
 bash scripts/run-all-tests.sh
 
 # 输出：
-# Phase 1: Rust unit tests — 551 passed
+# Phase 1: Rust unit tests — 719 passed
 # Phase 2: Differential tests — 92/92 match (100%)
 ```
 
