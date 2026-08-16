@@ -15,6 +15,14 @@ pub mod llm_runtime;
 pub mod native;
 pub mod shared_store;
 pub mod stdlib;
+pub mod test_framework;
+pub mod llm_control;
+pub mod media;
+pub mod context;
+pub mod debug;
+pub mod tools;
+pub mod quality;
+pub mod transcript;
 pub mod value;
 
 /// M12: embedded stdlib catalog (M4 Task 4.1 `stdlib_catalog.json`) for

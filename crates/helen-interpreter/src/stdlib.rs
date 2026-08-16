@@ -3887,23 +3887,8 @@ fn network_http_download(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 // Stub module functions (runtime-dependent; documented error until M5+).
 // ---------------------------------------------------------------------------
 
-fn stub_unimplemented(name: &str) -> Result<Value, ExceptionValue> {
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        format!("{name} is not available in this runtime build (requires M5+ runtime)"),
-        None,
-    ))
-}
 
-macro_rules! stub_fn {
-    ($name:ident, $display:expr) => {
-        fn $name(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-            stub_unimplemented($display)
-        }
-    };
-}
 
-stub_fn!(stub_clear_context, "clear_context");
 
 /// `context_stats()` — port of `stdlib/context.py:_context_stats`.
 /// In batch mode (no transcript store / history wired) Python returns the
@@ -3939,113 +3924,6 @@ fn stub_context_stats(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, Ex
     ]);
     Ok(Value::Map(Rc::new(RefCell::new(map))))
 }
-stub_fn!(stub_context_usage, "context_usage");
-stub_fn!(stub_get_message, "get_message");
-stub_fn!(stub_insert_message, "insert_message");
-stub_fn!(stub_delete_message, "delete_message");
-stub_fn!(stub_pin_message, "pin_message");
-stub_fn!(stub_unpin_message, "unpin_message");
-stub_fn!(stub_list_pinned_messages, "list_pinned_messages");
-stub_fn!(stub_compress_context, "compress_context");
-stub_fn!(stub_search_context, "search_context");
-stub_fn!(stub_context_slice, "context_slice");
-stub_fn!(stub_export_context, "export_context");
-stub_fn!(stub_import_context, "import_context");
-stub_fn!(stub_fork_context, "fork_context");
-stub_fn!(stub_restore_context, "restore_context");
-stub_fn!(stub_replace_message, "replace_message");
-stub_fn!(stub_set_context_window, "set_context_window");
-stub_fn!(stub_get_context_config, "get_context_config");
-stub_fn!(stub_set_cache_aware, "set_cache_aware");
-stub_fn!(stub_set_compression_strategy, "set_compression_strategy");
-stub_fn!(stub_compress_context_target, "compress_context_target");
-stub_fn!(stub_on_compression, "on_compression");
-stub_fn!(stub_on_context_overflow, "on_context_overflow");
-stub_fn!(stub_working_memory_set, "working_memory_set");
-stub_fn!(stub_working_memory_get, "working_memory_get");
-stub_fn!(stub_working_memory_remove, "working_memory_remove");
-stub_fn!(stub_working_memory_clear, "working_memory_clear");
-stub_fn!(
-    stub_set_working_memory_enabled,
-    "set_working_memory_enabled"
-);
-stub_fn!(stub_analyze_code, "analyze_code");
-stub_fn!(stub_check_security, "check_security");
-stub_fn!(stub_quality_score, "quality_score");
-stub_fn!(stub_quality_report, "quality_report");
-stub_fn!(stub_test_describe, "describe");
-stub_fn!(stub_test_it, "it");
-stub_fn!(stub_test_it_skip, "it_skip");
-stub_fn!(stub_test_assert_true, "assert_true");
-stub_fn!(stub_test_assert_equal, "assert_equal");
-stub_fn!(stub_test_assert_not_equal, "assert_not_equal");
-stub_fn!(stub_test_assert_contains, "assert_contains");
-stub_fn!(stub_test_assert_throws, "assert_throws");
-stub_fn!(stub_test_expect, "expect");
-stub_fn!(stub_test_before_each, "before_each");
-stub_fn!(stub_test_after_each, "after_each");
-stub_fn!(stub_test_before_all, "before_all");
-stub_fn!(stub_test_after_all, "after_all");
-stub_fn!(stub_test_run_tests, "run_tests");
-stub_fn!(stub_test_run_tests_json, "run_tests_json");
-stub_fn!(stub_test_reset, "test_reset");
-stub_fn!(stub_test_count, "test_count");
-stub_fn!(stub_test_suite, "test_suite");
-stub_fn!(stub_test_case, "test_case");
-stub_fn!(stub_test_case_skip, "test_case_skip");
-stub_fn!(stub_test_fail, "fail");
-stub_fn!(stub_test_set_timeout, "set_test_timeout");
-stub_fn!(stub_test_end_suite, "test_end_suite");
-stub_fn!(stub_web_search, "web_search");
-stub_fn!(stub_web_fetch, "web_fetch");
-stub_fn!(stub_shell_exec, "shell_exec");
-stub_fn!(stub_calculate, "calculate");
-stub_fn!(stub_patch_file, "patch_file");
-stub_fn!(stub_load_skill, "load_skill");
-stub_fn!(stub_list_skill_references, "list_skill_references");
-stub_fn!(stub_cancel_llm_call, "cancel_llm_call");
-stub_fn!(stub_current_llm_call_id, "current_llm_call_id");
-stub_fn!(stub_cancel_all_llm_calls, "cancel_all_llm_calls");
-stub_fn!(stub_set_temperature, "set_temperature");
-stub_fn!(stub_get_temperature, "get_temperature");
-stub_fn!(stub_set_max_turns, "set_max_turns");
-stub_fn!(stub_get_max_turns, "get_max_turns");
-stub_fn!(stub_set_max_tokens, "set_max_tokens");
-stub_fn!(stub_get_max_tokens, "get_max_tokens");
-stub_fn!(stub_set_thinking_mode, "set_thinking_mode");
-stub_fn!(stub_get_thinking_mode, "get_thinking_mode");
-stub_fn!(stub_set_reasoning_effort, "set_reasoning_effort");
-stub_fn!(stub_get_reasoning_effort, "get_reasoning_effort");
-stub_fn!(stub_get_model, "get_model");
-stub_fn!(stub_get_description, "get_description");
-stub_fn!(stub_get_provider, "get_provider");
-stub_fn!(stub_media, "media");
-stub_fn!(stub_media_base64, "media_base64");
-stub_fn!(stub_is_media, "is_media");
-stub_fn!(stub_media_type, "media_type");
-stub_fn!(stub_to_openai_parts, "to_openai_parts");
-stub_fn!(stub_to_claude_parts, "to_claude_parts");
-stub_fn!(stub_to_gemini_parts, "to_gemini_parts");
-stub_fn!(stub_media_to_base64, "media_to_base64");
-stub_fn!(stub_save_media, "save_media");
-stub_fn!(stub_is_image, "is_image");
-stub_fn!(stub_is_video, "is_video");
-stub_fn!(stub_is_audio, "is_audio");
-stub_fn!(stub_query_transcript, "query_transcript");
-stub_fn!(stub_search_transcript, "search_transcript");
-stub_fn!(stub_list_invocations, "list_invocations");
-stub_fn!(stub_get_invocation, "get_invocation");
-stub_fn!(stub_get_invocation_tree, "get_invocation_tree");
-stub_fn!(stub_get_spawn_tree, "get_spawn_tree");
-stub_fn!(stub_get_spawned_sessions, "get_spawned_sessions");
-stub_fn!(stub_export_transcript, "export_transcript");
-stub_fn!(stub_replay_transcript, "replay_transcript");
-stub_fn!(stub_replay_full_session, "replay_full_session");
-stub_fn!(stub_resume_session, "resume_session");
-stub_fn!(stub_delete_current_session, "delete_current_session");
-stub_fn!(stub_release_session_lock, "release_session_lock");
-stub_fn!(stub_invocation_path, "invocation_path");
-stub_fn!(stub_get_compression_audit, "get_compression_audit");
 
 // ---------------------------------------------------------------------------
 // M8: session management (port of `helen/stdlib/transcript.py` core)
@@ -4226,28 +4104,6 @@ fn builtin_mailbox_select(
 }
 
 // Debug observability (runtime-dependent, but `debug` itself works).
-stub_fn!(stub_trace_on, "trace_on");
-stub_fn!(stub_trace_off, "trace_off");
-stub_fn!(stub_get_trace, "get_trace");
-stub_fn!(stub_get_llm_log, "get_llm_log");
-stub_fn!(stub_get_call_stack, "get_call_stack");
-stub_fn!(stub_get_last_error, "get_last_error");
-stub_fn!(stub_last_error_detail, "last_error_detail");
-stub_fn!(stub_error_category, "error_category");
-stub_fn!(stub_error_suggestion, "error_suggestion");
-stub_fn!(stub_error_data_flow, "error_data_flow");
-stub_fn!(stub_record_data_flow, "record_data_flow");
-stub_fn!(stub_trace_value_origin, "trace_value_origin");
-stub_fn!(stub_trace_value_consumers, "trace_value_consumers");
-stub_fn!(stub_record_session, "record_session");
-stub_fn!(stub_replay_session, "replay_session");
-stub_fn!(stub_stop_recording, "stop_recording");
-stub_fn!(stub_validate_output, "validate_output");
-stub_fn!(stub_coverage_on, "coverage_on");
-stub_fn!(stub_coverage_off, "coverage_off");
-stub_fn!(stub_coverage_summary, "coverage_summary");
-stub_fn!(stub_coverage_report, "coverage_report");
-stub_fn!(stub_get_data_lineage, "get_data_lineage");
 
 // ---------------------------------------------------------------------------
 // Export tables
@@ -5139,484 +4995,484 @@ pub static DEBUG_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "trace_on",
-        func: stub_trace_on,
+        func: crate::debug::debug_trace_on,
     },
     StdlibExport {
         name: "trace_off",
-        func: stub_trace_off,
+        func: crate::debug::debug_trace_off,
     },
     StdlibExport {
         name: "get_trace",
-        func: stub_get_trace,
+        func: crate::debug::debug_get_trace,
     },
     StdlibExport {
         name: "get_llm_log",
-        func: stub_get_llm_log,
+        func: crate::debug::debug_get_llm_log,
     },
     StdlibExport {
         name: "get_call_stack",
-        func: stub_get_call_stack,
+        func: crate::debug::debug_get_call_stack,
     },
     StdlibExport {
         name: "get_last_error",
-        func: stub_get_last_error,
+        func: crate::debug::debug_get_last_error,
     },
     StdlibExport {
         name: "last_error_detail",
-        func: stub_last_error_detail,
+        func: crate::debug::debug_last_error_detail,
     },
     StdlibExport {
         name: "error_category",
-        func: stub_error_category,
+        func: crate::debug::debug_error_category,
     },
     StdlibExport {
         name: "error_suggestion",
-        func: stub_error_suggestion,
+        func: crate::debug::debug_error_suggestion,
     },
     StdlibExport {
         name: "error_data_flow",
-        func: stub_error_data_flow,
+        func: crate::debug::debug_error_data_flow,
     },
     StdlibExport {
         name: "record_data_flow",
-        func: stub_record_data_flow,
+        func: crate::debug::debug_record_data_flow,
     },
     StdlibExport {
         name: "trace_value_origin",
-        func: stub_trace_value_origin,
+        func: crate::debug::debug_trace_value_origin,
     },
     StdlibExport {
         name: "trace_value_consumers",
-        func: stub_trace_value_consumers,
+        func: crate::debug::debug_trace_value_consumers,
     },
     StdlibExport {
         name: "record_session",
-        func: stub_record_session,
+        func: crate::debug::debug_record_session,
     },
     StdlibExport {
         name: "replay_session",
-        func: stub_replay_session,
+        func: crate::debug::debug_replay_session,
     },
     StdlibExport {
         name: "stop_recording",
-        func: stub_stop_recording,
+        func: crate::debug::debug_stop_recording,
     },
     StdlibExport {
         name: "validate_output",
-        func: stub_validate_output,
+        func: crate::debug::debug_validate_output,
     },
     StdlibExport {
         name: "coverage_on",
-        func: stub_coverage_on,
+        func: crate::debug::debug_coverage_on,
     },
     StdlibExport {
         name: "coverage_off",
-        func: stub_coverage_off,
+        func: crate::debug::debug_coverage_off,
     },
     StdlibExport {
         name: "coverage_summary",
-        func: stub_coverage_summary,
+        func: crate::debug::debug_coverage_summary,
     },
     StdlibExport {
         name: "coverage_report",
-        func: stub_coverage_report,
+        func: crate::debug::debug_coverage_report,
     },
     StdlibExport {
         name: "get_data_lineage",
-        func: stub_get_data_lineage,
+        func: crate::debug::debug_get_data_lineage,
     },
 ];
 
 pub static CONTEXT_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "clear_context",
-        func: stub_clear_context,
+        func: crate::context::context_clear_context,
     },
     StdlibExport {
         name: "context_stats",
-        func: stub_context_stats,
+        func: crate::context::context_context_stats,
     },
     StdlibExport {
         name: "context_usage",
-        func: stub_context_usage,
+        func: crate::context::context_context_usage,
     },
     StdlibExport {
         name: "get_message",
-        func: stub_get_message,
+        func: crate::context::context_get_message,
     },
     StdlibExport {
         name: "insert_message",
-        func: stub_insert_message,
+        func: crate::context::context_insert_message,
     },
     StdlibExport {
         name: "delete_message",
-        func: stub_delete_message,
+        func: crate::context::context_delete_message,
     },
     StdlibExport {
         name: "pin_message",
-        func: stub_pin_message,
+        func: crate::context::context_pin_message,
     },
     StdlibExport {
         name: "unpin_message",
-        func: stub_unpin_message,
+        func: crate::context::context_unpin_message,
     },
     StdlibExport {
         name: "list_pinned_messages",
-        func: stub_list_pinned_messages,
+        func: crate::context::context_list_pinned_messages,
     },
     StdlibExport {
         name: "compress_context",
-        func: stub_compress_context,
+        func: crate::context::context_compress_context,
     },
     StdlibExport {
         name: "search_context",
-        func: stub_search_context,
+        func: crate::context::context_search_context,
     },
     StdlibExport {
         name: "context_slice",
-        func: stub_context_slice,
+        func: crate::context::context_context_slice,
     },
     StdlibExport {
         name: "export_context",
-        func: stub_export_context,
+        func: crate::context::context_export_context,
     },
     StdlibExport {
         name: "import_context",
-        func: stub_import_context,
+        func: crate::context::context_import_context,
     },
     StdlibExport {
         name: "fork_context",
-        func: stub_fork_context,
+        func: crate::context::context_fork_context,
     },
     StdlibExport {
         name: "restore_context",
-        func: stub_restore_context,
+        func: crate::context::context_restore_context,
     },
     StdlibExport {
         name: "replace_message",
-        func: stub_replace_message,
+        func: crate::context::context_replace_message,
     },
     StdlibExport {
         name: "set_context_window",
-        func: stub_set_context_window,
+        func: crate::context::context_set_context_window,
     },
     StdlibExport {
         name: "get_context_config",
-        func: stub_get_context_config,
+        func: crate::context::context_get_context_config,
     },
     StdlibExport {
         name: "set_cache_aware",
-        func: stub_set_cache_aware,
+        func: crate::context::context_set_cache_aware,
     },
     StdlibExport {
         name: "set_compression_strategy",
-        func: stub_set_compression_strategy,
+        func: crate::context::context_set_compression_strategy,
     },
     StdlibExport {
         name: "compress_context_target",
-        func: stub_compress_context_target,
+        func: crate::context::context_compress_context_target,
     },
     StdlibExport {
         name: "on_compression",
-        func: stub_on_compression,
+        func: crate::context::context_on_compression,
     },
     StdlibExport {
         name: "on_context_overflow",
-        func: stub_on_context_overflow,
+        func: crate::context::context_on_context_overflow,
     },
     StdlibExport {
         name: "working_memory_set",
-        func: stub_working_memory_set,
+        func: crate::context::context_working_memory_set,
     },
     StdlibExport {
         name: "working_memory_get",
-        func: stub_working_memory_get,
+        func: crate::context::context_working_memory_get,
     },
     StdlibExport {
         name: "working_memory_remove",
-        func: stub_working_memory_remove,
+        func: crate::context::context_working_memory_remove,
     },
     StdlibExport {
         name: "working_memory_clear",
-        func: stub_working_memory_clear,
+        func: crate::context::context_working_memory_clear,
     },
     StdlibExport {
         name: "set_working_memory_enabled",
-        func: stub_set_working_memory_enabled,
+        func: crate::context::context_set_working_memory_enabled,
     },
 ];
 
 pub static QUALITY_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "analyze_code",
-        func: stub_analyze_code,
+        func: crate::quality::quality_analyze_code,
     },
     StdlibExport {
         name: "check_security",
-        func: stub_check_security,
+        func: crate::quality::quality_check_security,
     },
     StdlibExport {
         name: "quality_score",
-        func: stub_quality_score,
+        func: crate::quality::quality_quality_score,
     },
     StdlibExport {
         name: "quality_report",
-        func: stub_quality_report,
+        func: crate::quality::quality_quality_report,
     },
 ];
 
 pub static TEST_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "describe",
-        func: stub_test_describe,
+        func: crate::test_framework::test_describe,
     },
     StdlibExport {
         name: "it",
-        func: stub_test_it,
+        func: crate::test_framework::test_it,
     },
     StdlibExport {
         name: "it_skip",
-        func: stub_test_it_skip,
+        func: crate::test_framework::test_it_skip,
     },
     StdlibExport {
         name: "assert_true",
-        func: stub_test_assert_true,
+        func: crate::test_framework::test_assert_true,
     },
     StdlibExport {
         name: "assert_equal",
-        func: stub_test_assert_equal,
+        func: crate::test_framework::test_assert_equal,
     },
     StdlibExport {
         name: "assert_not_equal",
-        func: stub_test_assert_not_equal,
+        func: crate::test_framework::test_assert_not_equal,
     },
     StdlibExport {
         name: "assert_contains",
-        func: stub_test_assert_contains,
+        func: crate::test_framework::test_assert_contains,
     },
     StdlibExport {
         name: "assert_throws",
-        func: stub_test_assert_throws,
+        func: crate::test_framework::test_assert_throws,
     },
     StdlibExport {
         name: "expect",
-        func: stub_test_expect,
+        func: crate::test_framework::test_expect,
     },
     StdlibExport {
         name: "before_each",
-        func: stub_test_before_each,
+        func: crate::test_framework::test_before_each,
     },
     StdlibExport {
         name: "after_each",
-        func: stub_test_after_each,
+        func: crate::test_framework::test_after_each,
     },
     StdlibExport {
         name: "before_all",
-        func: stub_test_before_all,
+        func: crate::test_framework::test_before_all,
     },
     StdlibExport {
         name: "after_all",
-        func: stub_test_after_all,
+        func: crate::test_framework::test_after_all,
     },
     StdlibExport {
         name: "run_tests",
-        func: stub_test_run_tests,
+        func: crate::test_framework::test_run_tests,
     },
     StdlibExport {
         name: "run_tests_json",
-        func: stub_test_run_tests_json,
+        func: crate::test_framework::test_run_tests_json,
     },
     StdlibExport {
         name: "test_reset",
-        func: stub_test_reset,
+        func: crate::test_framework::test_reset,
     },
     StdlibExport {
         name: "test_count",
-        func: stub_test_count,
+        func: crate::test_framework::test_count,
     },
     StdlibExport {
         name: "test_suite",
-        func: stub_test_suite,
+        func: crate::test_framework::test_suite,
     },
     StdlibExport {
         name: "test_case",
-        func: stub_test_case,
+        func: crate::test_framework::test_suite,
     },
     StdlibExport {
         name: "test_case_skip",
-        func: stub_test_case_skip,
+        func: crate::test_framework::test_it_skip,
     },
     StdlibExport {
         name: "fail",
-        func: stub_test_fail,
+        func: crate::test_framework::test_fail,
     },
     StdlibExport {
         name: "set_test_timeout",
-        func: stub_test_set_timeout,
+        func: crate::test_framework::test_set_timeout,
     },
     StdlibExport {
         name: "test_end_suite",
-        func: stub_test_end_suite,
+        func: crate::test_framework::test_end_suite,
     },
 ];
 
 pub static TOOLS_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "web_search",
-        func: stub_web_search,
+        func: crate::tools::tools_web_search,
     },
     StdlibExport {
         name: "web_fetch",
-        func: stub_web_fetch,
+        func: crate::tools::tools_web_fetch,
     },
     StdlibExport {
         name: "shell_exec",
-        func: stub_shell_exec,
+        func: crate::tools::tools_shell_exec,
     },
     StdlibExport {
         name: "calculate",
-        func: stub_calculate,
+        func: crate::tools::tools_calculate,
     },
     StdlibExport {
         name: "patch_file",
-        func: stub_patch_file,
+        func: crate::tools::tools_patch_file,
     },
     StdlibExport {
         name: "load_skill",
-        func: stub_load_skill,
+        func: crate::tools::tools_load_skill,
     },
     StdlibExport {
         name: "list_skill_references",
-        func: stub_list_skill_references,
+        func: crate::tools::tools_list_skill_references,
     },
 ];
 
 pub static LLM_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "cancel_llm_call",
-        func: stub_cancel_llm_call,
+        func: crate::llm_control::llm_cancel_llm_call,
     },
     StdlibExport {
         name: "current_llm_call_id",
-        func: stub_current_llm_call_id,
+        func: crate::llm_control::llm_current_llm_call_id,
     },
     StdlibExport {
         name: "cancel_all_llm_calls",
-        func: stub_cancel_all_llm_calls,
+        func: crate::llm_control::llm_cancel_all_llm_calls,
     },
     StdlibExport {
         name: "set_temperature",
-        func: stub_set_temperature,
+        func: crate::llm_control::llm_set_temperature,
     },
     StdlibExport {
         name: "get_temperature",
-        func: stub_get_temperature,
+        func: crate::llm_control::llm_get_temperature,
     },
     StdlibExport {
         name: "set_max_turns",
-        func: stub_set_max_turns,
+        func: crate::llm_control::llm_set_max_turns,
     },
     StdlibExport {
         name: "get_max_turns",
-        func: stub_get_max_turns,
+        func: crate::llm_control::llm_get_max_turns,
     },
     StdlibExport {
         name: "set_max_tokens",
-        func: stub_set_max_tokens,
+        func: crate::llm_control::llm_set_max_tokens,
     },
     StdlibExport {
         name: "get_max_tokens",
-        func: stub_get_max_tokens,
+        func: crate::llm_control::llm_get_max_tokens,
     },
     StdlibExport {
         name: "set_thinking_mode",
-        func: stub_set_thinking_mode,
+        func: crate::llm_control::llm_set_thinking_mode,
     },
     StdlibExport {
         name: "get_thinking_mode",
-        func: stub_get_thinking_mode,
+        func: crate::llm_control::llm_get_thinking_mode,
     },
     StdlibExport {
         name: "set_reasoning_effort",
-        func: stub_set_reasoning_effort,
+        func: crate::llm_control::llm_set_reasoning_effort,
     },
     StdlibExport {
         name: "get_reasoning_effort",
-        func: stub_get_reasoning_effort,
+        func: crate::llm_control::llm_get_reasoning_effort,
     },
     StdlibExport {
         name: "get_model",
-        func: stub_get_model,
+        func: crate::llm_control::llm_get_model,
     },
     StdlibExport {
         name: "get_description",
-        func: stub_get_description,
+        func: crate::llm_control::llm_get_description,
     },
     StdlibExport {
         name: "get_provider",
-        func: stub_get_provider,
+        func: crate::llm_control::llm_get_provider,
     },
 ];
 
 pub static MEDIA_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "media",
-        func: stub_media,
+        func: crate::media::media_media,
     },
     StdlibExport {
         name: "media_base64",
-        func: stub_media_base64,
+        func: crate::media::media_media_base64,
     },
     StdlibExport {
         name: "is_media",
-        func: stub_is_media,
+        func: crate::media::media_is_media,
     },
     StdlibExport {
         name: "media_type",
-        func: stub_media_type,
+        func: crate::media::media_media_type,
     },
     StdlibExport {
         name: "to_openai_parts",
-        func: stub_to_openai_parts,
+        func: crate::media::media_to_openai_parts,
     },
     StdlibExport {
         name: "to_claude_parts",
-        func: stub_to_claude_parts,
+        func: crate::media::media_to_claude_parts,
     },
     StdlibExport {
         name: "to_gemini_parts",
-        func: stub_to_gemini_parts,
+        func: crate::media::media_to_gemini_parts,
     },
     StdlibExport {
         name: "media_to_base64",
-        func: stub_media_to_base64,
+        func: crate::media::media_media_to_base64,
     },
     StdlibExport {
         name: "save_media",
-        func: stub_save_media,
+        func: crate::media::media_save_media,
     },
     StdlibExport {
         name: "is_image",
-        func: stub_is_image,
+        func: crate::media::media_is_image,
     },
     StdlibExport {
         name: "is_video",
-        func: stub_is_video,
+        func: crate::media::media_is_video,
     },
     StdlibExport {
         name: "is_audio",
-        func: stub_is_audio,
+        func: crate::media::media_is_audio,
     },
 ];
 
 pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "query_transcript",
-        func: stub_query_transcript,
+        func: crate::transcript::transcript_query_transcript,
     },
     StdlibExport {
         name: "search_transcript",
-        func: stub_search_transcript,
+        func: crate::transcript::transcript_search_transcript,
     },
     StdlibExport {
         name: "get_session_id",
@@ -5636,23 +5492,23 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "list_invocations",
-        func: stub_list_invocations,
+        func: crate::transcript::transcript_list_invocations,
     },
     StdlibExport {
         name: "get_invocation",
-        func: stub_get_invocation,
+        func: crate::transcript::transcript_get_invocation,
     },
     StdlibExport {
         name: "get_invocation_tree",
-        func: stub_get_invocation_tree,
+        func: crate::transcript::transcript_get_invocation_tree,
     },
     StdlibExport {
         name: "get_spawn_tree",
-        func: stub_get_spawn_tree,
+        func: crate::transcript::transcript_get_spawn_tree,
     },
     StdlibExport {
         name: "get_spawned_sessions",
-        func: stub_get_spawned_sessions,
+        func: crate::transcript::transcript_get_spawned_sessions,
     },
     StdlibExport {
         name: "get_session_meta",
@@ -5660,19 +5516,19 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "export_transcript",
-        func: stub_export_transcript,
+        func: crate::transcript::transcript_export_transcript,
     },
     StdlibExport {
         name: "replay_transcript",
-        func: stub_replay_transcript,
+        func: crate::transcript::transcript_replay_transcript,
     },
     StdlibExport {
         name: "replay_full_session",
-        func: stub_replay_full_session,
+        func: crate::transcript::transcript_replay_full_session,
     },
     StdlibExport {
         name: "resume_session",
-        func: stub_resume_session,
+        func: crate::transcript::transcript_resume_session,
     },
     StdlibExport {
         name: "delete_session",
@@ -5680,7 +5536,7 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "delete_current_session",
-        func: stub_delete_current_session,
+        func: crate::transcript::transcript_delete_current_session,
     },
     StdlibExport {
         name: "cleanup_sessions",
@@ -5688,15 +5544,15 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "release_session_lock",
-        func: stub_release_session_lock,
+        func: crate::transcript::transcript_release_session_lock,
     },
     StdlibExport {
         name: "invocation_path",
-        func: stub_invocation_path,
+        func: crate::transcript::transcript_invocation_path,
     },
     StdlibExport {
         name: "get_compression_audit",
-        func: stub_get_compression_audit,
+        func: crate::transcript::transcript_get_compression_audit,
     },
 ];
 

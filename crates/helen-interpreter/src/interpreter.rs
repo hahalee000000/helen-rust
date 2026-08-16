@@ -2327,7 +2327,7 @@ impl Interpreter {
         }
     }
 
-    fn call_closure(
+    pub fn call_closure(
         &mut self,
         closure: &Closure,
         args: Vec<Value>,
