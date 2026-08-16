@@ -1,1 +1,7 @@
-//! helen-rust — placeholder crate. Implemented in a later milestone (M0 scaffold).
+//! helen-rust — CLI and utilities.
+
+pub mod cli_utils;
+pub mod docgen;
+pub mod formatter;
+pub mod repl;
+pub mod test;

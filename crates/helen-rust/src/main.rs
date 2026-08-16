@@ -21,106 +21,12 @@ mod test;
 use helen_core::ast_printer::{py_str_float, AstPrinter};
 use helen_core::lexer::Scanner;
 use helen_core::tokens::LiteralValue;
-use helen_interpreter::exceptions::ExceptionValue;
 use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
+use helen_rust::cli_utils::{
+    normalize_stderr, print_help, render_uncaught, run_json, HELEN_VERSION,
+};
 use helen_semantic::{analyze_codes, analyze_messages};
-
-/// The Helen version string (matches Python `helen.__version__`).
-pub const HELEN_VERSION: &str = "1.45.0";
-
-/// Python `reference.py` strips " at <path>:<line>:<col>-<col>" suffixes via
-/// `_SPAN_RE = re.compile(r" at \S+:\d+:\d+-\d+")`. Mirror that regex exactly
-/// so stderr compares equal.
-fn normalize_stderr(s: &str) -> String {
-    // Port of Python's `re.sub(r" at \S+:\d+:\d+-\d+", "", s)`. The greedy
-    // `\S+` backtracks so the match ends at the LAST `:\d+:\d+-\d+` within
-    // the non-space run (the run may continue with e.g. ':' after the span).
-    let mut out = String::new();
-    let mut rest = s;
-    while let Some(idx) = rest.find(" at ") {
-        let after = &rest[idx + 4..];
-        // Find the end of the \S+ run.
-        let ws = after.find(char::is_whitespace).unwrap_or(after.len());
-        let nonspace = &after[..ws];
-        // Find the end of the last `:\d+:\d+-\d+` within the run.
-        let span_end = last_span_end(nonspace.as_bytes());
-        match span_end {
-            Some(end) => {
-                out.push_str(&rest[..idx]);
-                // Consume " at " + the span (up to `end` within `after`),
-                // keeping the remainder of the run AND the message tail.
-                rest = &after[end..];
-            }
-            None => {
-                out.push_str(&rest[..idx + 4]);
-                rest = &rest[idx + 4..];
-            }
-        }
-    }
-    out.push_str(rest);
-    out
-}
-
-/// Byte index after the LAST `:\d+:\d+-\d+` in `b`, if any (Python's greedy
-/// `\S+` leaves the rightmost span pattern as the match tail).
-fn last_span_end(b: &[u8]) -> Option<usize> {
-    let n = b.len();
-    // Scan for each `:` then try to match `\d+:\d+-\d+`; keep the rightmost.
-    let mut best: Option<usize> = None;
-    let mut i = 0;
-    while i + 2 < n {
-        if b[i] == b':' {
-            // try `:\d+:\d+-\d+` starting at i
-            let mut j = i + 1;
-            while j < n && b[j].is_ascii_digit() {
-                j += 1;
-            }
-            if j > i + 1 && j < n && b[j] == b':' {
-                let mut k = j + 1;
-                while k < n && b[k].is_ascii_digit() {
-                    k += 1;
-                }
-                if k > j + 1 && k < n && b[k] == b'-' {
-                    let mut m = k + 1;
-                    while m < n && b[m].is_ascii_digit() {
-                        m += 1;
-                    }
-                    if m > k + 1 {
-                        best = Some(m);
-                        i = m;
-                        continue;
-                    }
-                }
-            }
-        }
-        i += 1;
-    }
-    best
-}
-
-/// Render an uncaught exception the way Python's CLI does: `RuntimeError: {e}`.
-fn render_uncaught(e: &ExceptionValue) -> String {
-    format!("RuntimeError: {}\n", e.to_display_string())
-}
-
-/// Emit the run-result JSON in reference.py's exact layout:
-/// `{"stdout": "...", "stderr": "...", "exit_code": N, "error_classes": [...]}`
-/// (spaces after separators, stdout/stderr/exit_code/error_classes order).
-fn run_json(stdout: &str, stderr: &str, exit_code: i64, error_classes: &[String]) -> String {
-    let classes = error_classes
-        .iter()
-        .map(|c| format!("\"{c}\""))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!(
-        "{{\"stdout\": {stdout}, \"stderr\": {stderr}, \"exit_code\": {exit_code}, \"error_classes\": [{classes}]}}",
-        stdout = serde_json::to_string(stdout).unwrap(),
-        stderr = serde_json::to_string(stderr).unwrap(),
-        exit_code = exit_code,
-        classes = classes,
-    )
-}
 
 fn run_mode(path: &str, mock_llm: bool) {
     #[cfg(feature = "python-ffi")]
@@ -431,33 +337,7 @@ fn docgen_command(argv: &[String]) -> i32 {
     0
 }
 
-fn print_help() {
-    println!("helen {HELEN_VERSION} — Helen Agent Programming Language");
-    println!();
-    println!("Usage:");
-    println!("  helen                          Interactive REPL (default)");
-    println!("  helen <file> [args...]         Run a Helen program (args become `argv`)");
-    println!("  helen check <file> [args...]   Check without executing");
-    println!("  helen test <file> [opts]       Run Helen test file(s)");
-    println!("  helen coverage <file> [opts]   Run tests with coverage measurement");
-    println!("  helen doc [files]              Generate API documentation");
-    println!("  helen provider <cmd> [opts]    Manage custom LLM provider adapters");
-    println!("  helen agent                    Launch the Helen Web UI");
-    println!("  helen repl                     Start the interactive REPL");
-    println!("  helen --version                Show version number");
-    println!();
-    println!("Test Options:");
-    println!("  --json                    Output results as JSON");
-    println!("  --verbose                 Show detailed output");
-    println!("  --only <name>             Run only the test with this exact name");
-    println!("  --suite <name>            Run only tests in this suite");
-    println!("  --filter <pattern>        Run only tests matching this pattern (regex)");
-    println!();
-    println!("Doc Options:");
-    println!("  --format <markdown|json>  Output format (default: markdown)");
-    println!("  --with-builtins           Include built-in functions");
-    println!("  -o, --output <path>       Write output to file (default: stdout)");
-}
+// print_help is now imported from helen_rust::cli_utils
 
 /// CLI preflight config check (port of `_preflight_config_check`): exits 1
 /// when not configured and stdin is not a TTY. The harness sets a dummy
