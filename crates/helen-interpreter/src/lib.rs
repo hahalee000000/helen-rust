@@ -20,6 +20,7 @@ pub mod llm_control;
 pub mod media;
 pub mod context;
 pub mod debug;
+pub mod observability;
 pub mod tools;
 pub mod quality;
 pub mod transcript;

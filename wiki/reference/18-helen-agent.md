@@ -6,7 +6,7 @@
 
 Helen ships with an interactive programming assistant — a long-lived agent that runs inside a Web UI (or future TUI), accepts natural language requests, edits code, runs tests, checks quality, and **self-evolves** by creating new skills and accumulating memory across sessions. Unlike one-shot `helen program.helen` invocations, this is a **persistent, self-improving coding partner** that keeps context across turns and *grows its knowledge base* as it works.
 
-Best of all: the entire assistant is written in Helen itself. The kernel (CLI launcher + Web UI backend) is Python; every piece of agent *behavior* — tooling, slash commands, context management, memory, integrity defense, skill creation, self-reflection — lives in `.helen` files under `helen/agent/`.
+Best of all: the entire assistant is written in Helen itself. The kernel (CLI launcher + Web UI backend) is built into the Rust binary; every piece of agent *behavior* — tooling, slash commands, context management, memory, integrity defense, skill creation, self-reflection — lives in `.helen` files.
 
 ---
 
@@ -38,17 +38,10 @@ Best of all: the entire assistant is written in Helen itself. The kernel (CLI la
 ### Launch the Web UI
 
 ```bash
-# Recommended: cross-platform Python launcher (Windows/macOS/Linux)
-python helen/agent/webui/start_webui.py
-```
-
-Or from CLI:
-
-```bash
 helen agent             # starts the programming assistant (launches Web UI)
 ```
 
-Open the URL shown (default `http://localhost:5173`). The Web UI talks to a FastAPI backend which spawns `helen agent` under the hood.
+Open the URL shown (default `http://localhost:5173`). The Web UI talks to the built-in HTTP server which spawns the agent.
 
 ### Launch Directly (CLI)
 
@@ -56,19 +49,19 @@ Open the URL shown (default `http://localhost:5173`). The Web UI talks to a Fast
 helen agent             # starts the programming assistant (currently launches Web UI)
 ```
 
-The CLI subcommand `helen agent` is defined in `helen/cli/__main__.py` and delegates to `helen/cli/agent_launcher.py`. The launcher is responsible for:
+The CLI subcommand `helen agent` is implemented in `crates/helen-rust/src/main.rs`. The launcher is responsible for:
 
-1. Checking Node.js and Python dependencies
-2. Setting the `HELEN_WEBUI_CWD` environment variable (cross-platform working directory)
-3. Spawning `start_webui.py` (cross-platform Python launcher)
-4. Forwarding signals (Ctrl+C) gracefully to child processes
+1. Setting up environment variables and working directory
+2. Starting the Web UI server (WebSocket + HTTP)
+3. Spawning `ChatSessionActor` as a long-lived agent
+4. Forwarding signals (Ctrl+C) gracefully
 
-#### Cross-Platform Support (v1.30.7+)
+#### Cross-Platform Support
 
 The agent works on **Windows, macOS, and Linux** without bash:
 
-- **`start_webui.py`**: Single Python launcher replaces platform-specific bash scripts
-- **`get_cwd()`**: Cross-platform working directory detection (uses `HELEN_WEBUI_CWD` env var with platform-specific fallback)
+- **Native Rust binary**: No Python or Node.js dependencies required
+- **Cross-platform path handling**: Uses Rust stdlib path operations
 - **stdlib over shell**: Agent code uses stdlib functions (`time()`, `date()`, `env_get()`, `delete_file()`, `move_file()`) instead of Unix shell commands
 
 To enable debug output (hidden by default since v1.30.7):
@@ -90,7 +83,7 @@ The v1.0 architecture consolidates all *specialist* agents into a single long-li
 ┌─────────────────────────────────────────────────────────┐
 │ Web UI (webui/) — React + TypeScript + Tailwind          │
 │  ↕ WebSocket                                             │
-│ FastAPI backend (chat_tui_web.py)                        │
+│ Helen agent backend (Rust, built into helen binary)      │
 │  ↕                                                       │
 │ chat_tui.helen — Actor lifecycle management              │
 │  ↕ Channel mailbox                                       │
@@ -499,16 +492,10 @@ The `init(cwd)` parameter was added in v1.29.15 to avoid `shell_exec("pwd")` ret
 
 ## Web UI
 
-The Web UI is a FastAPI + React app under `helen/agent/webui/`:
+The Web UI is a React + TypeScript app served by the built-in Rust HTTP server:
 
 ```
 webui/
-├── backend/         # FastAPI + WebSocket
-│   └── app/
-│       ├── main.py
-│       ├── routers/
-│       ├── services/
-│       └── websocket/
 ├── frontend/        # React + TypeScript + Tailwind
 │   └── src/
 │       ├── components/
@@ -516,17 +503,7 @@ webui/
 │       ├── hooks/
 │       ├── services/
 │       └── stores/
-├── start_webui.py   # Cross-platform launcher (Windows/macOS/Linux)
-├── start-all.sh     # Unix legacy launcher
-├── start-backend.sh
-├── start-frontend.sh
-└── stop-all.sh
-```/
-│       └── stores/
-├── start-all.sh
-├── start-backend.sh
-├── start-frontend.sh
-└── stop-all.sh
+└── (backend is built into the helen binary)
 ```
 
 Features:

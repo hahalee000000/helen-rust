@@ -36,13 +36,14 @@ extensions/vscode/
 
 1. **Install Helen**:
 ```bash
-# Recommended: Install from PyPI
-pip install helen-lang
+# Recommended: Install from crates.io
+cargo install helen-rust
 
-# Or install from source (developers)
-git clone https://github.com/hahalee000000/helen.git
-cd helen
-pip install -e .
+# Or build from source (developers)
+git clone https://github.com/hahalee000000/helen-rust.git
+cd helen-rust
+cargo build --release
+bash scripts/install.sh --from-build
 ```
 
 2. **Verify installation**:

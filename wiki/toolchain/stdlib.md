@@ -1,64 +1,45 @@
-<!-- helen-rust edition: stdlib registry in crates/helen-stdlib (M4) — 22 modules, 378 builtins + aliases. `helen doc` output byte-identical to reference. -->
+<!-- helen-rust edition: stdlib registry in crates/helen-stdlib — 22 modules, 378+ builtins + aliases. `helen doc` output byte-identical to reference. -->
 
 # Standard Library (Stdlib)
 
-> Module M15 | `helen/stdlib/__init__.py` | **337 builtins** | Tests: `tests/stdlib/`
+> Crate: `crates/helen-stdlib` | **378+ builtins** | Tests: `tests/stdlib/`
 
 ---
 
 ## Registry
 
-```python
-class StdlibRegistry:
-    @staticmethod
-    def register(func: BuiltinFunction) -> None     # Register a function
-    @staticmethod
-    def lookup(name: str) -> BuiltinFunction | None  # Lookup by name
-    @staticmethod
-    def list_by_category(category: str) -> list[BuiltinFunction]  # List by category
-    @staticmethod
-    def list_all() -> list[BuiltinFunction]         # List all
-    @property
-    def names(self) -> list[str]                    # Function name list (property)
-```
+The stdlib registry is implemented in Rust (`helen-stdlib` crate). Each builtin function is registered with:
 
-### BuiltinFunction
-
-```python
-@dataclass
-class BuiltinFunction:
-    name: str           # Function name
-    description: str    # Description
-    signature: str      # Signature
-    fn: Callable        # Python implementation
-    category: str       # Category: core/string/math/data/collection/network/time/file/system/crypto/io/test/quality
-```
+- **name**: Function name
+- **description**: Description
+- **signature**: Signature
+- **category**: Category (core/string/math/data/collection/network/time/file/system/crypto/io/test/quality)
 
 ---
 
 ## Function Category Summary
 
-| Category | Count | Module File |
+| Category | Count | Crate Module |
 |----------|-------|-------------|
-| **Core** | 11 | `__init__.py` |
-| **String** | 40 | `string.py` |
-| **Data** | 26 | `data.py`, `data_formats.py` |
-| **Collection** | 22 | `collection.py` |
-| **Network** | 9 | `network.py` |
-| **Time** | 14 | `time.py` |
-| **Math** | 15 | `math_stats.py` |
-| **File** | 18 | `file_advanced.py` |
-| **System** | 18 | `system.py` |
-| **Crypto** | 11 | `crypto.py` |
-| **Test** | 14 | `test.py` |
-| **Quality** | 4 | `quality.py` |
-| **IO** | 5 | `__init__.py` |
-| **Observability** | 8 | `observability.py` |
-| **Context** | 29 | `context.py` |
-| **Transcript** | 11 | `transcript.py` |
-| **Media** | 12 | `media.py` |
-| **Tools** | 24 | `tools.py` |
-| **Total** | **337** | - |
+| **Core** | 11 | `core` |
+| **String** | 40 | `string` |
+| **Data** | 26 | `data` |
+| **Collection** | 22 | `collection` |
+| **Network** | 9 | `network` |
+| **Time** | 14 | `time` |
+| **Math** | 15 | `math_stats` |
+| **File** | 18 | `file` |
+| **System** | 18 | `system` |
+| **Crypto** | 11 | `crypto` |
+| **Test** | 14 | `test` |
+| **Quality** | 4 | `quality` |
+| **IO** | 5 | `io` |
+| **Observability** | 8 | `observability` |
+| **Context** | 29 | `context` |
+| **Transcript** | 11 | `transcript` |
+| **Media** | 12 | `media` |
+| **Tools** | 24 | `tools` |
+| **Total** | **378+** | - |
 
 ---
 
@@ -486,47 +467,37 @@ class BuiltinFunction:
 
 ---
 
-## Auto-Registration
+## Registration
 
-```python
-def _register_builtins():
-    """Executed automatically when importing helen.stdlib."""
-    registry = StdlibRegistry
-    registry.register(BuiltinFunction("print", "...", "print(*args)", _print, "core"))
-    # ... registers all 195 functions
-```
+All builtin functions are registered at compile time in the `helen-stdlib` crate. Each module (core, string, data, etc.) registers its functions with the central registry.
 
 ---
 
-## Dependency Notes
+## Implementation Notes
 
 ### Core Features (Zero Dependencies)
 
-All core features use the Python standard library — no extra installation needed:
+All core features are implemented in Rust with no external dependencies:
 - Core, String, Collection, Network, Time, Math, File, System, Crypto, IO
 
-### Optional Dependencies
+### Data Format Support
 
-The following features require additional installation:
-
-```bash
-# YAML support
-pip install pyyaml
-
-# TOML support (built-in for Python 3.11+)
-pip install toml
-```
-
-XML uses the Python standard library `xml.etree.ElementTree` — no extra installation needed.
+The following data formats are supported:
+- **JSON**: Built-in (serde_json)
+- **YAML**: Built-in (serde_yaml)
+- **TOML**: Built-in (toml crate)
+- **XML**: Built-in (quick-xml)
+- **CSV**: Built-in (csv crate)
 
 ---
 
 ## Usage Examples
 
 ```helen
+import std.core.*
 main {
     // Core
-    let len = len("hello")          # 5
+    let len = len("hello")          // 5
     let nums = range(1, 5)          # [1, 2, 3, 4]
     let t = type(42)                # "int"
 

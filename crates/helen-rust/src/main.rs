@@ -13,6 +13,7 @@
 //! Float literals are formatted with Rust's shortest-round-trip `Debug`
 //! repr; the comparison script parses both sides numerically.
 
+mod ask_assistant;
 mod docgen;
 mod formatter;
 mod repl;

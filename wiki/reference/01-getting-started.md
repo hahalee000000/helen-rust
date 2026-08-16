@@ -6,47 +6,67 @@
 
 ## System Requirements
 
-- **Python 3.12+** (Helen uses Python 3.10+ syntax features; version 3.12 or higher is required)
+- **Rust toolchain** (for building from source) or pre-built binary
 - OS: Linux, macOS, Windows
-- Disk space: ~100 MB (including 17 built-in skills)
+- Disk space: ~50 MB binary + ~100 MB (including 17 built-in skills)
 
 ---
 
 ## Installation
 
-### Method 1: pip Install (Recommended)
+### Method 1: Cargo Install (Recommended)
 
 ```bash
-# Install from PyPI
-pip install helen-lang
+# Install from crates.io
+cargo install helen-rust
 
 # Verify
 helen --version
-# Helen 1.20.0
+# helen 1.45.0 — Helen Agent Programming Language
 
 helen --help
 ```
 
-### Method 2: Install from Source (Developers)
+### Method 2: Installer Script
+
+```bash
+# Download and run the installer
+curl -fsSL https://raw.githubusercontent.com/hahalee000000/helen-rust/main/scripts/install.sh | bash
+
+# Or clone and install locally
+git clone https://github.com/hahalee000000/helen-rust.git
+cd helen-rust
+bash scripts/install.sh
+```
+
+### Method 3: Build from Source (Developers)
 
 ```bash
 # Clone the repository
-git clone https://github.com/hahalee000000/helen.git
-cd helen
+git clone https://github.com/hahalee000000/helen-rust.git
+cd helen-rust
 
-# Create a virtual environment (recommended)
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate   # Windows
+# Build release binary
+cargo build --release
 
-# Editable install (development mode)
-pip install -e ".[dev]"
+# Binary is at target/release/helen
+./target/release/helen --version
 
-# Run tests (verify the installation is correct)
-pytest
+# Optional: install to ~/.cargo/bin
+bash scripts/install.sh --from-build
 
-# Verify CLI
-helen --version
+# Run workspace tests (verify the installation is correct)
+cargo test --workspace
+```
+
+### Method 4: Python Bridge (Optional)
+
+```bash
+# Install the Python bridge wheel (for Python → Helen integration)
+pip install helen-rust
+
+# Use Helen agents from Python
+python3 -c "import helen_rust; from translator import TranslatorAgent"
 ```
 
 ### Post-Installation Configuration
@@ -291,7 +311,7 @@ Helen provides full VS Code support including syntax highlighting, code completi
 **Method A: Install from VSIX (Recommended)**
 
 ```bash
-cd ~/helen/extensions/vscode
+cd ~/helen-rust/extensions/vscode
 npm install
 npm run compile
 npx vsce package
@@ -300,7 +320,7 @@ npx vsce package
 Then in VS Code:
 1. Press `Ctrl+Shift+P` to open the command palette
 2. Type `Extensions: Install from VSIX...`
-3. Select the generated `helen-language-1.8.0.vsix` file
+3. Select the generated `.vsix` file
 
 **Method B: Development Mode**
 

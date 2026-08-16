@@ -1,8 +1,8 @@
-<!-- helen-rust edition: `helen` CLI ported in M12 (crates/helen-rust). All subcommands (run/check/test/quality/repl/doc/init/provider/lsp) verified via Tier B subprocess harness (cli+ffi 128+1skip). -->
+<!-- helen-rust edition: `helen` CLI — crates/helen-rust (M12). All subcommands (run/check/test/quality/repl/doc/init/provider/lsp) verified via Tier B subprocess harness (cli+ffi 128+1skip). -->
 
 # Command-Line Tools (CLI)
 
-> Module M11 | `helen/cli/__main__.py` + `repl.py` + `formatter.py` + `docgen.py`
+> Crate: `crates/helen-rust/src/main.rs` + `cli_utils.rs` | **helen 1.45.0**
 
 ---
 
@@ -431,38 +431,13 @@ When brackets are unclosed, the REPL enters multi-line mode (`...` prompt):
 
 ### Multi-Line Input Detection
 
-The REPL uses a lightweight state machine to determine whether to continue input:
+The REPL uses a bracket/quote counting state machine to determine whether to continue input. It tracks:
+- Brace count `{}`
+- Parenthesis count `()`
+- Bracket count `[]`
+- String literal state (handles escape sequences)
 
-```python
-def _needs_continuation(buffer: str) -> bool:
-    """Detect unclosed brackets/quotes."""
-    brace_count = paren_count = bracket_count = 0
-    in_string = False
-    escape_next = False
-
-    for ch in buffer:
-        if escape_next:
-            escape_next = False
-            continue
-        if ch == '\\' and in_string:
-            escape_next = True
-            continue
-        if ch == '"' and not escape_next:
-            in_string = not in_string
-            continue
-        if in_string:
-            continue
-        if ch == '{': brace_count += 1
-        elif ch == '}': brace_count -= 1
-        elif ch == '(': paren_count += 1
-        elif ch == ')': paren_count -= 1
-        elif ch == '[': bracket_count += 1
-        elif ch == ']': bracket_count -= 1
-
-    return brace_count > 0 or paren_count > 0 or bracket_count > 0
-```
-
-When brackets are unclosed, the `...` prompt is shown waiting for more input.
+When any count is non-zero (unclosed delimiters), the `...` prompt is shown waiting for more input.
 
 ### Error Formatting
 
@@ -503,35 +478,33 @@ Launches the **Helen Programming Assistant** — an interactive, self-evolving c
 ```
 Web UI (React + Tailwind)
   ↕ WebSocket
-FastAPI backend (chat_tui_web.py)
+Helen agent backend (Rust, built into helen binary)
   ↕
 chat_tui.helen (actor lifecycle)
   ↕ Channel mailbox
 ChatSessionActor (long-lived agent, single main {} loop)
   ├── File tools: read_file / write_file / patch_file
   ├── Quality tools: run_helen_check / get_scores / run_helen_tests
-  ├── Meta tools: load_skill / save_new_skill
-  └── Hooks: save_code_file → auto-runs helen check
+  ├── Meta tools: load_skill / save_new_skill / update_memory
+  └── Shell tools: shell_exec / web_search / web_fetch
 ```
 
-The entire agent behavior lives in `.helen` files under `helen/agent/`. The Python side is a thin I/O bridge.
+The entire agent behavior is defined in `.helen` files. The Rust binary provides the I/O bridge, tool implementations, and Web UI server.
 
-### What Happens at Startup
+### Startup Sequence
 
-1. `helen/cli/agent_launcher.py` checks Node.js and Python dependencies
-2. Resolves the current working directory, sets `HELEN_WEBUI_CWD` env var
-3. Spawns `helen/agent/webui/start_webui.py` (cross-platform Python launcher)
-4. `start_webui.py` starts the FastAPI backend and Vite frontend
-5. `chat_tui.helen` imports `ChatSessionActor`, spawns it as a long-lived actor
-6. The actor's `main {}` loop pulls requests from a Channel mailbox and dispatches to the LLM
+1. The `helen` binary parses the `agent` subcommand
+2. Resolves the current working directory, sets environment variables
+3. Starts the Web UI server (WebSocket + HTTP)
+4. `chat_tui.helen` imports `ChatSessionActor`, spawns it as a long-lived actor
+5. The actor's `main {}` loop pulls requests from a Channel mailbox and dispatches to the LLM
 
-### Cross-Platform Support (v1.30.7+)
+### Cross-Platform Support
 
-The agent launcher works on **Windows, macOS, and Linux**:
+The agent works on **Windows, macOS, and Linux**:
 
-- **Single Python launcher**: `start_webui.py` replaces platform-specific bash scripts
-- **No bash dependency**: Windows works without Git Bash or WSL
-- **`get_cwd()` helper**: Cross-platform working directory detection (env var + platform fallback)
+- **No bash dependency**: Works natively on Windows without Git Bash or WSL
+- **Cross-platform path handling**: Uses Rust stdlib path operations
 - **stdlib over shell**: Agent code uses `time()`, `date()`, `env_get()`, `delete_file()` etc. instead of Unix shell commands
 
 To enable debug output (hidden by default):
@@ -553,15 +526,10 @@ Older plain-string mementos are also accepted. See [Session Scoping](../runtime/
 
 ### Web UI
 
-The Web UI is served by FastAPI + React. It is started automatically by `helen agent`, or can be started directly:
+The Web UI is served by the built-in HTTP server. It is started automatically by `helen agent`:
 
 ```bash
-# Via Python launcher (cross-platform, recommended)
-python helen/agent/webui/start_webui.py
-
-# Or via bash scripts (Unix only, legacy)
-cd helen/agent/webui
-./start-all.sh        # backend + frontend
+helen agent    # starts the programming assistant (launches Web UI)
 ```
 
 Features:
@@ -686,20 +654,17 @@ Supports `--format markdown|json` and `-o output_file`.
 
 ---
 
-## Error Formatter (formatter.py)
+## Error Formatter
 
 Follows HLD 3.11.2 format:
 
-```python
-def format_error(error: HelenError) -> str:
-    """
-    Error: [E0301] at main.helen:5:10
-      5 | let x = "hello
-        |           ^^^^^
-    Unterminated string
+```
+Error: [E0301] at main.helen:5:10
+  5 | let x = "hello
+    |           ^^^^^
+Unterminated string
 
-    Code: E0301 — UNTERMINATED_STRING
-    """
+Code: E0301 — UNTERMINATED_STRING
 ```
 
 Output includes:

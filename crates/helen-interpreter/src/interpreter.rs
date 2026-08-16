@@ -75,6 +75,8 @@ pub struct Interpreter {
     pub session_manager: std::sync::Arc<std::sync::Mutex<helen_runtime::SessionManager>>,
     /// M8: current session ID (empty when no session is active).
     pub session_id: String,
+    /// AI-native observability (tracer, call_stack, llm_audit, last_error).
+    pub observability: crate::observability::ObservabilityManager,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -168,6 +170,7 @@ impl Interpreter {
                 helen_runtime::SessionManager::new(None),
             )),
             session_id: String::new(),
+            observability: crate::observability::ObservabilityManager::new(),
         };
         interp.register_core_builtins();
         interp
@@ -176,6 +179,65 @@ impl Interpreter {
     /// Inject a custom LLM runtime (tests use `MockLlmRuntime`).
     pub fn set_llm_runtime(&mut self, runtime: std::sync::Arc<dyn LlmRuntime>) {
         self.llm_runtime = runtime;
+    }
+
+    /// List all user-defined functions and agents (Python: `list_definitions`).
+    pub fn list_definitions(&self) -> HashMap<String, Vec<String>> {
+        let mut fns: Vec<String> = self.functions.keys().cloned().collect();
+        fns.sort();
+        let mut agents: Vec<String> = self.agents.keys().cloned().collect();
+        agents.sort();
+        let mut result = HashMap::new();
+        result.insert("functions".to_string(), fns);
+        result.insert("agents".to_string(), agents);
+        result
+    }
+
+    /// Remove a function from the registry. Returns true if it existed.
+    pub fn undefine_function(&mut self, name: &str) -> bool {
+        self.functions.remove(name).is_some()
+    }
+
+    /// Remove an agent from the registry. Returns true if it existed.
+    pub fn undefine_agent(&mut self, name: &str) -> bool {
+        self.agents.remove(name).is_some()
+    }
+
+    /// Clear all user-defined functions and agents (keep stdlib).
+    /// Python: `reset_definitions`.
+    pub fn reset_definitions(&mut self) {
+        self.functions.clear();
+        self.agents.clear();
+        self.current_agent = None;
+        // Re-register stdlib builtins
+        self.register_core_builtins();
+    }
+
+    /// Format context usage statistics for REPL display (P4).
+    /// Simplified version - returns basic stats since full history management
+    /// is not yet integrated in Rust.
+    pub fn format_context_stats(&self) -> String {
+        let mut lines = Vec::new();
+        lines.push("╔══════════════════════════════════════╗".to_string());
+        lines.push("║       Context Usage Statistics        ║".to_string());
+        lines.push("╠══════════════════════════════════════╣".to_string());
+        
+        // Basic stats
+        let fn_count = self.functions.len();
+        let agent_count = self.agents.len();
+        let env_size = self.environment.borrow().store_ref().len();
+        
+        lines.push(format!("║ Functions: {:<26} ║", fn_count));
+        lines.push(format!("║ Agents:    {:<26} ║", agent_count));
+        lines.push(format!("║ Env vars:  {:<26} ║", env_size));
+        lines.push(format!("║ Session:   {:<26} ║", if self.session_id.is_empty() { "(none)" } else { &self.session_id }));
+        
+        lines.push("╠──────────────────────────────────────╣".to_string());
+        lines.push("║ Note: Full token tracking requires   ║".to_string());
+        lines.push("║ transcript store integration (WIP)   ║".to_string());
+        lines.push("╚══════════════════════════════════════╝".to_string());
+        
+        lines.join("\n")
     }
 
     fn register_builtin(&mut self, name: &str, func: BuiltinImpl) {

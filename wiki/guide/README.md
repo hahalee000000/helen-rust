@@ -2,7 +2,7 @@
 
 > **Version**: v1.39 · **Updated**: 2026-08-09
 
-AI roams the digital space. AI says, "Let there be a language," and there was `pip install helen-lang`.
+AI roams the digital space. AI says, "Let there be a language," and there was `cargo install helen-rust`.
 
 ## What Is Helen?
 
