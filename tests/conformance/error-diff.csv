@@ -48,7 +48,7 @@ tests/programs/pytest/interpreter/test_llm_act_sees_resumed_history_via_interpre
 tests/programs/pytest/interpreter/test_llm_act_sees_resumed_history_via_spawn_resume.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_multiple_shared_let_visible.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_python_module_accessible_in_spawned_agent.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_resume_loads_history_end_to_end.helen,2,2,E0354 E0332 E0332 E0332 E0332,E0354 E0332 E0332 E0332 E0332,True
+tests/programs/pytest/interpreter/test_resume_loads_history_end_to_end.helen,2,2,E0332 E0332 E0332 E0332,E0332 E0332 E0332 E0332,True
 tests/programs/pytest/interpreter/test_resume_nonexistent_session_is_graceful.helen,2,2,E0332,E0332,True
 tests/programs/pytest/interpreter/test_resume_returns_same_session_id.helen,2,2,E0332,E0332,True
 tests/programs/pytest/interpreter/test_shared_let_mutable_in_spawned_agent.helen,0,0,,,True
@@ -56,7 +56,7 @@ tests/programs/pytest/interpreter/test_shared_let_visible_in_spawned_agent.helen
 tests/programs/pytest/interpreter/test_shared_let_with_nested_spawn.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_shared_store_fields_are_independent_after_spawn.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_shared_store_method_sees_caller_stdlib.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_shared_store_methods_work_after_spawn.helen,2,2,E0354,E0354,True
+tests/programs/pytest/interpreter/test_shared_store_methods_work_after_spawn.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_shared_store_reset_method_after_spawn.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_spawn_with_multiple_python_imports.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_spawn_with_python_module_import.helen,0,0,,,True

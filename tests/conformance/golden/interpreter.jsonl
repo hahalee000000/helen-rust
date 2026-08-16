@@ -2,7 +2,7 @@
 {"file": "test_llm_act_sees_resumed_history_via_spawn_resume.helen", "stdout": "MOCK_REPLY\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_multiple_shared_let_visible.helen", "stdout": "first\n42\ntrue\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_python_module_accessible_in_spawned_agent.helen", "stdout": "spawned_ok\n", "stderr": "", "exit_code": 0, "error_classes": []}
-{"file": "test_resume_loads_history_end_to_end.helen", "stdout": "", "stderr": "E0354: cannot shadow builtin 'mode'; choose a different name (hint: try 'modes', 'my_mode', or another non-builtin name)\nE0332: undeclared variable 'insert_message'\nE0332: undeclared variable 'get_session_id'\nE0332: undeclared variable 'get_session_id'\nE0332: undeclared variable 'search_context'", "exit_code": 2, "error_classes": []}
+{"file": "test_resume_loads_history_end_to_end.helen", "stdout": "", "stderr": "E0332: undeclared variable 'insert_message'\nE0332: undeclared variable 'get_session_id'\nE0332: undeclared variable 'get_session_id'\nE0332: undeclared variable 'search_context'", "exit_code": 2, "error_classes": []}
 {"file": "test_resume_nonexistent_session_is_graceful.helen", "stdout": "", "stderr": "E0332: undeclared variable 'get_session_id'", "exit_code": 2, "error_classes": []}
 {"file": "test_resume_returns_same_session_id.helen", "stdout": "", "stderr": "E0332: undeclared variable 'get_session_id'", "exit_code": 2, "error_classes": []}
 {"file": "test_shared_let_mutable_in_spawned_agent.helen", "stdout": "10\n999\n10\n", "stderr": "", "exit_code": 0, "error_classes": []}
@@ -10,7 +10,7 @@
 {"file": "test_shared_let_with_nested_spawn.helen", "stdout": "0\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_shared_store_fields_are_independent_after_spawn.helen", "stdout": "10\n999\n10\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_shared_store_method_sees_caller_stdlib.helen", "stdout": "0\n", "stderr": "", "exit_code": 0, "error_classes": []}
-{"file": "test_shared_store_methods_work_after_spawn.helen", "stdout": "", "stderr": "E0354: cannot shadow builtin 'count'; choose a different name (hint: try 'counts', 'my_count', or another non-builtin name)", "exit_code": 2, "error_classes": []}
+{"file": "test_shared_store_methods_work_after_spawn.helen", "stdout": "1\nok\n<built-in function count>\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_shared_store_reset_method_after_spawn.helen", "stdout": "0\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_spawn_with_multiple_python_imports.helen", "stdout": "success\n", "stderr": "", "exit_code": 0, "error_classes": []}
 {"file": "test_spawn_with_python_module_import.helen", "stdout": "ok\n", "stderr": "", "exit_code": 0, "error_classes": []}
