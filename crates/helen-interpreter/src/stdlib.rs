@@ -5312,6 +5312,18 @@ pub static TOOLS_EXPORTS: &[StdlibExport] = &[
         name: "list_skill_references",
         func: crate::tools::tools_list_skill_references,
     },
+    StdlibExport {
+        name: "read_file",
+        func: crate::tools::tools_read_file,
+    },
+    StdlibExport {
+        name: "write_file",
+        func: crate::tools::tools_write_file,
+    },
+    StdlibExport {
+        name: "shell_exec_full",
+        func: crate::tools::tools_shell_exec_full,
+    },
 ];
 
 pub static LLM_EXPORTS: &[StdlibExport] = &[
@@ -5508,6 +5520,10 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "cleanup_sessions",
         func: crate::transcript::transcript_cleanup_sessions,
+    },
+    StdlibExport {
+        name: "set_session_dir",
+        func: crate::transcript::transcript_set_session_dir,
     },
     StdlibExport {
         name: "release_session_lock",

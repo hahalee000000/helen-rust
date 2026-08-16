@@ -81,6 +81,8 @@ pub struct Interpreter {
     pub working_memory: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<Value>>>>,
     /// Call tracker for cancellable LLM calls (P3).
     pub call_tracker: std::sync::Arc<helen_runtime::call_tracking::CallTracker>,
+    /// Data lineage tracker for cross-agent data flow (P5).
+    pub data_lineage: std::sync::Arc<std::sync::Mutex<helen_runtime::data_lineage::DataLineageTracker>>,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -177,6 +179,7 @@ impl Interpreter {
             observability: crate::observability::ObservabilityManager::new(),
             working_memory: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             call_tracker: std::sync::Arc::new(helen_runtime::call_tracking::CallTracker::new()),
+            data_lineage: std::sync::Arc::new(std::sync::Mutex::new(helen_runtime::data_lineage::DataLineageTracker::new_in_memory())),
         };
         interp.register_core_builtins();
         interp

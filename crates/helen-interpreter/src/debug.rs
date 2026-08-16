@@ -9,11 +9,21 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
-use crate::stdlib::json_to_value;
+use crate::stdlib::{json_to_value, value_to_json};
 use crate::value::Value;
+
+// ---------------------------------------------------------------------------
+// Helper functions
+// ---------------------------------------------------------------------------
+
+fn make_error_map(msg: &str) -> Value {
+    let mut result = indexmap::IndexMap::new();
+    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+    result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(msg)));
+    Value::Map(Rc::new(RefCell::new(result)))
+}
 
 // ---------------------------------------------------------------------------
 // Thread-local trace state (used by trace_on/trace_off/get_trace)
@@ -171,42 +181,88 @@ pub fn debug_error_data_flow(_i: &mut Interpreter, args: &[Value]) -> Result<Val
 }
 
 // ---------------------------------------------------------------------------
-// Data lineage — requires _data_lineage_tracker (not yet ported)
-// Python returns [] / {} when tracker is None.
+// Data lineage — uses DataLineageTracker on interpreter.
 // ---------------------------------------------------------------------------
 
 /// Record data flow (manual).
 /// Python: delegates to `interp._data_lineage_tracker.record_flow(...)`.
-pub fn debug_record_data_flow(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    // No data lineage tracker in Rust yet — return Python's fallback.
+pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let producer_uuid = match args.get(0) {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => return Ok(make_error_map("producer_uuid (string) required")),
+    };
+    let consumer_uuid = match args.get(1) {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => return Ok(make_error_map("consumer_uuid (string) required")),
+    };
+    let flow_type = match args.get(2) {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => return Ok(make_error_map("flow_type (string) required")),
+    };
+    let metadata = match args.get(3) {
+        Some(Value::Map(m)) => {
+            match value_to_json(&Value::Map(m.clone())) {
+                Ok(json_val) => Some(json_val),
+                Err(_) => None,
+            }
+        }
+        _ => None,
+    };
+
+    let mut tracker = i.data_lineage.lock().unwrap();
+    tracker.record_flow(&producer_uuid, &consumer_uuid, &flow_type, metadata.as_ref());
+
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("recorded")));
     result.insert(
         Value::Str(Rc::from("message")),
-        Value::Str(Rc::from("Data lineage tracker not initialized")),
+        Value::Str(Rc::from(format!("Recorded {} flow from {} to {}", flow_type, producer_uuid, consumer_uuid).as_str())),
     );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Trace value origin.
 /// Python: returns `tracker.get_origin(uuid)` or [] if no tracker.
-pub fn debug_trace_value_origin(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    Ok(Value::List(Rc::new(RefCell::new(vec![]))))
+pub fn debug_trace_value_origin(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let message_uuid = match args.get(0) {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
+    };
+
+    let tracker = i.data_lineage.lock().unwrap();
+    let flows = tracker.get_origin(&message_uuid);
+
+    let result: Vec<Value> = flows
+        .into_iter()
+        .map(|f| json_to_value(&f.to_dict()))
+        .collect();
+    Ok(Value::List(Rc::new(RefCell::new(result))))
 }
 
 /// Trace value consumers.
 /// Python: returns `tracker.get_consumers(uuid)` or [] if no tracker.
-pub fn debug_trace_value_consumers(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    Ok(Value::List(Rc::new(RefCell::new(vec![]))))
+pub fn debug_trace_value_consumers(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let message_uuid = match args.get(0) {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
+    };
+
+    let tracker = i.data_lineage.lock().unwrap();
+    let flows = tracker.get_consumers(&message_uuid);
+
+    let result: Vec<Value> = flows
+        .into_iter()
+        .map(|f| json_to_value(&f.to_dict()))
+        .collect();
+    Ok(Value::List(Rc::new(RefCell::new(result))))
 }
 
 /// Get data lineage graph.
 /// Python: returns `tracker.get_full_lineage()` or {"nodes":[], "edges":[]} if no tracker.
-pub fn debug_get_data_lineage(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("nodes")), Value::List(Rc::new(RefCell::new(vec![]))));
-    result.insert(Value::Str(Rc::from("edges")), Value::List(Rc::new(RefCell::new(vec![]))));
-    Ok(Value::Map(Rc::new(RefCell::new(result))))
+pub fn debug_get_data_lineage(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    let tracker = i.data_lineage.lock().unwrap();
+    let lineage = tracker.get_full_lineage();
+    Ok(json_to_value(&lineage))
 }
 
 // ---------------------------------------------------------------------------

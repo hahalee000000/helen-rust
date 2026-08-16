@@ -20,6 +20,17 @@ use crate::value::Value;
 // Helpers
 // ---------------------------------------------------------------------------
 
+fn arg_str(args: &[Value], i: usize) -> Result<String, ExceptionValue> {
+    match args.get(i) {
+        Some(Value::Str(s)) => Ok(s.to_string()),
+        _ => Err(ExceptionValue::new(
+            "TypeError",
+            format!("argument {} must be a string", i),
+            None,
+        )),
+    }
+}
+
 fn arg_str_or<'a>(args: &'a [Value], i: usize, default: &'a str) -> &'a str {
     match args.get(i) {
         Some(Value::Str(s)) => s.as_ref(),
@@ -629,4 +640,45 @@ pub fn transcript_cleanup_sessions(interp: &mut Interpreter, args: &[Value]) -> 
     let removed = manager.cleanup_old_sessions(keep_count);
     drop(manager);
     Ok(Value::Int(num_bigint::BigInt::from(removed as i64)))
+}
+
+/// Set the transcript session directory at runtime.
+pub fn transcript_set_session_dir(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let path = arg_str(args, 0)?;
+    
+    // Get current session directory
+    let previous = {
+        let manager = interp.session_manager.lock().unwrap();
+        if interp.session_id.is_empty() {
+            manager.base_dir.to_string_lossy().to_string()
+        } else {
+            manager.get_session_dir(&interp.session_id).to_string_lossy().to_string()
+        }
+    };
+    
+    // Resolve to absolute path
+    let abs_path = if std::path::Path::new(&path).is_absolute() {
+        std::path::PathBuf::from(&path)
+    } else {
+        std::env::current_dir()
+            .map_err(|e| ExceptionValue::new("RuntimeError", format!("Failed to get current directory: {}", e), None))?
+            .join(&path)
+    };
+    
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&abs_path)
+        .map_err(|e| ExceptionValue::new("RuntimeError", format!("Failed to create directory: {}", e), None))?;
+    
+    // Update session manager base_dir directly
+    {
+        let mut manager = interp.session_manager.lock().unwrap();
+        manager.base_dir = abs_path.clone();
+    }
+    
+    let mut result = indexmap::IndexMap::new();
+    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
+    result.insert(Value::Str(Rc::from("session_dir")), Value::Str(Rc::from(abs_path.to_string_lossy().as_ref())));
+    result.insert(Value::Str(Rc::from("previous")), Value::Str(Rc::from(previous.as_str())));
+    
+    Ok(Value::Map(Rc::new(RefCell::new(result))))
 }

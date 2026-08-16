@@ -164,3 +164,34 @@ pub fn tools_list_skill_references(_i: &mut Interpreter, args: &[Value]) -> Resu
         Err(_) => Ok(Value::Str(Rc::from(result.as_str()))),
     }
 }
+
+/// Read the content of a local file.
+/// Python: `_read_file(path)`
+pub fn tools_read_file(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let path = arg_str(args, 0)?;
+    dispatch("read_file", serde_json::json!({ "path": path }))
+}
+
+/// Write content to a local file.
+/// Python: `_write_file(path, content)`
+pub fn tools_write_file(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let path = arg_str(args, 0)?;
+    let content = arg_str(args, 1)?;
+    dispatch("write_file", serde_json::json!({ "path": path, "content": content }))
+}
+
+/// Execute a shell command and return full result as JSON.
+/// Python: `_shell_exec_full(command, timeout=30, shell=True)`
+pub fn tools_shell_exec_full(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let command = arg_str(args, 0)?;
+    let timeout = arg_int_or(args, 1, 30);
+    let shell = arg_bool_or(args, 2, true);
+    dispatch(
+        "shell_exec_full",
+        serde_json::json!({
+            "command": command,
+            "timeout": timeout,
+            "shell": shell,
+        }),
+    )
+}

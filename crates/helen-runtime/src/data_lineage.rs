@@ -68,6 +68,17 @@ impl DataLineageTracker {
         tracker
     }
 
+    /// Create an in-memory tracker (no persistence).
+    pub fn new_in_memory() -> Self {
+        Self {
+            session_dir: PathBuf::new(),
+            session_id: String::new(),
+            db_path: PathBuf::new(),
+            flows: Vec::new(),
+            dirty: false,
+        }
+    }
+
     /// Load persisted flows (tolerates missing/corrupt files).
     fn load(&mut self) {
         let jsonl_path = self.jsonl_path();
