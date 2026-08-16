@@ -4715,4 +4715,285 @@ main {
             assert_eq!(v["output"], "Echo: from helen");
         });
     }
+
+    // =========================================================================
+    // Phase 2: Comprehensive stdlib integration tests
+    // =========================================================================
+
+    #[test]
+    fn phase2_str_upper() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(upper("hello"))
+    print(upper("Hello World"))
+    print(upper(""))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "HELLO\nHELLO WORLD\n\n");
+    }
+
+    #[test]
+    fn phase2_str_lower() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(lower("HELLO"))
+    print(lower("Hello World"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "hello\nhello world\n");
+    }
+
+    #[test]
+    fn phase2_str_trim() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(trim("  hello  "))
+    print(trim("hello"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "hello\nhello\n");
+    }
+
+    #[test]
+    fn phase2_str_contains() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(contains("hello world", "world"))
+    print(contains("hello world", "xyz"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "true\nfalse\n");
+    }
+
+    #[test]
+    fn phase2_str_startswith_endswith() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(startswith("hello world", "hello"))
+    print(endswith("hello world", "world"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "true\ntrue\n");
+    }
+
+    #[test]
+    fn phase2_str_replace() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(replace("hello world", "world", "rust"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "hello rust\n");
+    }
+
+    #[test]
+    fn phase2_str_reverse() {
+        let src = r#"import std.core.*
+import std.str.*
+main {
+    print(reverse("hello"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out, "olleh\n");
+    }
+
+    #[test]
+    fn phase2_math_pow() {
+        let src = r#"import std.core.*
+import std.math.*
+main {
+    print(pow(2, 3))
+    print(pow(5, 0))
+    print(pow(3, 2))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "8.0");
+        assert_eq!(lines[1], "1.0");
+        assert_eq!(lines[2], "9.0");
+    }
+
+    #[test]
+    fn phase2_math_sqrt() {
+        let src = r#"import std.core.*
+import std.math.*
+main {
+    print(sqrt(4.0))
+    print(sqrt(9.0))
+    print(sqrt(16.0))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2.0");
+        assert_eq!(lines[1], "3.0");
+        assert_eq!(lines[2], "4.0");
+    }
+
+    #[test]
+    fn phase2_math_floor_ceil_round() {
+        let src = r#"import std.core.*
+import std.math.*
+main {
+    print(floor(3.7))
+    print(ceil(3.2))
+    print(round(3.7))
+    print(round(3.2))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "4");
+        assert_eq!(lines[2], "4.0");
+        assert_eq!(lines[3], "3.0");
+    }
+
+    #[test]
+    fn phase2_math_mean() {
+        let src = r#"import std.core.*
+import std.math.*
+main {
+    let nums = [1.0, 2.0, 3.0, 4.0, 5.0]
+    print(mean(nums))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3.0");
+    }
+
+    #[test]
+    fn phase2_math_median() {
+        let src = r#"import std.core.*
+import std.math.*
+main {
+    let nums = [3.0, 1.0, 2.0]
+    print(median(nums))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2.0");
+    }
+
+    #[test]
+    fn phase2_list_sort() {
+        let src = r#"import std.core.*
+main {
+    let nums = [3, 1, 2]
+    nums.sort()
+    print(nums)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "[1, 2, 3]");
+    }
+
+    #[test]
+    fn phase2_list_sort_strings() {
+        let src = r#"import std.core.*
+main {
+    let words = ["banana", "apple", "cherry"]
+    words.sort()
+    print(words)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "['apple', 'banana', 'cherry']");
+    }
+
+    #[test]
+    fn phase2_list_copy() {
+        let src = r#"import std.core.*
+main {
+    let original = [1, 2, 3]
+    let copy = original.copy()
+    copy.append(4)
+    print(original)
+    print(copy)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "[1, 2, 3]");
+        assert_eq!(lines[1], "[1, 2, 3, 4]");
+    }
+
+    #[test]
+    fn phase2_dict_keys_values() {
+        let src = r#"import std.core.*
+main {
+    let d = {"a": 1, "b": 2, "c": 3}
+    let keys = d.keys()
+    let values = d.values()
+    print(len(keys))
+    print(len(values))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase2_dict_get() {
+        let src = r#"import std.core.*
+main {
+    let d = {"a": 1, "b": 2}
+    print(d.get("a"))
+    print(d.get("c", 99))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "99");
+    }
+
+    #[test]
+    fn phase2_dict_get_default() {
+        let src = r#"import std.core.*
+main {
+    let d = {"a": 1, "b": 2}
+    print(d.get("a", 0))
+    print(d.get("c", 99))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "99");
+    }
 }
