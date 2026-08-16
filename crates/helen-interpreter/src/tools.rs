@@ -1,91 +1,17 @@
 //! Tool stdlib functions (web_search, web_fetch, shell_exec, etc.).
 //!
-//! Byte-faithful port of `helen/stdlib/tools.py` (v1.44.0): provides
-//! agent tool functions for web access, shell execution, etc.
+//! Byte-faithful port of `helen/stdlib/tools.py` (v1.44.0): delegates to
+//! `helen_runtime::tools::dispatch_tool` for real implementations.
 
-use std::cell::RefCell;
 use std::rc::Rc;
-
-use num_bigint::BigInt;
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
+use crate::stdlib::json_to_value;
 use crate::value::Value;
 
-/// Search the web.
-pub fn tools_web_search(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _query = arg_str(args, 0)?;
-    // Stub: web search requires external API integration
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        "web_search is not available in this runtime build".to_string(),
-        None,
-    ))
-}
-
-/// Fetch a web page.
-pub fn tools_web_fetch(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _url = arg_str(args, 0)?;
-    // Stub: web fetch requires external API integration
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        "web_fetch is not available in this runtime build".to_string(),
-        None,
-    ))
-}
-
-/// Execute a shell command.
-pub fn tools_shell_exec(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _command = arg_str(args, 0)?;
-    // Stub: shell execution requires security considerations
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        "shell_exec is not available in this runtime build".to_string(),
-        None,
-    ))
-}
-
-/// Calculate a mathematical expression.
-pub fn tools_calculate(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _expression = arg_str(args, 0)?;
-    // Stub: expression evaluation requires safe parsing
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        "calculate is not available in this runtime build".to_string(),
-        None,
-    ))
-}
-
-/// Patch a file.
-pub fn tools_patch_file(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    // Stub: file patching requires careful implementation
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        "patch_file is not available in this runtime build".to_string(),
-        None,
-    ))
-}
-
-/// Load a skill.
-pub fn tools_load_skill(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _skill_name = arg_str(args, 0)?;
-    // Stub: skill loading requires skill registry
-    Err(ExceptionValue::new(
-        "RuntimeError",
-        "load_skill is not available in this runtime build".to_string(),
-        None,
-    ))
-}
-
-/// List skill references.
-pub fn tools_list_skill_references(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let _skill_name = arg_str(args, 0)?;
-    // Stub: skill registry not yet implemented
-    Ok(Value::List(Rc::new(RefCell::new(vec![]))))
-}
-
 // ---------------------------------------------------------------------------
-// Helper functions
+// Helpers
 // ---------------------------------------------------------------------------
 
 fn arg_str(args: &[Value], i: usize) -> Result<String, ExceptionValue> {
@@ -101,5 +27,140 @@ fn arg_str(args: &[Value], i: usize) -> Result<String, ExceptionValue> {
             format!("Missing required argument at position {}", i),
             None,
         )),
+    }
+}
+
+fn arg_int_or(args: &[Value], i: usize, default: i64) -> i64 {
+    match args.get(i) {
+        Some(Value::Int(n)) => {
+            let s = n.to_string();
+            s.parse::<i64>().unwrap_or(default)
+        }
+        Some(Value::Bool(b)) => if *b { 1 } else { 0 },
+        _ => default,
+    }
+}
+
+fn arg_bool_or(args: &[Value], i: usize, default: bool) -> bool {
+    match args.get(i) {
+        Some(Value::Bool(b)) => *b,
+        Some(Value::Int(n)) => {
+            let s = n.to_string();
+            s.parse::<i64>().unwrap_or(0) != 0
+        }
+        _ => default,
+    }
+}
+
+/// Call `helen_runtime::tools::dispatch_tool(name, args_json)` and return
+/// the result as a Helen `Value::Str` (byte-faithful to Python which returns
+/// the raw string from the tool handler).
+fn dispatch(name: &str, args_json: serde_json::Value) -> Result<Value, ExceptionValue> {
+    let result = helen_runtime::tools::dispatch_tool(name, &args_json);
+    Ok(Value::Str(Rc::from(result.as_str())))
+}
+
+// ---------------------------------------------------------------------------
+// Tool wrappers — byte-faithful port of helen/stdlib/tools.py
+// ---------------------------------------------------------------------------
+
+/// Search the web.
+/// Python: `_web_search(query, num_results=3)` → `helen.runtime.tools._web_search`
+pub fn tools_web_search(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let query = arg_str(args, 0)?;
+    let num_results = arg_int_or(args, 1, 3);
+    dispatch(
+        "web_search",
+        serde_json::json!({
+            "query": query,
+            "num_results": num_results,
+        }),
+    )
+}
+
+/// Fetch a web page.
+/// Python: `_web_fetch(url)` → `helen.runtime.tools._web_fetch`
+pub fn tools_web_fetch(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let url = arg_str(args, 0)?;
+    dispatch(
+        "web_fetch",
+        serde_json::json!({
+            "url": url,
+        }),
+    )
+}
+
+/// Execute a shell command.
+/// Python: `_shell_exec(command, timeout=30, shell=True)` → raw stdout string
+pub fn tools_shell_exec(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let command = arg_str(args, 0)?;
+    let timeout = arg_int_or(args, 1, 30);
+    let shell = arg_bool_or(args, 2, true);
+    dispatch(
+        "shell_exec",
+        serde_json::json!({
+            "command": command,
+            "timeout": timeout,
+            "shell": shell,
+        }),
+    )
+}
+
+/// Calculate a mathematical expression.
+/// Python: `_calculate(expression)` → JSON string with result
+pub fn tools_calculate(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let expression = arg_str(args, 0)?;
+    dispatch(
+        "calculate",
+        serde_json::json!({
+            "expression": expression,
+        }),
+    )
+}
+
+/// Patch a file using fuzzy matching.
+/// Python: `_patch_file(path, old_string, new_string, replace_all=False)`
+pub fn tools_patch_file(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let path = arg_str(args, 0)?;
+    let old_string = arg_str(args, 1)?;
+    let new_string = arg_str(args, 2)?;
+    let replace_all = arg_bool_or(args, 3, false);
+    dispatch(
+        "patch_file",
+        serde_json::json!({
+            "path": path,
+            "old_string": old_string,
+            "new_string": new_string,
+            "replace_all": replace_all,
+        }),
+    )
+}
+
+/// Load a skill by name.
+/// Python: `_load_skill(name, include_references=False)`
+pub fn tools_load_skill(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let name = arg_str(args, 0)?;
+    let include_references = arg_bool_or(args, 1, false);
+    dispatch(
+        "load_skill",
+        serde_json::json!({
+            "name": name,
+            "include_references": include_references,
+        }),
+    )
+}
+
+/// List skill references.
+/// Python: `_list_skill_references(name)`
+pub fn tools_list_skill_references(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let name = arg_str(args, 0)?;
+    let result = helen_runtime::tools::dispatch_tool(
+        "list_skill_references",
+        &serde_json::json!({ "name": name }),
+    );
+    // Parse JSON result and convert to Helen Value
+    match serde_json::from_str::<serde_json::Value>(&result) {
+        Ok(json) => Ok(json_to_value(&json)),
+        Err(_) => Ok(Value::Str(Rc::from(result.as_str()))),
     }
 }

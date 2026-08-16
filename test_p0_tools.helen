@@ -1,0 +1,14 @@
+import std.core.*
+import std.tools.*
+import std.debug.*
+
+main {
+    let calc_result = calculate("2 + 3 * 4")
+    print("calculate: " + str(calc_result))
+    
+    let shell_result = shell_exec("echo hello")
+    print("shell_exec: " + str(shell_result))
+    
+    let log = get_llm_log()
+    print("get_llm_log: " + str(log))
+}

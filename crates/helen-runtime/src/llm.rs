@@ -64,4 +64,23 @@ pub trait LlmRuntime: Send + Sync {
         thinking_enabled: bool,
         reasoning_effort: Option<&str>,
     ) -> Result<(), String>;
+
+    // -----------------------------------------------------------------------
+    // Recording / replay (optional — default: not supported)
+    // -----------------------------------------------------------------------
+
+    /// Whether this runtime supports recording LLM calls to a cassette.
+    fn supports_recording(&self) -> bool {
+        false
+    }
+
+    /// Start recording LLM calls to the given cassette path.
+    fn enable_recording(&mut self, _cassette_path: &str) -> Result<(), String> {
+        Err("Recording not supported by this LLM runtime".to_string())
+    }
+
+    /// Stop recording LLM calls.
+    fn disable_recording(&mut self) -> Result<(), String> {
+        Err("Recording not supported by this LLM runtime".to_string())
+    }
 }
