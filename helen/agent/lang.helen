@@ -1,0 +1,29 @@
+// Helen Agent - 语言辅助模块
+// 根据 HELEN_WEBUI_LANG 环境变量选择中英文
+
+import std.core.*
+import std.str.*
+import std.system.*
+
+shared let _current_lang = "en"
+
+/** 从环境变量初始化语言（actor 启动时调用） */
+fn init_lang() {
+    let lang = env_get("HELEN_WEBUI_LANG", "en")
+    if contains(lang, "zh") {
+        _current_lang = "zh"
+    } else {
+        _current_lang = "en"
+    }
+}
+
+/** 双语选择：根据当前语言返回 en 或 zh 字符串 */
+fn _t(en: str, zh: str): str {
+    if _current_lang == "zh" { return zh }
+    return en
+}
+
+/** 获取当前语言 */
+fn get_lang(): str {
+    return _current_lang
+}

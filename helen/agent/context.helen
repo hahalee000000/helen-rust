@@ -1,0 +1,165 @@
+// context.helen — 情境事实收集器
+// 统一为 ChatSession 和 specialist agents 提供上下文注入
+//
+// 设计原则：
+// - 所有事实通过 shell_exec / stdlib 收集，不依赖 LLM 推理
+// - 分两级：full_context（ChatSession 用）/ project_context（specialist 用）
+// - XML 格式便于 LLM 解析，便于扩展新字段
+//
+// 注：git / Helen 版本的检测函数已提取到 utils.helen（共享，避免与
+// context_manager.helen 各自重复实现）。
+
+import std.core.*
+import std.crypto.*
+import std.path.*
+import std.str.*
+import std.system.*
+import std.time.*
+import std.tools.*
+import std.transcript.*
+import "utils.helen"
+
+// ── 事实收集 ──
+
+/** 收集所有环境事实（用于 full_context） */
+fn collect_all_facts(): map {
+    let facts = {}
+
+    // ── 环境层（所有应用通用）──
+    // 跨平台：使用 stdlib 代替 shell 命令
+    facts["current_date"] = date()  // 返回 "YYYY-MM-DD"
+    facts["platform"] = platform()  // 返回 "linux", "darwin", "windows"
+    facts["user"] = strip(shell_exec("whoami"))  // whoami 跨平台可用
+    facts["cwd"] = get_cwd()
+    facts["home"] = get_home()
+    facts["shell"] = _detect_shell()
+
+    // session_id：优先用 stdlib，失败则 shell 生成
+    facts["session_id"] = _safe_session_id()
+
+    // locale：从环境变量推断
+    facts["locale"] = _detect_locale()
+
+    // ── 项目层（编程场景特有）──
+    facts["project_root"] = facts["cwd"]  // 默认 = cwd，可被覆盖
+    facts["project_type"] = _detect_project_type(facts["cwd"])
+    facts["git_branch"] = safe_git_branch()
+    facts["git_dirty"] = check_git_dirty()
+    facts["helen_version"] = detect_helen_version()  // 动态检测（读取 ~/helen changelog）
+
+    return facts
+}
+
+/** 收集项目层事实子集（用于 specialist agents） */
+fn collect_project_facts(): map {
+    let cwd = get_cwd()
+    let facts = {}
+    facts["project_root"] = cwd
+    facts["project_type"] = _detect_project_type(cwd)
+    facts["helen_version"] = detect_helen_version()  // 动态检测
+    facts["current_date"] = date()
+    return facts
+}
+
+// ── XML 渲染 ──
+
+/** 完整上下文 XML（ChatSession 用） */
+fn build_full_context_xml(facts: map): str {
+    let xml = "<context>\n"
+    xml = xml + "  <environment>\n"
+    xml = xml + "    <current_date>" + _esc(facts, "current_date") + "</current_date>\n"
+    xml = xml + "    <platform>" + _esc(facts, "platform") + "</platform>\n"
+    xml = xml + "    <user>" + _esc(facts, "user") + "</user>\n"
+    xml = xml + "    <session_id>" + _esc(facts, "session_id") + "</session_id>\n"
+    xml = xml + "    <cwd>" + _esc(facts, "cwd") + "</cwd>\n"
+    xml = xml + "    <home>" + _esc(facts, "home") + "</home>\n"
+    xml = xml + "    <shell>" + _esc(facts, "shell") + "</shell>\n"
+    xml = xml + "    <locale>" + _esc(facts, "locale") + "</locale>\n"
+    xml = xml + "  </environment>\n"
+    xml = xml + "  <project>\n"
+    xml = xml + "    <root>" + _esc(facts, "project_root") + "</root>\n"
+    xml = xml + "    <type>" + _esc(facts, "project_type") + "</type>\n"
+    xml = xml + "    <git_branch>" + _esc(facts, "git_branch") + "</git_branch>\n"
+    xml = xml + "    <git_dirty>" + _esc(facts, "git_dirty") + "</git_dirty>\n"
+    xml = xml + "    <helen_version>" + _esc(facts, "helen_version") + "</helen_version>\n"
+    xml = xml + "  </project>\n"
+    xml = xml + "</context>"
+    return xml
+}
+
+/** 项目上下文 XML（specialist agents 用，精简版） */
+fn build_project_context_xml(facts: map): str {
+    let xml = "<project_context>\n"
+    xml = xml + "  <project_root>" + _esc(facts, "project_root") + "</project_root>\n"
+    xml = xml + "  <project_type>" + _esc(facts, "project_type") + "</project_type>\n"
+    xml = xml + "  <helen_version>" + _esc(facts, "helen_version") + "</helen_version>\n"
+    xml = xml + "  <current_date>" + _esc(facts, "current_date") + "</current_date>\n"
+    xml = xml + "</project_context>"
+    return xml
+}
+
+// ── 内部辅助 ──
+
+fn _esc(facts: map, key: str): str {
+    try {
+        let v = facts[key]
+        if v == null { return "unknown" }
+        // 转义 XML 特殊字符
+        let s = str(v)
+        s = replace(s, "&", "&amp;")
+        s = replace(s, "<", "&lt;")
+        s = replace(s, ">", "&gt;")
+        return s
+    } catch {
+        return "unknown"
+    }
+}
+
+fn _safe_session_id(): str {
+    try {
+        let sid = get_session_id()
+        if sid != null && sid != "" { return sid }
+    } catch { }
+    // 回退：用 stdlib 生成（跨平台）
+    let ts = str(int(time()))
+    let rand = str(int(random() * 99999))
+    return "session_" + ts + "_" + rand
+}
+
+/** 跨平台检测 shell 类型 */
+fn _detect_shell(): str {
+    // Unix: $SHELL 环境变量
+    let shell = env_get("SHELL", "")
+    if shell != "" { return shell }
+    // Windows: $ComSpec 或默认 cmd.exe
+    let comspec = env_get("ComSpec", "")
+    if comspec != "" { return comspec }
+    if platform() == "windows" { return "cmd.exe" }
+    return "/bin/sh"
+}
+
+fn _detect_locale(): str {
+    // 跨平台：尝试多个环境变量
+    let lang = env_get("LANG", "")
+    if lang == "" { lang = env_get("LANGUAGE", "") }
+    if lang == "" { lang = env_get("LC_ALL", "") }
+    if contains(lang, "zh") { return "zh-CN" }
+    if contains(lang, "en") { return "en-US" }
+    if contains(lang, "ja") { return "ja-JP" }
+    return "en-US"
+}
+
+fn _detect_project_type(cwd: str): str {
+    if path_exists(path_join(cwd, "CLAUDE.md")) {
+        let cl = read_file(path_join(cwd, "CLAUDE.md"))
+        if contains(cl, "Helen") || contains(cl, "helen") { return "helen" }
+    }
+    if path_exists(path_join(cwd, "package.json")) { return "node" }
+    if path_exists(path_join(cwd, "Cargo.toml")) { return "rust" }
+    if path_exists(path_join(cwd, "pyproject.toml")) { return "python" }
+    if path_exists(path_join(cwd, "go.mod")) { return "go" }
+    return "unknown"
+}
+
+// 注：_safe_git_branch / _detect_git_dirty / _detect_version 已移至 utils.helen
+// （共享给 context_manager.helen，避免双份实现）。

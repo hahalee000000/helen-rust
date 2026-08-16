@@ -1014,6 +1014,7 @@ mod exact_parity {
     }
 
     #[test]
+    #[ignore] // Requires /tmp/py_summary.json from Python reference (run setup script first)
     fn summary_matches_python_exactly() {
         let h = HistoryManager::new(None, Some(2000), None);
         let mut history = vec![

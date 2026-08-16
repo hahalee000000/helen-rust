@@ -1,0 +1,19 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        main {
+            let x = 15
+            match x {
+                case 10..20 if x > 12 && x < 18 {
+                    print("in sweet spot")
+                }
+                default {
+                    print("outside")
+                }
+            }
+        }
+        

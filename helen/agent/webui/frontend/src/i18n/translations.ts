@@ -1,0 +1,342 @@
+// Helen WebUI i18n translations
+// Add new keys here as they're needed in components.
+
+export type Lang = 'en' | 'zh'
+
+export const translations = {
+  en: {
+    // === Layout / Navigation ===
+    'nav.chat': 'Chat',
+    'nav.settings': 'Settings',
+    'nav.transcripts': 'Transcripts',
+    'lang.switch': '中文',  // Button label: shows the OTHER language
+
+    // === Settings page ===
+    'settings.title': 'Settings',
+    'settings.token.section': 'Access Token',
+    'settings.token.current': 'Current token saved',
+    'settings.token.copy': 'Copy',
+    'settings.token.clear': 'Clear',
+    'settings.token.empty': 'No token set. If the backend requires auth, requests will prompt for one.',
+    'settings.token.placeholder': 'Enter new token',
+    'settings.token.save': 'Save',
+    'settings.token.saved': '✓ Token saved',
+    'settings.token.hint': 'Source: token printed in backend startup log, or the',
+    'settings.token.hintFile': 'file.',
+    'settings.system.title': 'System Information',
+    'settings.system.version': 'Version',
+    'settings.system.helenPath': 'Helen Path',
+    'settings.system.backendApi': 'Backend API',
+    'settings.system.backendApiValue': 'Via vite proxy (same-origin)',
+    'settings.loading': 'Loading...',
+
+    // === Chat page ===
+    'chat.loadFailed': 'Chat page failed to load',
+    'chat.empty': 'Start a conversation!',
+    'chat.scrollBottom': 'Scroll to bottom',
+    'chat.atBottom': 'Back to bottom',
+    'chat.messageList': 'Message list',
+    'chat.selectSession': 'Select a session to start chatting',
+    'chat.orCreate': 'Or create a new session',
+    'chat.thinking': 'Helen is thinking...',
+    'chat.pauseAutoScroll': 'Pause auto-scroll',
+    'chat.resumeAutoScroll': 'Resume auto-scroll',
+
+    // === Message input ===
+    'message.placeholder': 'Type a message... (Shift+Enter for newline)',
+    'message.hintPlaceholder': 'Type a 💡 hint, press Enter or click Append (won\'t interrupt current generation)...',
+    'message.send': 'Send',
+    'message.stop': 'Stop',
+    'message.stopTitle': 'Stop generating',
+    'message.append': 'Append',
+    'message.appendTitle': 'Append as hint (without interrupting current generation)',
+    'message.hint': 'Hint',
+    'message.uploading': 'Uploading...',
+    'message.attach': 'Attach file',
+    'message.attachment': 'Attachment',
+    'message.remove': 'Remove',
+    'message.stopped': 'Generation stopped',
+    'message.stoppedInline': '⚠️ Generation stopped',
+    'message.queued': 'Hint queued, will be injected after current tool ends',
+    'message.queuedInline': '💡 Hint queued, will be injected after current tool ends',
+    'message.injected': 'Hint injected into LLM context',
+    'message.injectedInline': '💡 Hint injected into LLM context',
+    'message.processing': 'Processing...',
+    'message.processingInline': '⎿ Processing...',
+    'message.executing': '⎿ {content} running...',
+    'message.completed': '⎿ ✓ {content}',
+    'message.phase': '[{content}]',
+
+    // === Directory bar ===
+    'dir.cwd': 'Working directory',
+    'dir.switch': 'Switch working directory',
+    'dir.switched': 'Single-session architecture: backend working directory switched',
+    'dir.currentDir': '📂 Current directory: **{name}** (`{path}`)',
+    'dir.switchedTo': '✅ Switched to: **{name}**',
+    'dir.switchFailed': '❌ Switch failed: {reason}',
+
+    // === Status line ===
+    'status.connected': 'Connected',
+    'status.disconnected': 'Disconnected',
+    'status.disconnectedShort': '● Disconnected',
+    'status.client': 'Client',
+    'status.contextUsage': 'Context usage {pct}%',
+    'status.waiting': 'Waiting for connection...',
+    'status.sessionState': 'Session state',
+
+    // === Messages / content ===
+    'msg.toolCalling': '🔧 Calling',
+    'msg.toolResult': '✅ {name} returned:',
+    'msg.boundaryMarker': 'BoundaryMarker inserted, display cleared',
+    'msg.clearedFromDb': 'No longer reloaded from DB (transcript is SSOT, now empty)',
+
+    // Tool result summary strings (used in tool result display)
+    'msg.written': '✓ Written {path}',
+    'msg.writtenWithSize': '✓ Written {path} ({size})',
+    'msg.lines': '{n} lines',
+    'msg.commandDone': '✓ Command completed',
+    'msg.commandDoneWithExit': '✓ Command completed (exit {code})',
+    'msg.syntaxPassed': '✓ Syntax check passed',
+    'msg.syntaxError': '✗ Syntax error: {error}',
+    'msg.unknown': 'unknown',
+    'msg.testsPassed': '✓ Tests passed',
+    'msg.testsPassedCount': '✓ Tests passed ({passed}/{total})',
+    'msg.testsFailed': '✗ Tests failed',
+    'msg.testsFailedCount': '✗ Tests failed ({failed}/{total})',
+    'msg.qualityScore': 'Quality score: {score}',
+    'msg.evalComplete': '✓ Evaluation complete',
+    'msg.done': 'done',
+    'msg.mermaidFailed': 'Mermaid render failed',
+
+    // Tool call labels (shown in tool call cards)
+    'tool.write': 'Write file {path}',
+    'tool.writeDetail': '{size} · {n} lines',
+    'tool.read': 'Read file',
+    'tool.patch': 'Edit file',
+    'tool.shell': 'Run command',
+    'tool.listDir': 'List directory',
+    'tool.helenCheck': 'Helen syntax check',
+    'tool.helenTests': 'Run tests',
+    'tool.quality': 'Quality assessment',
+    'tool.webSearch': 'Web search',
+    'tool.webFetch': 'Fetch page',
+
+    // === Session / transcript ===
+    'session.list': 'Sessions',
+    'session.delete': 'Delete',
+    'session.removed': 'Removed',
+    'session.resume': 'Resume',
+    'session.related': 'Related',
+
+    // === Auth gate ===
+    'auth.title': 'Access Token Required',
+    'auth.description': 'Backend requires X-Helen-Token. Enter the token printed in startup log, or the value in',
+    'auth.descriptionFile': 'file.',
+    'auth.placeholder': 'Paste token',
+    'auth.submit': 'Submit',
+    'auth.clear': 'Clear',
+    'auth.error': 'Authentication failed. Please check the token.',
+
+    // === Error boundary ===
+    'error.title': 'Something went wrong',
+    'error.reload': 'Reload page',
+    'error.retry': 'Retry',
+    'error.unknownMessage': 'An unknown error occurred',
+    'error.settingsFailed': 'Settings page failed to load',
+    'error.llmError': 'LLM error: {message}',
+    'error.llmUnknown': 'LLM error: unknown error',
+    'error.actorInternal': 'Actor internal error: {message}',
+    'error.actorExited': 'Error: Actor has exited',
+    'error.actorException': 'Error: Actor returned exception: {message}',
+    'error.actorInvalidResponse': 'Error: Actor returned invalid response',
+    'error.actorStatus': 'Actor status: {status}',
+    'error.generic': 'Error: {message}',
+    'error.unknownResponseType': 'Unknown response type: {type}',
+    'error.actorExecution': 'Helen actor execution error: {message}',
+    'error.llmProcessing': 'LLM is still processing - use 💡 Hint to append instructions',
+
+    // === Common ===
+    'common.cancel': 'Cancel',
+    'common.confirm': 'Confirm',
+    'common.close': 'Close',
+    'common.save': 'Save',
+    'common.loading': 'Loading...',
+    'common.error': 'Error',
+    'common.success': 'Success',
+
+    // Relative time
+    'time.justNow': 'just now',
+    'time.minutesAgo': '{n}m ago',
+    'time.hoursAgo': '{n}h ago',
+    'time.daysAgo': '{n}d ago',
+  },
+
+  zh: {
+    // === Layout / Navigation ===
+    'nav.chat': '聊天',
+    'nav.settings': '设置',
+    'nav.transcripts': '会话记录',
+    'lang.switch': 'English',
+
+    // === Settings page ===
+    'settings.title': '设置',
+    'settings.token.section': '访问 Token',
+    'settings.token.current': '当前 token 已保存',
+    'settings.token.copy': '复制',
+    'settings.token.clear': '清除',
+    'settings.token.empty': '未设置 token。如果后端启用鉴权，发起请求时会被要求输入。',
+    'settings.token.placeholder': '输入新 token',
+    'settings.token.save': '保存',
+    'settings.token.saved': '✓ Token 已保存',
+    'settings.token.hint': '来源：后端启动日志打印的 token，或',
+    'settings.token.hintFile': '文件。',
+    'settings.system.title': '系统信息',
+    'settings.system.version': '版本',
+    'settings.system.helenPath': 'Helen 路径',
+    'settings.system.backendApi': '后端 API',
+    'settings.system.backendApiValue': '通过 vite proxy 转发 (同源)',
+    'settings.loading': '加载中...',
+
+    // === Chat page ===
+    'chat.loadFailed': '聊天页面加载失败',
+    'chat.empty': '开始对话吧！',
+    'chat.scrollBottom': '滚动到底部',
+    'chat.atBottom': '回到底部',
+    'chat.messageList': '消息列表',
+    'chat.selectSession': '选择一个会话开始聊天',
+    'chat.orCreate': '或创建新会话',
+    'chat.thinking': 'Helen 思考中...',
+    'chat.pauseAutoScroll': '暂停自动滚动',
+    'chat.resumeAutoScroll': '恢复自动滚动',
+
+    // === Message input ===
+    'message.placeholder': '输入消息... (Shift+Enter 换行)',
+    'message.hintPlaceholder': '输入 💡 提示，按 Enter 或点击追加（不中断当前生成）...',
+    'message.send': '发送',
+    'message.stop': '停止',
+    'message.stopTitle': '停止生成',
+    'message.append': '追加',
+    'message.appendTitle': '作为提示追加（不中断当前生成）',
+    'message.hint': '提示',
+    'message.uploading': '上传中...',
+    'message.attach': '添加附件',
+    'message.attachment': '附件',
+    'message.remove': '移除',
+    'message.stopped': '已停止生成',
+    'message.stoppedInline': '⚠️ 已停止生成',
+    'message.queued': '提示已排队，待当前工具结束后注入 LLM',
+    'message.queuedInline': '💡 提示已排队，待当前工具结束后注入 LLM',
+    'message.injected': '提示已注入 LLM 上下文',
+    'message.injectedInline': '💡 提示已注入 LLM 上下文',
+    'message.processing': '处理中...',
+    'message.processingInline': '⎿ 处理中...',
+    'message.executing': '⎿ {content} 执行中...',
+    'message.completed': '⎿ ✓ {content}',
+    'message.phase': '[{content}]',
+
+    // === Directory bar ===
+    'dir.cwd': '工作目录',
+    'dir.switch': '切换工作目录',
+    'dir.switched': '单会话架构：后端工作目录已切换',
+    'dir.currentDir': '📂 当前目录: **{name}** (`{path}`)',
+    'dir.switchedTo': '✅ 已切换到: **{name}**',
+    'dir.switchFailed': '❌ 切换失败: {reason}',
+
+    // === Status line ===
+    'status.connected': '已连接',
+    'status.disconnected': '未连接',
+    'status.disconnectedShort': '● 断连',
+    'status.client': '客户端',
+    'status.contextUsage': '上下文占用 {pct}%',
+    'status.waiting': '等待连接...',
+    'status.sessionState': '会话状态',
+
+    // === Messages / content ===
+    'msg.toolCalling': '🔧 调用',
+    'msg.toolResult': '✅ {name} 返回:',
+    'msg.boundaryMarker': '已插入 BoundaryMarker,清空显示',
+    'msg.clearedFromDb': '不再从 DB 重载(transcript 是唯一数据源,已空)',
+
+    // Tool result summary strings (used in tool result display)
+    'msg.written': '✓ 已写入 {path}',
+    'msg.writtenWithSize': '✓ 已写入 {path} ({size})',
+    'msg.lines': '{n} 行',
+    'msg.commandDone': '✓ 命令完成',
+    'msg.commandDoneWithExit': '✓ 命令完成 (exit {code})',
+    'msg.syntaxPassed': '✓ 语法检查通过',
+    'msg.syntaxError': '✗ 语法错误: {error}',
+    'msg.unknown': '未知',
+    'msg.testsPassed': '✓ 测试通过',
+    'msg.testsPassedCount': '✓ 测试通过 ({passed}/{total})',
+    'msg.testsFailed': '✗ 测试失败',
+    'msg.testsFailedCount': '✗ 测试失败 ({failed}/{total})',
+    'msg.qualityScore': '质量分: {score}',
+    'msg.evalComplete': '✓ 评估完成',
+    'msg.done': '完成',
+    'msg.mermaidFailed': 'Mermaid 渲染失败',
+
+    // Tool call labels (shown in tool call cards)
+    'tool.write': '写入文件 {path}',
+    'tool.writeDetail': '{size} · {n} 行',
+    'tool.read': '读取文件',
+    'tool.patch': '修改文件',
+    'tool.shell': '执行命令',
+    'tool.listDir': '列出目录',
+    'tool.helenCheck': 'Helen 语法检查',
+    'tool.helenTests': '运行测试',
+    'tool.quality': '质量评估',
+    'tool.webSearch': '网络搜索',
+    'tool.webFetch': '获取网页',
+
+    // === Session / transcript ===
+    'session.list': '会话列表',
+    'session.delete': '删除',
+    'session.removed': '移除',
+    'session.resume': '恢复',
+    'session.related': '相关',
+
+    // === Auth gate ===
+    'auth.title': '需要访问 Token',
+    'auth.description': '后端要求 X-Helen-Token。请输入启动日志中打印的 token，或',
+    'auth.descriptionFile': '文件中的值。',
+    'auth.placeholder': '粘贴 token',
+    'auth.submit': '确认',
+    'auth.clear': '清除',
+    'auth.error': '身份验证失败。请检查 token。',
+
+    // === Error boundary ===
+    'error.title': '出错了',
+    'error.reload': '重新加载页面',
+    'error.retry': '重试',
+    'error.unknownMessage': '应用遇到了未知错误',
+    'error.settingsFailed': '设置页面加载失败',
+    'error.llmError': 'LLM 错误: {message}',
+    'error.llmUnknown': 'LLM 错误: 未知错误',
+    'error.actorInternal': 'Actor 内部错误: {message}',
+    'error.actorExited': '错误: Actor 已退出',
+    'error.actorException': '错误: Actor 返回异常: {message}',
+    'error.actorInvalidResponse': '错误: Actor 返回异常响应',
+    'error.actorStatus': 'Actor 状态: {status}',
+    'error.generic': '错误: {message}',
+    'error.unknownResponseType': '未知响应类型: {type}',
+    'error.actorExecution': 'Helen actor 执行错误: {message}',
+    'error.llmProcessing': 'LLM 正在处理中，请使用 💡 提示 功能追加指令',
+
+    // === Common ===
+    'common.cancel': '取消',
+    'common.confirm': '确认',
+    'common.close': '关闭',
+    'common.save': '保存',
+    'common.loading': '加载中...',
+    'common.error': '错误',
+    'common.success': '成功',
+
+    // Relative time
+    'time.justNow': '刚刚',
+    'time.minutesAgo': '{n} 分钟前',
+    'time.hoursAgo': '{n} 小时前',
+    'time.daysAgo': '{n} 天前',
+  },
+}
+
+export type TranslationKey = keyof typeof translations.en

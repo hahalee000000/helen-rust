@@ -1,0 +1,22 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        agent MyAgent() {
+            functions {
+                const MAX = 100
+                fn get_max(): int {
+                    return MAX
+                }
+            }
+            main {
+                print(get_max())
+            }
+        }
+        main {
+            MyAgent()
+        }
+        

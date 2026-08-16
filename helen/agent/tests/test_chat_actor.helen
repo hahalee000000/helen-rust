@@ -1,0 +1,131 @@
+// ═══════════════════════════════════════════════════════════════════
+// 测试: chat_actor.helen
+// ═══════════════════════════════════════════════════════════════════
+//
+// 运行: helen helen/agent/tests/test_chat_actor.helen
+// 覆盖: chat_actor.helen 的 6 个 FFI 入口函数
+//
+// chat_actor.helen 的函数依赖 shared let / spawn / mailbox 运行时，
+// 大部分不能在测试中直接调用。但可以：
+//   1. 验证模块能成功 import（编译时校验所有函数签名）
+//   2. 调用安全函数（不依赖 actor 运行状态）
+//   3. 通过 type_of / 条件引用确认函数存在
+
+import std.core.*
+import std.str.*
+import "../chat_actor.helen"
+
+fn _assert(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name)
+    }
+}
+
+fn _assert_equal(actual: any, expected: any, test_name: str) {
+    if str(actual) == str(expected) {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name + " (expected '" + str(expected) + "', got '" + str(actual) + "')")
+    }
+}
+
+// ── 函数存在性（编译时验证） ─────────────────────────────────
+// 如果 chat_actor.helen 中缺少某个函数，整个文件无法编译。
+// 下面的"死代码"分支引用所有函数名，让编译器校验签名。
+
+fn _verify_function_signatures() {
+    // 这些代码永远不会执行（条件为 false），但编译器会校验所有引用的函数名和签名
+    if false {
+        // spawn_chat_actor(): map
+        let _a: map = spawn_chat_actor()
+
+        // tui_chat_handler_actor(user_input: str, file_paths: list = []): str
+        let _b: str = tui_chat_handler_actor("test")
+        let _b2: str = tui_chat_handler_actor("test", ["file1"])
+
+        // exit_chat_actor()
+        exit_chat_actor()
+
+        // send_heartbeat()
+        send_heartbeat()
+
+        // is_chat_actor_running(): bool
+        let _c: bool = is_chat_actor_running()
+
+        // TUIChatAgent(user_input: str, file_paths: list = []): str  (alias)
+        let _d: str = TUIChatAgent("test")
+        let _d2: str = TUIChatAgent("test", ["file1"])
+    }
+    print("✓ all 6 chat_actor functions have valid signatures (compile-time)")
+}
+
+// ── is_chat_actor_running ────────────────────────────────────
+
+fn test_is_chat_actor_running_initially_false() {
+    print("\n=== is_chat_actor_running initially false ===")
+    let running = is_chat_actor_running()
+    _assert_equal(running, false, "no actor spawned -> returns false")
+}
+
+fn test_is_chat_actor_running_returns_bool() {
+    print("\n=== is_chat_actor_running returns bool ===")
+    let running = is_chat_actor_running()
+    _assert(type(running) == "bool", "return type is bool")
+}
+
+// ── send_heartbeat ───────────────────────────────────────────
+
+fn test_send_heartbeat_no_op_when_no_actor() {
+    print("\n=== send_heartbeat no-op when no actor ===")
+    // send_heartbeat() 当 _chat_actor_mailbox == null 时是空操作，不会抛异常
+    send_heartbeat()
+    // 再调用一次确认幂等
+    send_heartbeat()
+    _assert(true, "send_heartbeat() is safe no-op when no actor")
+}
+
+fn test_send_heartbeat_does_not_start_actor() {
+    print("\n=== send_heartbeat does not start actor ===")
+    send_heartbeat()
+    let running = is_chat_actor_running()
+    _assert_equal(running, false, "heartbeat does not auto-start actor")
+}
+
+// ── exit_chat_actor safe call ────────────────────────────────
+
+fn test_exit_chat_actor_no_op_when_no_actor() {
+    print("\n=== exit_chat_actor no-op when no actor ===")
+    // exit_chat_actor() 当 _chat_actor_mailbox == null 时是空操作
+    exit_chat_actor()
+    _assert(true, "exit_chat_actor() is safe no-op when no actor")
+}
+
+fn test_exit_does_not_affect_running_state() {
+    print("\n=== exit does not change running state when already stopped ===")
+    let before = is_chat_actor_running()
+    exit_chat_actor()
+    let after = is_chat_actor_running()
+    _assert_equal(before, after, "running state unchanged after exit on stopped actor")
+}
+
+// ── Run all tests ────────────────────────────────────────────
+
+main {
+    print("═══════════════════════════════════════════")
+    print("  chat_actor.helen 测试")
+    print("═══════════════════════════════════════════")
+
+    _verify_function_signatures()
+    test_is_chat_actor_running_initially_false()
+    test_is_chat_actor_running_returns_bool()
+    test_send_heartbeat_no_op_when_no_actor()
+    test_send_heartbeat_does_not_start_actor()
+    test_exit_chat_actor_no_op_when_no_actor()
+    test_exit_does_not_affect_running_state()
+
+    print("\n═══════════════════════════════════════════")
+    print("  全部 chat_actor 测试完成")
+    print("═══════════════════════════════════════════")
+}

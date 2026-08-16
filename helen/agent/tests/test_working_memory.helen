@@ -1,0 +1,117 @@
+// ═══════════════════════════════════════════════════════════════════
+// 测试: /working-memory 命令
+// ═══════════════════════════════════════════════════════════════════
+//
+// 运行: helen tests/test_working_memory.helen
+//
+// 覆盖:
+// - /working-memory 命令解析
+// - /working-memory 执行（list / get / stats）
+// - /help 包含 working-memory 条目
+//
+
+import std.core.*
+import std.str.*
+import "../commands.helen"
+import "../output.helen"
+
+fn _assert(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name)
+    }
+}
+
+fn _assert_contains(text: str, sub: str, test_name: str) {
+    if contains(text, sub) {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name + " (text 不包含 '" + sub + "')")
+    }
+}
+
+// ── 命令解析 ─────────────────────────────────────────────────────
+
+fn test_parse_working_memory() {
+    print("\n=== parse_command: /working-memory ===")
+
+    let cmd1 = parse_command("/working-memory")
+    _assert(cmd1["is_command"] == true, "/working-memory 是命令")
+    _assert(cmd1["command"] == "working-memory", "命令名正确")
+    _assert(len(cmd1["args"]) == 0, "无参数")
+
+    let cmd2 = parse_command("/working-memory get git_branch")
+    _assert(cmd2["is_command"] == true, "/working-memory get git_branch 是命令")
+    _assert(cmd2["command"] == "working-memory", "命令名正确")
+    _assert(len(cmd2["args"]) == 2, "有 2 个参数")
+    _assert(cmd2["args"][0] == "get", "第 1 参数是 get")
+    _assert(cmd2["args"][1] == "git_branch", "第 2 参数是 git_branch")
+
+    let cmd3 = parse_command("/working-memory stats")
+    _assert(cmd3["is_command"] == true, "/working-memory stats 是命令")
+    _assert(len(cmd3["args"]) == 1, "有 1 个参数")
+    _assert(cmd3["args"][0] == "stats", "参数是 stats")
+}
+
+// ── 命令执行 ─────────────────────────────────────────────────────
+
+fn test_working_memory_execution() {
+    print("\n=== /working-memory 执行 ===")
+    init_output()
+    set_output_level(OUTPUT_MINIMAL)
+
+    // /working-memory 无参数 → 列出所有条目或显示"空"
+    let result1 = execute_command(parse_command("/working-memory"))
+    _assert(result1 != "", "/working-memory 返回非空字符串")
+    _assert(contains(result1, "工作记忆") || contains(result1, "Working Memory") || contains(result1, "working-memory") || contains(result1, "空") || contains(result1, "empty") || contains(result1, "不可用") || contains(result1, "unavailable"),
+            "/working-memory 输出包含预期关键字")
+
+    // /working-memory stats → 显示统计
+    let result2 = execute_command(parse_command("/working-memory stats"))
+    _assert(result2 != "", "/working-memory stats 返回非空字符串")
+    _assert(contains(result2, "统计") || contains(result2, "Statistics") || contains(result2, "Stats") || contains(result2, "条目") || contains(result2, "entries") || contains(result2, "fields") || contains(result2, "不可用") || contains(result2, "unavailable"),
+            "/working-memory stats 输出包含统计关键字")
+
+    // /working-memory get <key> → 查询指定 key
+    let result3 = execute_command(parse_command("/working-memory get nonexistent_key_xyz"))
+    _assert(result3 != "", "/working-memory get 返回非空字符串")
+    _assert(contains(result3, "未找到") || contains(result3, "nonexistent_key_xyz") || contains(result3, "失败"),
+            "查询不存在的 key 返回合理提示")
+
+    // /working-memory 无效参数 → 显示用法
+    let result4 = execute_command(parse_command("/working-memory badarg"))
+    _assert(result4 != "", "无效参数返回非空字符串")
+    _assert(contains(result4, "用法") || contains(result4, "get") || contains(result4, "stats"),
+            "无效参数返回用法提示")
+
+    // /working-memory get（缺少 key） → 显示用法
+    let result5 = execute_command(parse_command("/working-memory get"))
+    _assert(result5 != "", "get 无参数返回非空字符串")
+}
+
+// ── 帮助文本 ─────────────────────────────────────────────────────
+
+fn test_help_includes_working_memory() {
+    print("\n=== /help 包含 working-memory ===")
+
+    let help_text = execute_command(parse_command("/help"))
+    _assert(contains(help_text, "working-memory"), "/help 输出包含 working-memory")
+    _assert(contains(help_text, "working-memory") && (contains(help_text, "工作记忆") || contains(help_text, "Working Memory") || contains(help_text, "working memory")), "/help 输出包含 working-memory 说明")
+}
+
+// ── 主测试 ───────────────────────────────────────────────────────
+
+main {
+    print("╔═══════════════════════════════════════════════════════════╗")
+    print("║      /working-memory 命令测试                            ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+
+    test_parse_working_memory()
+    test_working_memory_execution()
+    test_help_includes_working_memory()
+
+    print("\n╔═══════════════════════════════════════════════════════════╗")
+    print("║      /working-memory 测试完成                            ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+}

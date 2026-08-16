@@ -1,0 +1,19 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        main {
+            let x = 3
+            match x {
+                case 1..3 {
+                    print("matched")
+                }
+                default {
+                    print("not matched")
+                }
+            }
+        }
+        

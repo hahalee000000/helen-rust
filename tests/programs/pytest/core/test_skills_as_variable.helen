@@ -1,0 +1,12 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        main {
+            let skills = ["coding", "testing"]
+            print(skills)
+        }
+        

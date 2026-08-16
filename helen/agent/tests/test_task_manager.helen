@@ -1,0 +1,187 @@
+// ═══════════════════════════════════════════════════════════════════
+// 测试: task_manager.helen
+// ═══════════════════════════════════════════════════════════════════
+//
+// 运行: helen helen/agent/tests/test_task_manager.helen
+// 覆盖: extract_task_name, sanitize_project_name, generate_task_id, get_task_paths
+//
+
+import std.core.*
+import std.str.*
+import std.path.*
+import std.tools.*
+import std.io.*
+import "../task_manager.helen"
+
+fn _assert(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name)
+    }
+}
+
+fn _assert_equal(actual: any, expected: any, test_name: str) {
+    if str(actual) == str(expected) {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name + " (expected '" + str(expected) + "', got '" + str(actual) + "')")
+    }
+}
+
+// ── extract_task_name ────────────────────────────────────────
+
+fn test_extract_task_name_basic() {
+    print("\n=== extract_task_name basic ===")
+    _assert_equal(extract_task_name("simple task"), "simple_task", "spaces to underscores")
+    _assert_equal(extract_task_name("AddUser"), "adduser", "lowercased")
+    _assert_equal(extract_task_name("hello-world"), "hello-world", "preserves hyphens")
+    _assert_equal(extract_task_name("foo_bar"), "foo_bar", "preserves underscores")
+}
+
+fn test_extract_task_name_empty() {
+    print("\n=== extract_task_name edge cases ===")
+    _assert_equal(extract_task_name(""), "task", "empty string -> task")
+    _assert_equal(extract_task_name("   "), "task", "spaces only -> task")
+    _assert_equal(extract_task_name("!!!"), "task", "no valid chars -> task")
+}
+
+fn test_extract_task_name_truncation() {
+    print("\n=== extract_task_name truncation ===")
+    let long_req = "this is a very long requirement that should be truncated to 30 chars"
+    let result = extract_task_name(long_req)
+    _assert(len(result) <= 30, "long input truncated to 30 chars or less")
+}
+
+fn test_extract_task_name_special_chars() {
+    print("\n=== extract_task_name strips special chars ===")
+    _assert_equal(extract_task_name("foo@bar!baz"), "foobarbaz", "strips @ and !")
+    _assert_equal(extract_task_name("a/b\\c"), "abc", "strips slashes")
+    _assert_equal(extract_task_name("one two  three"), "one_two_three", "multiple spaces collapse")
+}
+
+fn test_extract_task_name_edge_cleanup() {
+    print("\n=== extract_task_name leading/trailing ===")
+    let r1 = extract_task_name("_leading")
+    _assert(!startswith(r1, "_"), "leading underscore removed")
+    let r2 = extract_task_name("trailing_")
+    _assert(!endswith(r2, "_"), "trailing underscore removed")
+}
+
+// ── sanitize_project_name ────────────────────────────────────
+
+fn test_sanitize_project_name_basic() {
+    print("\n=== sanitize_project_name basic ===")
+    _assert_equal(sanitize_project_name("MyProject"), "myproject", "lowercased")
+    _assert_equal(sanitize_project_name("my_project"), "my-project", "underscore to hyphen")
+    _assert_equal(sanitize_project_name("my project"), "my-project", "space to hyphen")
+    _assert_equal(sanitize_project_name("a-b-c"), "a-b-c", "hyphens preserved")
+}
+
+fn test_sanitize_project_name_empty() {
+    print("\n=== sanitize_project_name edge cases ===")
+    _assert_equal(sanitize_project_name(""), "task", "empty -> task")
+    _assert_equal(sanitize_project_name("!@#$"), "task", "all invalid -> task")
+}
+
+fn test_sanitize_project_name_truncation() {
+    print("\n=== sanitize_project_name truncation ===")
+    let long_name = "this-is-a-very-long-project-name-that-should-be-truncated-to-40-chars"
+    let result = sanitize_project_name(long_name)
+    _assert(len(result) <= 40, "long name truncated to 40 chars or less")
+}
+
+fn test_sanitize_project_name_consecutive_hyphens() {
+    print("\n=== sanitize_project_name consecutive hyphens ===")
+    _assert_equal(sanitize_project_name("a__b"), "a-b", "double underscore collapses")
+    _assert_equal(sanitize_project_name("a  b"), "a-b", "double space collapses")
+    _assert_equal(sanitize_project_name("a--b"), "a-b", "double hyphen collapses")
+}
+
+fn test_sanitize_project_name_strip_edges() {
+    print("\n=== sanitize_project_name strip edges ===")
+    let r1 = sanitize_project_name("-leading")
+    _assert(!startswith(r1, "-"), "leading hyphen removed: " + r1)
+    let r2 = sanitize_project_name("trailing-")
+    _assert(!endswith(r2, "-"), "trailing hyphen removed: " + r2)
+}
+
+// ── generate_task_id ─────────────────────────────────────────
+
+fn test_generate_task_id_from_project_name() {
+    print("\n=== generate_task_id from project_name ===")
+    let id1 = generate_task_id("", "WebApp")
+    _assert_equal(id1, "webapp", "uses sanitized project_name")
+}
+
+fn test_generate_task_id_from_requirement() {
+    print("\n=== generate_task_id from requirement ===")
+    let id2 = generate_task_id("fix login bug", "")
+    _assert_equal(id2, "fix_login_bug", "extracts from requirement")
+}
+
+fn test_generate_task_id_project_priority() {
+    print("\n=== generate_task_id project_name takes priority ===")
+    let id3 = generate_task_id("some requirement", "Priority Project")
+    _assert_equal(id3, "priority-project", "project_name wins over requirement")
+}
+
+fn test_generate_task_id_empty() {
+    print("\n=== generate_task_id all empty ===")
+    let id4 = generate_task_id("", "")
+    _assert_equal(id4, "task", "both empty -> task")
+}
+
+// ── get_task_paths ───────────────────────────────────────────
+
+fn test_get_task_paths() {
+    print("\n=== get_task_paths returns complete map ===")
+    let paths = get_task_paths("/tmp/mytask")
+    _assert_equal(paths["src_dir"], "/tmp/mytask/src", "src_dir")
+    _assert_equal(paths["tests_dir"], "/tmp/mytask/tests", "tests_dir")
+    _assert_equal(paths["contracts_dir"], "/tmp/mytask/contracts", "contracts_dir")
+    _assert_equal(paths["main_file"], "/tmp/mytask/src/main.helen", "main_file")
+    _assert_equal(paths["test_file"], "/tmp/mytask/tests/test_main.helen", "test_file")
+    _assert_equal(paths["contract_file"], "/tmp/mytask/contracts/contracts.helen", "contract_file")
+    _assert_equal(paths["readme_file"], "/tmp/mytask/README.md", "readme_file")
+}
+
+// ── get_current_time ─────────────────────────────────────────
+
+fn test_get_current_time() {
+    print("\n=== get_current_time ===")
+    let t = get_current_time()
+    _assert(len(t) > 0, "returns non-empty string")
+    _assert(contains(t, "-"), "contains date separator")
+    _assert(contains(t, ":"), "contains time separator")
+    _assert(!contains(t, "T"), "T replaced with space")
+}
+
+// ── Run all tests ────────────────────────────────────────────
+
+main {
+    print("═══════════════════════════════════════════")
+    print("  task_manager.helen 测试")
+    print("═══════════════════════════════════════════")
+
+    test_extract_task_name_basic()
+    test_extract_task_name_empty()
+    test_extract_task_name_truncation()
+    test_extract_task_name_special_chars()
+    test_extract_task_name_edge_cleanup()
+    test_sanitize_project_name_basic()
+    test_sanitize_project_name_empty()
+    test_sanitize_project_name_truncation()
+    test_sanitize_project_name_consecutive_hyphens()
+    test_sanitize_project_name_strip_edges()
+    test_generate_task_id_from_project_name()
+    test_generate_task_id_from_requirement()
+    test_generate_task_id_project_priority()
+    test_generate_task_id_empty()
+    test_get_task_paths()
+    test_get_current_time()
+
+    print("\n═══════════════════════════════════════════")
+    print("  全部 task_manager 测试完成")
+    print("═══════════════════════════════════════════")
+}

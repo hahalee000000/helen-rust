@@ -1,0 +1,258 @@
+// ═══════════════════════════════════════════════════════════════════
+// 测试: json_utils.helen + memory_utils.helen + context.helen
+// ═══════════════════════════════════════════════════════════════════
+//
+// 运行: helen tests/test_shared_modules.helen
+//
+
+import std.core.*
+import std.str.*
+import std.path.*
+import std.tools.*
+import std.io.*
+import "../json_utils.helen"
+import "../memory_utils.helen"
+import "../context.helen"
+
+fn _assert(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name)
+    }
+}
+
+fn _assert_equal(actual: str, expected: str, test_name: str) {
+    if actual == expected {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name + " (expected '" + expected + "', got '" + actual + "')")
+    }
+}
+
+// ── json_utils.helen 测试 ─────────────────────────────────────
+
+fn test_safe_parse_valid_json() {
+    print("\n=== safe_parse_agent_json: 正常 JSON ===")
+
+    let default_val = {"status": "success", "contract": ""}
+    let result = safe_parse_agent_json("{\"status\": \"success\", \"contract\": \"code\"}", default_val, "contract")
+    _assert_equal(str(result["status"]), "success", "有效 JSON 解析成功")
+    _assert_equal(str(result["contract"]), "code", "字段值正确")
+}
+
+fn test_safe_parse_markdown_wrapped() {
+    print("\n=== safe_parse_agent_json: markdown 包裹 ===")
+
+    let default_val = {"status": "success", "contract": ""}
+    let wrapped = "```json\n{\"status\": \"success\", \"contract\": \"hello\"}\n```"
+    let result = safe_parse_agent_json(wrapped, default_val, "contract")
+    _assert_equal(str(result["status"]), "success", "markdown 包裹 JSON 解析成功")
+    _assert_equal(str(result["contract"]), "hello", "从代码块提取字段正确")
+}
+
+fn test_safe_parse_plain_text() {
+    print("\n=== safe_parse_agent_json: 纯文本降级 ===")
+
+    let default_val = {"status": "success", "contract": "", "modules": []}
+    let result = safe_parse_agent_json("这不是 JSON，是纯文本", default_val, "contract")
+    _assert_equal(str(result["status"]), "success", "纯文本降级后 status 保持默认")
+    _assert_equal(str(result["contract"]), "这不是 JSON，是纯文本", "纯文本放入 fallback_field")
+}
+
+fn test_safe_parse_empty() {
+    print("\n=== safe_parse_agent_json: 空字符串 ===")
+
+    let default_val = {"status": "success", "test_code": ""}
+    let result = safe_parse_agent_json("", default_val, "test_code")
+    _assert_equal(str(result["status"]), "success", "空字符串返回默认值")
+}
+
+fn test_safe_parse_complex_markdown() {
+    print("\n=== safe_parse_agent_json: 复杂 markdown ===")
+
+    let default_val = {"status": "success", "report": ""}
+    let text = "Here is my analysis:\n```json\n{\"status\": \"success\", \"report\": \"detailed analysis\"}\n```\nSome extra text"
+    let result = safe_parse_agent_json(text, default_val, "report")
+    _assert_equal(str(result["status"]), "success", "复杂 markdown 中 JSON 提取成功")
+    _assert_equal(str(result["report"]), "detailed analysis", "嵌套内容提取正确")
+}
+
+// ── memory_utils.helen 测试 ───────────────────────────────────
+
+fn test_build_memory_context() {
+    print("\n=== build_memory_context ===")
+
+    let ctx = build_memory_context()
+    _assert(len(ctx) > 0, "build_memory_context 返回非空字符串")
+
+    // 无论记忆是否为空，都应该有内容
+    if len(ctx) > 50 {
+        _assert(contains(ctx, "Agent 记忆") || contains(ctx, "暂无记忆"), "包含记忆相关描述")
+    } else {
+        _assert(contains(ctx, "暂无记忆"), "空记忆时显示提示")
+    }
+
+    // 多次调用返回相同结果（幂等）
+    let ctx2 = build_memory_context()
+    _assert_equal(ctx, ctx2, "build_memory_context 幂等")
+}
+
+fn test_load_memory_files() {
+    print("\n=== load_memory / load_user_preferences ===")
+
+    let memory = load_memory()
+    let prefs = load_user_preferences()
+    // 这些文件可能不存在，返回空字符串即可
+    _assert(len(memory) >= 0, "load_memory 返回字符串")
+    _assert(len(prefs) >= 0, "load_user_preferences 返回字符串")
+}
+
+fn test_update_memory() {
+    print("\n=== update_memory ===")
+
+    // 准备：删除现有文件以测试新建
+    let path = ".helen/MEMORY.md"
+    let backup = ""
+    if path_exists(path) {
+        backup = read_file(path)
+    }
+
+    // 测试 1：首次创建
+    let r1 = update_memory("test_category", "test_key", "test value")
+    _assert_equal(r1["status"], "success", "update_memory returns success")
+    _assert(path_exists(path), "MEMORY.md created")
+
+    let content = read_file(path)
+    _assert(contains(content, "## test_category"), "contains category header")
+    _assert(contains(content, "test_key"), "contains key")
+    _assert(contains(content, "test value"), "contains value")
+
+    // 测试 2：更新同一 key
+    let r2 = update_memory("test_category", "test_key", "updated value")
+    _assert_equal(r2["status"], "success", "second update returns success")
+
+    let content2 = read_file(path)
+    _assert(contains(content2, "updated value"), "contains updated value")
+    _assert(contains(content2, "(更新)"), "contains update marker")
+
+    // 测试 3：添加不同 category
+    let r3 = update_memory("other_category", "other_key", "other value")
+    _assert_equal(r3["status"], "success", "new category returns success")
+    let content3 = read_file(path)
+    _assert(contains(content3, "## other_category"), "new category header added")
+
+    // 清理：恢复或删除
+    if backup != "" {
+        write_file(path, backup)
+    } else {
+        // 删除测试文件
+        try {
+            shell_exec("rm -f " + path)
+        } catch { }
+    }
+}
+
+fn test_update_user_preference() {
+    print("\n=== update_user_preference ===")
+
+    let path = ".helen/USER.md"
+    let backup = ""
+    if path_exists(path) {
+        backup = read_file(path)
+    }
+
+    // 测试 1：首次创建
+    let r1 = update_user_preference("coding_style", "prefer tabs")
+    _assert_equal(r1["status"], "success", "update_user_preference returns success")
+    _assert(path_exists(path), "USER.md created")
+
+    let content = read_file(path)
+    _assert(contains(content, "## coding_style"), "contains category header")
+    _assert(contains(content, "prefer tabs"), "contains preference")
+
+    // 测试 2：追加偏好
+    let r2 = update_user_preference("coding_style", "use semicolons")
+    _assert_equal(r2["status"], "success", "append returns success")
+
+    let content2 = read_file(path)
+    _assert(contains(content2, "use semicolons"), "contains appended preference")
+
+    // 测试 3：新类别
+    let r3 = update_user_preference("language", "prefer Chinese")
+    _assert_equal(r3["status"], "success", "new category returns success")
+
+    // 清理
+    if backup != "" {
+        write_file(path, backup)
+    } else {
+        try {
+            shell_exec("rm -f " + path)
+        } catch { }
+    }
+}
+
+// ── context.helen 测试 ────────────────────────────────────────
+
+fn test_collect_all_facts() {
+    print("\n=== collect_all_facts ===")
+
+    let facts = collect_all_facts()
+    _assert(len(facts) > 0, "collect_all_facts 返回非空 map")
+
+    // 检查必需字段
+    let required = ["current_date", "platform", "cwd"]
+    for key in required {
+        let val = str(facts[key])
+        _assert(val != "" && val != "null", "包含必需字段: " + key)
+    }
+
+    // current_date 格式检查（YYYY-MM-DD = 10 chars）
+    let date_str = str(facts["current_date"])
+    _assert(len(date_str) == 10, "current_date 格式 YYYY-MM-DD")
+}
+
+fn test_build_full_context_xml() {
+    print("\n=== build_full_context_xml ===")
+
+    let facts = collect_all_facts()
+    let xml = build_full_context_xml(facts)
+    _assert(len(xml) > 0, "build_full_context_xml 返回非空")
+    _assert(contains(xml, "<context>"), "包含 <context> 标签")
+    _assert(contains(xml, "current_date"), "包含 current_date")
+}
+
+fn test_collect_project_facts() {
+    print("\n=== collect_project_facts ===")
+
+    let proj_facts = collect_project_facts()
+    _assert(len(proj_facts) > 0, "collect_project_facts 返回非空 map")
+
+    let proj_xml = build_project_context_xml(proj_facts)
+    _assert(len(proj_xml) > 0, "build_project_context_xml 返回非空")
+}
+
+// ── 主测试 ──────────────────────────────────────────────────
+
+main {
+    print("╔═══════════════════════════════════════════════════════════╗")
+    print("║      共享模块测试 (json_utils/memory/context)            ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+
+    test_safe_parse_valid_json()
+    test_safe_parse_markdown_wrapped()
+    test_safe_parse_plain_text()
+    test_safe_parse_empty()
+    test_safe_parse_complex_markdown()
+    test_build_memory_context()
+    test_load_memory_files()
+    test_update_memory()
+    test_update_user_preference()
+    test_collect_all_facts()
+    test_build_full_context_xml()
+    test_collect_project_facts()
+
+    print("\n╔═══════════════════════════════════════════════════════════╗")
+    print("║      共享模块测试完成                                    ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+}

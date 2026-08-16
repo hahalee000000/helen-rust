@@ -1,0 +1,143 @@
+// ═══════════════════════════════════════════════════════════════════
+// ui_event_queue.helen 单元测试
+// ═══════════════════════════════════════════════════════════════════
+//
+// 测试 Rich UI 事件队列的核心功能：
+// - 事件发射与排空
+// - ESC 中止机制
+// - 队列容量保护
+// - 跨模块 shared let 状态可见性（Helen Issue #35 回归防护）
+//
+
+import std.core.*
+import "../ui_event_queue.helen"
+
+// ── 测试辅助函数 ────────────────────────────────────────────────
+
+fn _ueq_assert_equal(actual: str, expected: str, test_name: str) {
+    if actual == expected {
+        print("✓ " + test_name + ": PASS")
+    } else {
+        print("✗ " + test_name + ": FAIL")
+        print("  Expected: " + expected)
+        print("  Actual:   " + actual)
+    }
+}
+
+fn _ueq_assert_true(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name + ": PASS")
+    } else {
+        print("✗ " + test_name + ": FAIL")
+    }
+}
+
+// ── 测试用例 ────────────────────────────────────────────────────
+
+fn _test_event_emit_and_drain() {
+    print("\n=== 测试事件发射与排空 ===")
+
+    // 清空队列（防止其他测试残留）
+    flush_ui_events()
+
+    // 发射多种事件
+    ui_emit_agent_start("Contractor")
+    ui_emit_llm_chunk("Contractor", "正在分析...")
+    ui_emit_tool_call("read_file", {"path": "test.helen"})
+    ui_emit_tool_result("read_file", "success", "file content")
+    ui_emit_agent_end("Contractor", 1500)
+    ui_emit_status("完成", "success")
+
+    let events = flush_ui_events()
+    _ueq_assert_true(len(events) == 6, "6 个事件全部入队")
+    _ueq_assert_equal(str(events[0]["type"]), "agent_start", "首事件类型为 agent_start")
+    _ueq_assert_equal(str(events[1]["type"]), "llm_chunk", "第二事件类型为 llm_chunk")
+    _ueq_assert_equal(str(events[1]["chunk"]), "正在分析...", "llm_chunk 内容正确")
+    _ueq_assert_equal(str(events[2]["tool"]), "read_file", "tool_call 工具名正确")
+    _ueq_assert_equal(str(events[3]["status"]), "success", "tool_result 状态正确")
+
+    // 排空后队列应为空
+    let after = flush_ui_events()
+    _ueq_assert_true(len(after) == 0, "排空后队列为空")
+}
+
+fn _test_abort_mechanism() {
+    print("\n=== 测试 ESC 中止机制 ===")
+
+    ui_clear_abort()
+    _ueq_assert_true(!ui_check_aborted(), "初始状态未中止")
+
+    ui_set_abort()
+    _ueq_assert_true(ui_check_aborted(), "set_abort 后已中止")
+
+    // 中止后 llm_chunk 不应入队
+    flush_ui_events()
+    ui_emit_llm_chunk("Agent", "should be dropped")
+    let events = flush_ui_events()
+    _ueq_assert_true(len(events) == 0, "中止后 llm_chunk 被丢弃")
+
+    // 中止后其他事件仍入队（仅 llm_chunk 受中止影响）
+    ui_emit_agent_start("Agent")
+    let events2 = flush_ui_events()
+    _ueq_assert_true(len(events2) == 1, "中止后 agent_start 仍入队")
+
+    ui_clear_abort()
+    _ueq_assert_true(!ui_check_aborted(), "clear_abort 后未中止")
+
+    // 清除中止后 llm_chunk 恢复入队
+    ui_emit_llm_chunk("Agent", "resumed")
+    let events3 = flush_ui_events()
+    _ueq_assert_true(len(events3) == 1, "清除中止后 llm_chunk 恢复入队")
+}
+
+fn _test_cross_module_state() {
+    print("\n=== 测试跨模块 shared let 状态（Issue #35 回归防护）===")
+
+    // 这是关键测试：验证 ui_event_queue.helen 中的 shared let
+    // 在被导入后跨模块访问正常（shared store 会失败 - 见 Issue #35）
+    flush_ui_events()
+    ui_clear_abort()
+
+    ui_emit_status("cross-module test", "info")
+    let events = flush_ui_events()
+    _ueq_assert_true(len(events) == 1, "跨模块发射事件成功入队")
+    _ueq_assert_equal(str(events[0]["message"]), "cross-module test", "跨模块事件内容正确")
+
+    ui_set_abort()
+    _ueq_assert_true(ui_check_aborted(), "跨模块中止标志可读写")
+    ui_clear_abort()
+}
+
+fn _test_status_and_input_events() {
+    print("\n=== 测试状态与输入请求事件 ===")
+
+    flush_ui_events()
+
+    ui_emit_status("info msg", "info")
+    ui_emit_status("warn msg", "warning")
+    ui_emit_input_request("请输入命令")
+
+    let events = flush_ui_events()
+    _ueq_assert_true(len(events) == 3, "3 个事件入队")
+    _ueq_assert_equal(str(events[0]["level"]), "info", "status level 正确")
+    _ueq_assert_equal(str(events[1]["level"]), "warning", "status warning level 正确")
+    _ueq_assert_equal(str(events[2]["type"]), "user_input_request", "input_request 类型正确")
+    _ueq_assert_equal(str(events[2]["prompt"]), "请输入命令", "input_request prompt 正确")
+}
+
+// ── 主测试函数 ──────────────────────────────────────────────────
+
+main {
+    print("╔═══════════════════════════════════════════════════════════╗")
+    print("║      ui_event_queue.helen 单元测试                        ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+
+    _test_event_emit_and_drain()
+    _test_abort_mechanism()
+    _test_cross_module_state()
+    _test_status_and_input_events()
+
+    print("\n╔═══════════════════════════════════════════════════════════╗")
+    print("║      测试完成                                             ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+}

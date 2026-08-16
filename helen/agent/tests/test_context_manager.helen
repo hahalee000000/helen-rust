@@ -1,0 +1,361 @@
+// ═══════════════════════════════════════════════════════════════════
+// 测试: context_manager.helen
+// ═══════════════════════════════════════════════════════════════════
+//
+// 运行: helen helen/agent/tests/test_context_manager.helen
+//
+// 覆盖 ContextManager shared store 方法 + 模块级辅助函数。
+// 大部分函数使用 try-catch 优雅降级，测试环境下部分 API 可能不可用。
+//
+
+import std.context.*
+import std.core.*
+import std.str.*
+import std.path.*
+import std.io.*
+import std.time.*
+import std.tools.*
+import std.transcript.*
+import "../context_manager.helen"
+
+fn _assert(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name)
+    }
+}
+
+fn _assert_equal(actual: any, expected: any, test_name: str) {
+    if str(actual) == str(expected) {
+        print("✓ " + test_name)
+    } else {
+        print("✗ FAIL: " + test_name + " (expected '" + str(expected) + "', got '" + str(actual) + "')")
+    }
+}
+
+// ── ContextManager.init ──────────────────────────────────────────
+
+fn test_init() {
+    print("\n=== ContextManager.init ===")
+    try {
+        ContextManager.init("")
+        _assert(true, "init with empty cwd does not crash")
+    } catch {
+        _assert(false, "init should not throw")
+    }
+}
+
+fn test_init_idempotent() {
+    print("\n=== ContextManager.init idempotent ===")
+    try {
+        ContextManager.init("")
+        ContextManager.init("")
+        _assert(true, "calling init twice does not crash")
+    } catch {
+        _assert(false, "double init should not throw")
+    }
+}
+
+// ── ContextManager.get_version ───────────────────────────────────
+
+fn test_get_version() {
+    print("\n=== ContextManager.get_version ===")
+    let v = ContextManager.get_version()
+    _assert_equal(type(v), "str", "returns a string")
+}
+
+// ── ContextManager.get_usage ─────────────────────────────────────
+
+fn test_get_usage() {
+    print("\n=== ContextManager.get_usage ===")
+    let usage = ContextManager.get_usage()
+    let t = type(usage)
+    _assert(t == "float" || t == "int", "usage is numeric (got: " + t + ")")
+    _assert(usage >= 0.0, "usage >= 0.0")
+}
+
+// ── ContextManager.get_session_dir ───────────────────────────────
+
+fn test_get_session_dir() {
+    print("\n=== ContextManager.get_session_dir ===")
+    let dir = ContextManager.get_session_dir()
+    _assert_equal(type(dir), "str", "returns a string")
+}
+
+// ── ContextManager.get_stats ─────────────────────────────────────
+
+fn test_get_stats() {
+    print("\n=== ContextManager.get_stats ===")
+    let stats = ContextManager.get_stats()
+    let t = type(stats)
+    _assert(t == "map" || t == "dict", "returns map/dict (got: " + t + ")")
+    _assert(stats["status"] != null, "has status key")
+}
+
+// ── ContextManager.pin / unpin / get_pinned ──────────────────────
+
+fn test_pin_graceful() {
+    print("\n=== ContextManager.pin degrades gracefully ===")
+    let r = ContextManager.pin("test-uuid-123")
+    _assert_equal(type(r), "bool", "returns bool")
+}
+
+fn test_unpin_graceful() {
+    print("\n=== ContextManager.unpin degrades gracefully ===")
+    let r = ContextManager.unpin("test-uuid-123")
+    _assert_equal(type(r), "bool", "returns bool")
+}
+
+fn test_get_pinned() {
+    print("\n=== ContextManager.get_pinned ===")
+    let pinned = ContextManager.get_pinned()
+    _assert_equal(type(pinned), "list", "returns a list")
+}
+
+// ── ContextManager.set_pinned_uuids ──────────────────────────────
+
+fn test_set_pinned_uuids() {
+    print("\n=== ContextManager.set_pinned_uuids ===")
+    try {
+        ContextManager.set_pinned_uuids(["uuid1", "uuid2"])
+        let pinned = ContextManager.get_pinned()
+        _assert_equal(len(pinned), 2, "pinned list has 2 items")
+        // restore
+        ContextManager.set_pinned_uuids([])
+    } catch {
+        _assert(false, "set_pinned_uuids should not throw")
+    }
+}
+
+fn test_set_pinned_uuids_empty() {
+    print("\n=== ContextManager.set_pinned_uuids empty ===")
+    try {
+        ContextManager.set_pinned_uuids([])
+        let pinned = ContextManager.get_pinned()
+        _assert_equal(len(pinned), 0, "pinned list is empty after clear")
+    } catch {
+        _assert(false, "set_pinned_uuids([]) should not throw")
+    }
+}
+
+// ── ContextManager.check_and_compress ────────────────────────────
+
+fn test_check_and_compress_not_initialized() {
+    print("\n=== ContextManager.check_and_compress before init ===")
+    // Note: this test runs after init() so it will NOT return not_initialized.
+    // We test the post-init path instead.
+    let r = ContextManager.check_and_compress(99999)
+    _assert(r["status"] != null, "has status key")
+}
+
+fn test_check_and_compress_after_init() {
+    print("\n=== ContextManager.check_and_compress after init ===")
+    let r = ContextManager.check_and_compress(1)
+    _assert(r["status"] != null, "has status key")
+    let status = r["status"]
+    _assert(status == "ok" || status == "auto_compress" || status == "urgent_compress" || status == "not_initialized",
+        "status is valid (got: " + status + ")")
+}
+
+fn test_check_and_compress_same_turn() {
+    print("\n=== ContextManager.check_and_compress same turn ===")
+    // First call sets last_compress_turn
+    ContextManager.check_and_compress(5000)
+    // Second call with same turn should skip
+    let r = ContextManager.check_and_compress(5000)
+    _assert(r["status"] != null, "has status key")
+}
+
+// ── ContextManager.check_version_if_needed ───────────────────────
+
+fn test_check_version_if_needed() {
+    print("\n=== ContextManager.check_version_if_needed ===")
+    try {
+        ContextManager.check_version_if_needed(1)
+        _assert(true, "check_version_if_needed does not crash")
+    } catch {
+        _assert(false, "check_version_if_needed should not throw")
+    }
+}
+
+fn test_check_version_if_needed_skip() {
+    print("\n=== ContextManager.check_version_if_needed skip ===")
+    try {
+        ContextManager.check_version_if_needed(1)
+        ContextManager.check_version_if_needed(2)
+        _assert(true, "second call within interval does not crash")
+    } catch {
+        _assert(false, "should not throw")
+    }
+}
+
+fn test_check_version_if_needed_recheck() {
+    print("\n=== ContextManager.check_version_if_needed recheck ===")
+    try {
+        ContextManager.check_version_if_needed(1000)
+        _assert(true, "recheck after long interval does not crash")
+    } catch {
+        _assert(false, "should not throw")
+    }
+}
+
+// ── ContextManager.refresh_facts_if_needed ───────────────────────
+
+fn test_refresh_facts_skip() {
+    print("\n=== ContextManager.refresh_facts_if_needed skip ===")
+    try {
+        ContextManager.refresh_facts_if_needed(1)
+        _assert(true, "refresh_facts does not crash on first turn")
+    } catch {
+        _assert(false, "should not throw")
+    }
+}
+
+fn test_refresh_facts_after_interval() {
+    print("\n=== ContextManager.refresh_facts_if_needed after interval ===")
+    try {
+        ContextManager.refresh_facts_if_needed(100)
+        _assert(true, "refresh_facts after interval does not crash")
+    } catch {
+        _assert(false, "should not throw")
+    }
+}
+
+// ── ContextManager.reset ─────────────────────────────────────────
+
+fn test_reset() {
+    print("\n=== ContextManager.reset ===")
+    try {
+        ContextManager.reset()
+        _assert(true, "reset does not crash")
+    } catch {
+        _assert(false, "reset should not throw")
+    }
+}
+
+fn test_reset_clears_state() {
+    print("\n=== ContextManager.reset clears state ===")
+    ContextManager.set_pinned_uuids(["test-uuid"])
+    ContextManager.reset()
+    let pinned = ContextManager.get_pinned()
+    _assert_equal(len(pinned), 0, "pinned list cleared after reset")
+}
+
+fn test_version_survives_reset() {
+    print("\n=== ContextManager.get_version survives reset ===")
+    ContextManager.reset()
+    let v = ContextManager.get_version()
+    _assert_equal(type(v), "str", "version still accessible after reset")
+}
+
+// ── Module-level: _setup_session_scope ───────────────────────────
+
+fn test_setup_session_scope_nonexistent() {
+    print("\n=== _setup_session_scope nonexistent dir ===")
+    let r = _setup_session_scope("/nonexistent_dir_xyz_123")
+    _assert_equal(r, "", "returns empty for nonexistent dir")
+}
+
+fn test_setup_session_scope_with_helen() {
+    print("\n=== _setup_session_scope with .helen dir ===")
+    let tmp = "/tmp/helen_test_ctx_" + str(int(time()))
+    mkdir_p(tmp + "/.helen")
+    let r = _setup_session_scope(tmp)
+    // Should return path ending with /sessions, or empty if set_session_dir fails
+    _assert_equal(type(r), "str", "returns a string")
+    if r != "" {
+        _assert(contains(r, "sessions"), "non-empty result contains 'sessions'")
+    } else {
+        _assert(true, "empty is OK (set_session_dir may fail in test)")
+    }
+    try { shell_exec("rm -rf " + tmp) } catch {}
+}
+
+// ── Module-level: _rebuild_pinned_uuids ──────────────────────────
+
+fn test_rebuild_pinned_uuids() {
+    print("\n=== _rebuild_pinned_uuids ===")
+    try {
+        _rebuild_pinned_uuids()
+        _assert(true, "_rebuild_pinned_uuids does not crash")
+    } catch {
+        _assert(false, "_rebuild_pinned_uuids should not throw")
+    }
+}
+
+// ── Module-level: _safe_context_usage ────────────────────────────
+
+fn test_safe_context_usage() {
+    print("\n=== _safe_context_usage ===")
+    let r = _safe_context_usage()
+    _assert(r >= 0.0, "returns >= 0.0 (got: " + str(r) + ")")
+    _assert(type(r) == "float" || type(r) == "int", "is numeric")
+}
+
+// ── Module-level: _safe_compress ─────────────────────────────────
+
+fn test_safe_compress() {
+    print("\n=== _safe_compress ===")
+    let r = _safe_compress("auto")
+    let t = type(r)
+    _assert(t == "map" || t == "dict", "returns map/dict (got: " + t + ")")
+}
+
+fn test_safe_compress_truncate() {
+    print("\n=== _safe_compress truncate ===")
+    let r = _safe_compress("truncate")
+    let t = type(r)
+    _assert(t == "map" || t == "dict", "returns map/dict (got: " + t + ")")
+}
+
+// ── Module-level: _safe_working_memory_snapshot ──────────────────
+
+fn test_safe_working_memory_snapshot() {
+    print("\n=== _safe_working_memory_snapshot ===")
+    let r = _safe_working_memory_snapshot()
+    let t = type(r)
+    _assert(t == "map" || t == "dict", "returns map/dict (got: " + t + ")")
+}
+
+// ── Run all tests ────────────────────────────────────────────────
+
+main {
+    print("═══════════════════════════════════════════")
+    print("  context_manager.helen 测试")
+    print("═══════════════════════════════════════════")
+
+    test_init()
+    test_init_idempotent()
+    test_get_version()
+    test_get_usage()
+    test_get_session_dir()
+    test_get_stats()
+    test_pin_graceful()
+    test_unpin_graceful()
+    test_get_pinned()
+    test_set_pinned_uuids()
+    test_set_pinned_uuids_empty()
+    test_check_and_compress_not_initialized()
+    test_check_and_compress_after_init()
+    test_check_and_compress_same_turn()
+    test_check_version_if_needed()
+    test_check_version_if_needed_skip()
+    test_check_version_if_needed_recheck()
+    test_refresh_facts_skip()
+    test_refresh_facts_after_interval()
+    test_reset()
+    test_reset_clears_state()
+    test_version_survives_reset()
+    test_setup_session_scope_nonexistent()
+    test_setup_session_scope_with_helen()
+    test_rebuild_pinned_uuids()
+    test_safe_context_usage()
+    test_safe_compress()
+    test_safe_compress_truncate()
+    test_safe_working_memory_snapshot()
+
+    print("\n═══════════════════════════════════════════")
+    print("  context_manager.helen 测试完成")
+    print("═══════════════════════════════════════════")
+}

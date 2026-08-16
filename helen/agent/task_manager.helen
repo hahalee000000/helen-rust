@@ -1,0 +1,191 @@
+// 任务目录管理器
+// 为每个编程任务创建独立的目录结构，避免文件覆盖
+
+import std.core.*
+import std.io.*
+import std.str.*
+import std.system.*
+import std.time.*
+import std.tools.*
+import "utils.helen"
+
+/** 从需求中提取任务名称（fallback 用）
+ *
+ * 注意： Helen 不支持 split(s, "")，得用 substring 遍历字符。
+ * 只保留 ASCII 字母/数字，空格转下划线，其他字符丢弃。
+ */
+fn extract_task_name(requirement: str): str {
+    if requirement == "" {
+        return "task"
+    }
+
+    let base = requirement
+    if len(requirement) > 30 {
+        base = substring(requirement, 0, 30)
+    }
+
+    let valid_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+    let safe = ""
+    for i in range(len(base)) {
+        let c = substring(base, i, i + 1)
+        if contains(valid_chars, c) {
+            safe = safe + c
+        } else if c == " " {
+            safe = safe + "_"
+        }
+    }
+
+    if safe == "" || safe == "_" {
+        safe = "task"
+    }
+
+    safe = lower(safe)
+
+    while contains(safe, "__") {
+        safe = replace(safe, "__", "_")
+    }
+
+    if startswith(safe, "_") {
+        safe = substring(safe, 1, len(safe))
+    }
+    if len(safe) > 0 && endswith(safe, "_") {
+        safe = substring(safe, 0, len(safe) - 1)
+    }
+
+    if safe == "" {
+        safe = "task"
+    }
+
+    return safe
+}
+
+/** 清理 LLM 建议的工程名，生成目录安全的标识符
+ *
+ * 规则：
+ * - 转小写
+ * - 下划线/空格替换为连字符（-）
+ * - 只保留 [a-z0-9-]（非 ASCII 字符会被去掉，所以建议 LLM 给英文名）
+ * - 合并连续连字符、去掉首尾连字符
+ * - 长度截断到 40 字符
+ * - 空结果回退为 "task"
+ */
+fn sanitize_project_name(name: str): str {
+    if name == "" {
+        return "task"
+    }
+
+    let s = lower(name)
+    s = replace(s, "_", "-")
+    s = replace(s, " ", "-")
+
+    let valid_chars = "abcdefghijklmnopqrstuvwxyz0123456789-"
+    let safe = ""
+    for i in range(len(s)) {
+        let c = substring(s, i, i + 1)
+        if contains(valid_chars, c) {
+            safe = safe + c
+        }
+    }
+
+    // 合并连续连字符
+    while contains(safe, "--") {
+        safe = replace(safe, "--", "-")
+    }
+
+    // 去掉首尾连字符
+    if len(safe) > 0 && startswith(safe, "-") {
+        safe = substring(safe, 1, len(safe))
+    }
+    if len(safe) > 0 && endswith(safe, "-") {
+        safe = substring(safe, 0, len(safe) - 1)
+    }
+
+    // 截断长度
+    if len(safe) > 40 {
+        safe = substring(safe, 0, 40)
+    }
+
+    if safe == "" {
+        safe = "task"
+    }
+
+    return safe
+}
+
+/** 生成任务 ID（仅用工程名，无时间戳）
+ *
+ * 优先级：project_name（LLM 建议）> requirement 提取
+ * 两个参数都可选，方便测试时不传参。
+ */
+fn generate_task_id(requirement: str = "", project_name: str = ""): str {
+    let name = ""
+    if project_name != "" {
+        name = sanitize_project_name(project_name)
+    }
+    if name == "" || name == "task" {
+        name = extract_task_name(requirement)
+    }
+    return name
+}
+
+/** 获取当前时间戳字符串（跨平台） */
+fn get_current_time(): str {
+    // 用 stdlib now() 返回 "YYYY-MM-DDTHH:MM:SS"，转换为 "YYYY-MM-DD HH:MM:SS"
+    let now_str = now()
+    // 将 'T' 替换为空格
+    return replace(now_str, "T", " ")
+}
+
+/** 创建任务目录结构 */
+fn create_task_directory(project_dir: str, task_id: str): str {
+    // 安全校验：防止 shell 注入
+    if validate_path(project_dir) == "" || validate_path(task_id) == "" {
+        return ""
+    }
+
+    let task_dir = project_dir + "/" + task_id
+
+    // 创建目录
+    mkdir_p(task_dir + "/src")
+    mkdir_p(task_dir + "/tests")
+    mkdir_p(task_dir + "/contracts")
+
+    // 创建 README.md
+    let current_time = get_current_time()
+    let readme_content = "# " + task_id + "\n\n创建时间: " + current_time + "\n"
+    write_file(task_dir + "/README.md", readme_content)
+
+    // 更新 latest 符号链接（跨平台处理）
+    let latest_link = project_dir + "/latest"
+    if path_exists(latest_link) {
+        try {
+            delete_file(latest_link)  // 跨平台：用 stdlib
+        } catch {
+            // 删除失败继续
+        }
+    }
+    // 创建符号链接：Unix 用 ln -s，Windows 用 mklink /D
+    if platform() == "windows" {
+        // Windows mklink 需要 cmd /c
+        shell_exec("cmd /c mklink /D \"" + latest_link + "\" \"" + task_id + "\"")
+    } else {
+        shell_exec("ln -s " + task_id + " " + latest_link)
+    }
+
+    return task_dir
+}
+
+/** 获取任务的各种路径 */
+fn get_task_paths(task_dir: str): map {
+    return {
+        "src_dir": task_dir + "/src",
+        "tests_dir": task_dir + "/tests",
+        "contracts_dir": task_dir + "/contracts",
+        "main_file": task_dir + "/src/main.helen",
+        "test_file": task_dir + "/tests/test_main.helen",
+        "contract_file": task_dir + "/contracts/contracts.helen",
+        "readme_file": task_dir + "/README.md"
+    }
+}
+
+// update_task_readme 已删除（v4.3：无调用方，README 由 create_task_directory 内联生成）

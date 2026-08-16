@@ -1,0 +1,24 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        agent MyAgent() {
+            functions {
+                let a = 1
+                let b = 2
+                const c = 3
+                fn sum(): int {
+                    return a + b + c
+                }
+            }
+            main {
+                print(sum())
+            }
+        }
+        main {
+            MyAgent()
+        }
+        

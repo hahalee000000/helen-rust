@@ -442,6 +442,7 @@ fn print_help() {
     println!("  helen coverage <file> [opts]   Run tests with coverage measurement");
     println!("  helen doc [files]              Generate API documentation");
     println!("  helen provider <cmd> [opts]    Manage custom LLM provider adapters");
+    println!("  helen agent                    Launch the Helen Web UI");
     println!("  helen repl                     Start the interactive REPL");
     println!("  helen --version                Show version number");
     println!();
@@ -484,6 +485,177 @@ fn preflight_config_check() -> Result<(), i32> {
     eprintln!();
     eprintln!("Or set environment variable: HELEN_API_KEY");
     Err(1)
+}
+
+/// `helen agent` — launch the Helen Web UI (delegates to Python start_webui.py).
+/// Port of `helen/cli/agent_launcher.py::launch_agent`.
+fn agent_command() -> i32 {
+    use std::process::Command;
+
+    println!("============================================================");
+    println!("🚀 Helen Programming Assistant");
+    println!("============================================================");
+    println!();
+
+    // 1. Check Node.js
+    let node_check = Command::new("node")
+        .arg("--version")
+        .output();
+    if node_check.is_err() || !node_check.as_ref().unwrap().status.success() {
+        eprintln!("❌ Error: Node.js is not installed.");
+        eprintln!();
+        eprintln!("Helen agent requires Node.js 18+ for the frontend.");
+        eprintln!();
+        eprintln!("Install Node.js:");
+        eprintln!("  https://nodejs.org/");
+        eprintln!();
+        eprintln!("Or using a version manager:");
+        eprintln!("  nvm install 18");
+        eprintln!("  nvm use 18");
+        return 1;
+    }
+
+    // 2. Check Python dependencies
+    let dep_check_script = r#"
+import sys
+missing = []
+for mod, pkg in [("fastapi","fastapi"),("uvicorn","uvicorn"),("websockets","websockets"),("pydantic","pydantic"),("pydantic_settings","pydantic-settings"),("dotenv","python-dotenv"),("multipart","python-multipart")]:
+    try:
+        __import__(mod)
+    except ImportError:
+        missing.append(pkg)
+if missing:
+    print("MISSING:" + ",".join(missing))
+    sys.exit(1)
+print("OK")
+"#;
+    let dep_check = Command::new("python3")
+        .args(["-c", dep_check_script])
+        .output();
+    match dep_check {
+        Ok(output) if output.status.success() => {}
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if let Some(missing_str) = stdout.strip_prefix("MISSING:") {
+                let missing: Vec<&str> = missing_str.trim().split(',').collect();
+                eprintln!("❌ Error: Helen agent requires additional Python packages.");
+                eprintln!();
+                eprintln!("Missing packages:");
+                for pkg in &missing {
+                    eprintln!("  - {pkg}");
+                }
+                eprintln!();
+                eprintln!("Install with:");
+                eprintln!("  pip install helen-lang[agent]");
+                eprintln!();
+                eprintln!("Or install individually:");
+                eprintln!("  pip install {}", missing.join(" "));
+                return 1;
+            }
+            eprintln!("❌ Error: Python dependency check failed.");
+            return 1;
+        }
+        Err(_) => {
+            eprintln!("❌ Error: Python 3 is not installed or not in PATH.");
+            return 1;
+        }
+    }
+
+    // 3. Find agent directory
+    // Priority: HELEN_AGENT_DIR env var > relative to binary > relative to CWD
+    let agent_dir = if let Ok(dir) = std::env::var("HELEN_AGENT_DIR") {
+        std::path::PathBuf::from(dir)
+    } else {
+        // Try relative to the binary location
+        let exe = std::env::current_exe().ok();
+        let bin_dir = exe.as_ref().and_then(|p| p.parent().map(|p| p.to_path_buf()));
+        let candidate = bin_dir
+            .as_ref()
+            .map(|d| d.join("../helen/agent"))
+            .filter(|p| p.exists());
+        if let Some(d) = candidate {
+            d
+        } else {
+            // Fall back to CWD/helen/agent
+            let cwd = std::env::current_dir().unwrap_or_default();
+            cwd.join("helen/agent")
+        }
+    };
+
+    if !agent_dir.exists() {
+        eprintln!("❌ Error: agent directory not found");
+        eprintln!("Expected location: {}", agent_dir.display());
+        eprintln!();
+        eprintln!("Set HELEN_AGENT_DIR to the agent directory, or run from the helen-rust repo root.");
+        return 1;
+    }
+
+    // 4. Check node_modules
+    let frontend_dir = agent_dir.join("webui/frontend");
+    let node_modules = frontend_dir.join("node_modules");
+    let vite_bin = if cfg!(windows) {
+        node_modules.join(".bin/vite.cmd")
+    } else {
+        node_modules.join(".bin/vite")
+    };
+    if !vite_bin.exists() {
+        eprintln!("⚠️  Frontend dependencies not found");
+        eprintln!();
+        eprintln!("Installing...");
+        let npm_result = Command::new("npm")
+            .arg("install")
+            .current_dir(&frontend_dir)
+            .status();
+        match npm_result {
+            Ok(status) if status.success() => {
+                eprintln!("✅ Frontend dependencies installed");
+                eprintln!();
+            }
+            _ => {
+                eprintln!("❌ Failed to install frontend dependencies.");
+                eprintln!();
+                eprintln!("Please install manually:");
+                eprintln!("  cd {}", frontend_dir.display());
+                eprintln!("  npm install");
+                return 1;
+            }
+        }
+    }
+
+    // 5. Launch start_webui.py
+    let start_script = agent_dir.join("webui/start_webui.py");
+    if !start_script.exists() {
+        eprintln!("❌ Error: start_webui.py not found");
+        eprintln!("Expected: {}", start_script.display());
+        return 1;
+    }
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    eprintln!("✅ Starting Helen programming assistant...");
+    eprintln!();
+
+    let mut child = Command::new("python3")
+        .arg(&start_script)
+        .current_dir(&agent_dir)
+        .env("HELEN_WEBUI_CWD", cwd.to_string_lossy().as_ref())
+        .spawn();
+
+    match child {
+        Ok(ref mut c) => {
+            // Wait for the child process
+            match c.wait() {
+                Ok(status) => status.code().unwrap_or(1),
+                Err(e) => {
+                    eprintln!("❌ Error waiting for Web UI: {e}");
+                    1
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to start Web UI: {e}");
+            1
+        }
+    }
 }
 
 fn main() {
@@ -651,6 +823,10 @@ fn main() {
             let mut server = helen_lsp::HelenLanguageServer::new();
             server.run();
             std::process::exit(0);
+        }
+        "agent" => {
+            let code = agent_command();
+            std::process::exit(code);
         }
         // Default: treat first argument as a file to run.
         _ => {

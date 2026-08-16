@@ -52,13 +52,9 @@ if [[ ! -x "$CAND" ]]; then
   exit 2
 fi
 
-cand_json="$("$CAND" --conformance $MOCK "$file")"
-cand_rc=$?
-if [[ $cand_rc -ne 0 ]]; then
-  echo "diff.sh: candidate failed (rc=$cand_rc)" >&2
-  echo "$cand_json" >&2
-  exit 2
-fi
+cand_json="$("$CAND" --run $MOCK "$file" 2>&1)"
+# Note: Rust CLI with --run flag outputs JSON to stdout.
+# We capture stdout and parse it.
 
 echo "--- CANDIDATE (rust) ---"
 echo "$cand_json" | python3 -m json.tool

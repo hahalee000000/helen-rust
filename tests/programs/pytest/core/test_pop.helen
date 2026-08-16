@@ -1,0 +1,14 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        main {
+            let list = [1, 2, 3]
+            let popped = list.pop()
+            print(popped)
+            print(list)
+        }
+        

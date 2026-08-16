@@ -1,0 +1,224 @@
+// ═══════════════════════════════════════════════════════════════════
+// HelenAgent 集成测试 - 模块互操作
+// ═══════════════════════════════════════════════════════════════════
+//
+// 验证 helenagent 各模块协同工作的正确性（不涉及 LLM 调用）：
+// - 模块导入链完整性（所有 import 解析成功）
+// - 跨模块 shared let 状态流（output -> ui_event_queue）
+// - Rich UI 事件端到端流转
+// - agent 返回的 JSON 契约形状
+// - 上下文注入 + 系统提醒链路
+// - Issue #35 回归防护（shared store 跨模块）
+//
+// 运行：helen tests/test_integration.helen
+//
+
+import std.core.*
+import std.str.*
+import "../chat_session_actor.helen"
+import "../output.helen"
+import "../ui_event_queue.helen"
+import "../context.helen"
+import "../memory_utils.helen"
+import "../system_reminders.helen"
+import "../commands.helen"
+import "../contracts/contracts.helen"
+
+// ── 测试辅助 ────────────────────────────────────────────────────
+
+fn _int_assert_true(condition: bool, test_name: str) {
+    if condition {
+        print("✓ " + test_name + ": PASS")
+    } else {
+        print("✗ " + test_name + ": FAIL")
+    }
+}
+
+fn _int_assert_equal(actual: str, expected: str, test_name: str) {
+    if actual == expected {
+        print("✓ " + test_name + ": PASS")
+    } else {
+        print("✗ " + test_name + ": FAIL (expected " + expected + ", got " + actual + ")")
+    }
+}
+
+// ── 集成测试用例 ────────────────────────────────────────────────
+
+/** 集成 1：全模块导入链完整性
+ *  若本文件 helen check 通过 + 本函数运行无 ImportError，说明所有模块互操作正常 */
+fn _test_full_import_chain() {
+    print("\n=== 集成 1：全模块导入链 ===")
+
+    // 调用每个模块的至少一个公共函数，验证导入解析
+    set_output_mode("minimal")
+    _int_assert_equal(get_output_mode(), "minimal", "output.helen 导入")
+
+    ui_clear_abort()
+    _int_assert_true(!ui_check_aborted(), "ui_event_queue.helen 导入")
+
+    // contracts.helen 的常量
+    _int_assert_true(QUALITY_THRESHOLD == 7.5, "contracts.helen 导入（QUALITY_THRESHOLD）")
+    _int_assert_true(ERR_AGENT_FAILED == 5001, "contracts.helen 错误码")
+
+    // context.helen
+    let facts = collect_all_facts()
+    _int_assert_true(len(facts) > 0, "context.helen collect_all_facts 返回非空")
+
+    // memory_utils.helen
+    _int_assert_equal(load_memory(), load_memory(), "memory_utils.helen load_memory 可重复调用")
+
+    // system_reminders.helen
+    reset_turn_counter()
+    _int_assert_equal(str(get_turn_counter()), "0", "system_reminders.helen 计数器重置")
+
+    // commands.helen（验证命令处理函数存在且可调用）
+    let cmd = parse_command("/help")
+    _int_assert_true(len(cmd) > 0, "commands.helen parse_command 返回非空 map")
+    _int_assert_equal(str(cmd["command"]), "help", "parse_command 解析 /help")
+}
+
+/** 集成 2：Rich UI 事件端到端流转
+ *  output.helen(Rich 模式) -> ui_event_queue.helen -> 事件排空 */
+fn _test_rich_ui_event_flow() {
+    print("\n=== 集成 2：Rich UI 事件端到端流转 ===")
+
+    set_output_mode("rich")
+    flush_ui_events()
+
+    // output.helen 的 Rich 模式应发射 UI 事件
+    agent_start("IntegAgent")
+    status("集成测试运行中")
+    agent_end("IntegAgent")
+
+    let events = flush_ui_events()
+    _int_assert_true(len(events) >= 3, "Rich 模式发射 >=3 个 UI 事件")
+
+    // 验证事件类型链
+    let has_agent_start = false
+    let has_status = false
+    let has_agent_end = false
+    let i = 0
+    while i < len(events) {
+        let t = str(events[i]["type"])
+        if t == "agent_start" { has_agent_start = true }
+        if t == "status" { has_status = true }
+        if t == "agent_end" { has_agent_end = true }
+        i = i + 1
+    }
+    _int_assert_true(has_agent_start, "事件链含 agent_start")
+    _int_assert_true(has_status, "事件链含 status")
+    _int_assert_true(has_agent_end, "事件链含 agent_end")
+
+    set_output_mode("minimal")
+}
+
+/** 集成 3：系统提醒注入链路
+ *  system_reminders.helen 根据轮次和占用率注入 <system-reminder> */
+fn _test_system_reminder_chain() {
+    print("\n=== 集成 3：系统提醒注入 ===")
+
+    reset_turn_counter()
+    // REMINDER_INTERVAL = 10（低压默认），context_usage() 在测试环境返回 0.0
+    // 因此前 9 轮不注入，第 10 轮注入
+    let i = 0
+    while i < 9 {
+        let enriched = inject_system_reminders("user msg " + str(i))
+        _int_assert_equal(enriched, "user msg " + str(i), "第 " + str(i + 1) + " 轮不注入提醒")
+        i = i + 1
+    }
+    // 第 10 轮注入提醒
+    let enriched10 = inject_system_reminders("user msg 9")
+    _int_assert_true(contains(enriched10, "<system-reminder>"), "第 10 轮注入 system-reminder")
+    _int_assert_true(contains(enriched10, "Never assume") || contains(enriched10, "不要假设环境事实"), "提醒含关键规则")
+
+    reset_turn_counter()
+}
+
+/** 集成 4：agent JSON 契约形状
+ *  验证 specialist agents 的返回 JSON 包含必需字段（不调用 agent，只验证契约常量） */
+fn _test_agent_json_contract() {
+    print("\n=== 集成 4：agent JSON 契约 ===")
+
+    // 验证 contracts.helen 中定义的工具集和错误码
+    _int_assert_true(ERR_AGENT_FAILED == 5001, "ERR_AGENT_FAILED")
+    _int_assert_true(ERR_CONTRACT_INVALID == 5002, "ERR_CONTRACT_INVALID")
+    _int_assert_true(ERR_TEST_GENERATION_FAILED == 5003, "ERR_TEST_GENERATION_FAILED")
+    _int_assert_true(ERR_IMPLEMENTATION_FAILED == 5004, "ERR_IMPLEMENTATION_FAILED")
+    _int_assert_true(ERR_QUALITY_BELOW_THRESHOLD == 5005, "ERR_QUALITY_BELOW_THRESHOLD")
+    _int_assert_true(ERR_SKILL_EVALUATION_FAILED == 5006, "ERR_SKILL_EVALUATION_FAILED")
+    _int_assert_true(ERR_FILE_NOT_FOUND == 5007, "ERR_FILE_NOT_FOUND")
+    _int_assert_true(ERR_PATCH_FAILED == 5008, "ERR_PATCH_FAILED")
+
+    _int_assert_true(QUALITY_THRESHOLD == 7.5, "QUALITY_THRESHOLD=7.5")
+    _int_assert_true(MIN_DIMENSION_SCORE == 6.0, "MIN_DIMENSION_SCORE=6.0")
+}
+
+/** 集成 5：Issue #35 回归防护
+ *  确保导入模块中的 shared let 跨模块可读写（shared store 会失败） */
+fn _test_issue35_regression_guard() {
+    print("\n=== 集成 5：Issue #35 回归防护 ===")
+
+    // ui_event_queue.helen 的 shared let 跨模块写入后读取
+    flush_ui_events()
+    ui_clear_abort()
+
+    ui_emit_status("regression-test", "info")
+    let events = flush_ui_events()
+    _int_assert_true(len(events) == 1, "导入模块 shared let 写入后可读取")
+
+    ui_set_abort()
+    _int_assert_true(ui_check_aborted(), "导入模块 shared let bool 状态跨模块可见")
+    ui_clear_abort()
+
+    // output.helen 的 shared let（输出级别）跨模块
+    set_output_level(OUTPUT_VERBOSE)
+    _int_assert_true(get_output_level() == OUTPUT_VERBOSE, "output.helen shared let 跨模块读写")
+    set_output_level(OUTPUT_MINIMAL)
+}
+
+/** 集成 6：上下文注入完整性
+ *  context.helen 收集的环境事实齐全 */
+fn _test_context_injection_completeness() {
+    print("\n=== 集成 6：上下文注入完整性 ===")
+
+    let facts = collect_all_facts()
+    let required_keys = ["current_date", "platform", "cwd", "git_branch"]
+    let i = 0
+    let all_present = true
+    while i < len(required_keys) {
+        let key = required_keys[i]
+        if !contains(str(facts), key) {
+            all_present = false
+        }
+        i = i + 1
+    }
+    _int_assert_true(all_present, "环境事实含必需字段")
+
+    // current_date 应为 YYYY-MM-DD 格式
+    let date_str = str(facts["current_date"])
+    _int_assert_true(len(date_str) == 10, "current_date 格式 YYYY-MM-DD（长度 10）")
+
+    // project_context 生成
+    let proj_facts = collect_project_facts()
+    let proj = build_project_context_xml(proj_facts)
+    _int_assert_true(len(proj) > 0, "build_project_context_xml 返回非空")
+}
+
+// ── 主测试函数 ──────────────────────────────────────────────────
+
+main {
+    print("╔═══════════════════════════════════════════════════════════╗")
+    print("║      HelenAgent 集成测试 - 模块互操作                     ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+
+    _test_full_import_chain()
+    _test_rich_ui_event_flow()
+    _test_system_reminder_chain()
+    _test_agent_json_contract()
+    _test_issue35_regression_guard()
+    _test_context_injection_completeness()
+
+    print("\n╔═══════════════════════════════════════════════════════════╗")
+    print("║      集成测试完成                                         ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
+}

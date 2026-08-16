@@ -1,0 +1,70 @@
+// ═══════════════════════════════════════════════════════════════════
+// Helen Programming Agent - 系统提醒中途注入机制
+// ═══════════════════════════════════════════════════════════════════
+//
+// 对抗长对话中的指令遵循衰减（Claude Code 经验借鉴）
+//
+// v1.19-v1.20: 提醒间隔根据 context_usage() 动态调整
+//
+
+import std.context.*
+import std.core.*
+shared let _turn_counter = 0  // 对话轮次计数器
+const REMINDER_INTERVAL = 10  // 低压默认间隔（每 10 轮）
+
+/** 中途注入系统提醒（对抗上下文衰减）
+ *  间隔根据上下文占用率动态调整：
+ *  - 占用率 >= 0.7：每 3 轮提醒（高压）
+ *  - 占用率 >= 0.5：每 5 轮提醒（中压）
+ *  - 占用率 < 0.5：每 10 轮提醒（低压，默认） */
+fn inject_system_reminders(user_input: str): str {
+    _turn_counter = _turn_counter + 1
+
+    let interval = _dynamic_interval()
+
+    if _turn_counter % interval == 0 {
+        // 内联计算占用百分比（避免再引一个 _safe_usage helper）
+        let usage_pct = 0
+        try { usage_pct = int(context_usage() * 100) } catch { }
+        let reminder = """
+
+<system-reminder>
+Turn """ + str(_turn_counter) + """ (context usage: """ + str(usage_pct) + """%). Key rules reminder:
+1. Never assume environmental facts (date, cwd, git state, etc.) — query with tools.
+2. After modifying .helen files, always run helen check to verify.
+3. Never modify ~/helen/ (Helen language source code).
+4. Report Helen language issues at https://github.com/hahalee000000/helen/issues
+5. ALWAYS respond in the same language the user is using.
+</system-reminder>
+
+"""
+        return user_input + reminder
+    }
+
+    return user_input
+}
+
+/** 根据上下文占用率动态计算提醒间隔 */
+fn _dynamic_interval(): int {
+    try {
+        let usage = context_usage()
+        if usage >= 0.7 { return 3 }    // 高压：每 3 轮
+        if usage >= 0.5 { return 5 }    // 中压：每 5 轮
+        return REMINDER_INTERVAL        // 低压：每 10 轮
+    } catch {
+        return REMINDER_INTERVAL        // API 不可用时降级
+    }
+}
+
+// 注：_safe_usage() 已内联到 inject_system_reminders()，避免与
+// context_manager._safe_context_usage() 重复。
+
+/** 获取当前对话轮次 */
+fn get_turn_counter(): int {
+    return _turn_counter
+}
+
+/** 重置对话轮次计数器（/clear 时调用） */
+fn reset_turn_counter() {
+    _turn_counter = 0
+}

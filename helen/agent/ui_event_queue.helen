@@ -1,0 +1,189 @@
+// ═══════════════════════════════════════════════════════════════════
+// Helen Programming Agent - UI 事件队列
+// ═══════════════════════════════════════════════════════════════════
+//
+// 事件驱动的 UI 系统核心：Helen 通过此模块发出 UI 事件，
+// Python UI 库消费事件并渲染。
+//
+// 事件类型：
+// - agent_start: Agent 开始执行
+// - agent_end: Agent 执行完成
+// - llm_chunk: LLM 流式输出片段
+// - tool_call: 工具调用
+// - tool_result: 工具结果
+// - user_input_request: 请求用户输入
+// - abort: ESC 中止信号
+//
+// 使用示例：
+//   import "ui_event_queue.helen"
+//   ui_emit_agent_start("Contractor")
+//   ui_emit_llm_chunk("Contractor", "正在分析...")
+//   let events = flush_ui_events()  // 取出所有事件
+//
+// 实现说明：
+//   使用 shared store UIEventQueue 封装状态与方法，跨模块访问
+//   由 Helen v1.17+ 提供（Issue #35 已修复）。
+//
+
+// ── UIEventQueue Shared Store ─────────────────────────────────────
+
+import std.core.*
+import std.time.*
+shared store UIEventQueue {
+    // 事件队列（FIFO）
+    let events: list = []
+
+    // ESC 中止标志
+    let abort_flag: bool = false
+
+    // 队列最大容量（防止内存溢出）
+    const MAX_CAPACITY = 1000
+
+    /** 推入事件到队列（容量保护：超出上限时丢弃最早的事件） */
+    fn push(event: map) {
+        if len(events) >= MAX_CAPACITY {
+            // 丢弃最早的事件（移除第一个元素）
+            let new_events = []
+            let i = 1
+            while i < len(events) {
+                new_events = new_events + [events[i]]
+                i = i + 1
+            }
+            events = new_events
+        }
+        events = events + [event]
+    }
+
+    /** 取出所有事件并清空队列 */
+    fn drain(): list {
+        let result = events
+        events = []
+        return result
+    }
+
+    /** 设置中止标志（ESC 触发） */
+    fn set_abort() {
+        abort_flag = true
+    }
+
+    /** 清除中止标志 */
+    fn clear_abort() {
+        abort_flag = false
+    }
+
+    /** 检查是否已中止 */
+    fn is_aborted(): bool {
+        return abort_flag
+    }
+
+    /** 获取队列长度（调试用） */
+    fn size(): int {
+        return len(events)
+    }
+}
+
+// ── 事件发射函数 ──────────────────────────────────────────────────
+
+/** 发射 agent_start 事件 */
+fn ui_emit_agent_start(agent_name: str) {
+    UIEventQueue.push({
+        "type": "agent_start",
+        "agent": agent_name,
+        "timestamp": int(time())  // 跨平台：用 stdlib time()
+    })
+}
+
+/** 发射 agent_end 事件 */
+fn ui_emit_agent_end(agent_name: str, duration_ms: int) {
+    UIEventQueue.push({
+        "type": "agent_end",
+        "agent": agent_name,
+        "duration_ms": duration_ms,
+        "timestamp": int(time())  // 跨平台：用 stdlib time()
+    })
+}
+
+/** 发射 llm_chunk 事件（流式输出） */
+fn ui_emit_llm_chunk(agent_name: str, text: str) {
+    // 如果已中止，不再发射事件
+    if UIEventQueue.is_aborted() {
+        return
+    }
+    UIEventQueue.push({
+        "type": "llm_chunk",
+        "agent": agent_name,
+        "chunk": text
+    })
+}
+
+/** 发射 tool_call 事件 */
+fn ui_emit_tool_call(tool: str, args: map) {
+    UIEventQueue.push({
+        "type": "tool_call",
+        "tool": tool,
+        "args": args,
+        "status": "calling"
+    })
+}
+
+/** 发射 tool_result 事件 */
+fn ui_emit_tool_result(tool: str, status: str, result: str) {
+    UIEventQueue.push({
+        "type": "tool_result",
+        "tool": tool,
+        "status": status,  // "success" | "error"
+        "result": result
+    })
+}
+
+/** 发射 user_input_request 事件 */
+fn ui_emit_input_request(input_prompt: str) {
+    UIEventQueue.push({
+        "type": "user_input_request",
+        "prompt": input_prompt
+    })
+}
+
+/** 发射状态消息事件 */
+fn ui_emit_status(message: str, level: str) {
+    UIEventQueue.push({
+        "type": "status",
+        "message": message,
+        "level": level  // "info" | "success" | "warning" | "error"
+    })
+}
+
+// ── 队列查询/控制函数 ─────────────────────────────────────────────
+
+/** 刷新所有事件（取出并清空队列）
+ *  Python UI 库轮询调用此函数获取待渲染事件。
+ *
+ *  示例:
+ *    ui_emit_agent_start("Contractor")
+ *    ui_emit_llm_chunk("Contractor", "分析中...")
+ *    let events = flush_ui_events()
+ *    // events == [{"type":"agent_start",...}, {"type":"llm_chunk",...}]
+ *    // 再次调用返回 []（已清空） */
+fn flush_ui_events(): list {
+    return UIEventQueue.drain()
+}
+
+/** 检查是否已中止（供 chunk callback 使用） */
+fn ui_check_aborted(): bool {
+    return UIEventQueue.is_aborted()
+}
+
+/** 设置中止标志（供 InputHandler 调用） */
+fn ui_set_abort() {
+    UIEventQueue.set_abort()
+}
+
+/** 清除中止标志 */
+fn ui_clear_abort() {
+    UIEventQueue.clear_abort()
+}
+
+/** 获取队列长度（调试用） */
+fn ui_queue_size(): int {
+    return UIEventQueue.size()
+}

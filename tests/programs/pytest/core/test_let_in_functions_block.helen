@@ -1,0 +1,22 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        agent MyAgent() {
+            functions {
+                let config = "default"
+                fn get_config(): str {
+                    return config
+                }
+            }
+            main {
+                print(get_config())
+            }
+        }
+        main {
+            MyAgent()
+        }
+        

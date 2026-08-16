@@ -1,0 +1,113 @@
+// ═══════════════════════════════════════════════════════════════════
+// Helen Programming Agent - 记忆系统工具
+// ═══════════════════════════════════════════════════════════════════
+//
+// 提供记忆文件的读写和管理功能
+//
+
+// ── Memory System: 记忆系统 ──
+
+/** 读取 agent 记忆文件（.helen/MEMORY.md）。 */
+fn load_memory(): str {
+    let path = ".helen/MEMORY.md"
+    if !path_exists(path) {
+        return ""
+    }
+    return read_file(path)
+}
+
+/** 读取用户偏好文件（.helen/USER.md）。 */
+import std.core.*
+import std.path.*
+import std.str.*
+fn load_user_preferences(): str {
+    let path = ".helen/USER.md"
+    if !path_exists(path) {
+        return ""
+    }
+    return read_file(path)
+}
+
+/** 构建记忆上下文（Agent 记忆 + 用户偏好），用于注入 prompt。
+ *  返回格式化的 Markdown 字符串，可直接拼接到 env_context。
+ *  幂等：多次调用返回相同结果。 */
+fn build_memory_context(): str {
+    let memory_content = load_memory()
+    let user_prefs_content = load_user_preferences()
+    let ctx = ""
+    if memory_content != "" {
+        ctx = ctx + "## Agent 记忆（历史知识）\n" + memory_content + "\n\n"
+    }
+    if user_prefs_content != "" {
+        ctx = ctx + "## 用户偏好\n" + user_prefs_content + "\n\n"
+    }
+    if ctx == "" {
+        ctx = "（暂无记忆，会在交互中逐步学习）\n"
+    }
+    return ctx
+}
+
+/** 更新记忆文件。追加或更新指定类别的知识点。
+ *  同时作为 LLM 工具（v4.3：合并模块 helper 与 functions{} 包裹器，消除命名歧义）。
+ *
+ *  示例:
+ *    update_memory("error_patterns", "shared_let_write_back",
+ *                  "Agent 内修改 shared let 后，agent 返回前会自动写回")
+ *    // .helen/MEMORY.md 的 "## error_patterns" 节追加：
+ *    //   - **shared_let_write_back**: Agent 内修改 shared let 后...
+ *
+ *  返回: {"status": "success"|"error", "message": str} */
+fn update_memory(category: str, key: str, value: str): map {
+    let path = ".helen/MEMORY.md"
+    let content = ""
+    if path_exists(path) {
+        content = read_file(path)
+    } else {
+        content = "# HelenAgent Unified Context\n\n> Agent 启动时加载的统一上下文入口。\n\n"
+    }
+
+    let section_header = "## " + category
+    if !contains(content, section_header) {
+        content = content + "\n" + section_header + "\n\n"
+    }
+
+    let entry_marker = "**" + key + "**"
+    if contains(content, entry_marker) {
+        content = content + "\n- **" + key + "** (更新): " + value + "\n"
+    } else {
+        content = content + "- **" + key + "**: " + value + "\n"
+    }
+
+    try {
+        write_file(path, content)
+        return {"status": "success", "message": "记忆已更新"}
+    } catch {
+        return {"status": "error", "message": "写入记忆失败"}
+    }
+}
+
+/** 更新用户偏好文件。追加或更新指定类别的偏好。
+ *  同时作为 LLM 工具（v4.3：合并模块 helper 与 functions{} 包裹器，消除命名歧义）。 */
+fn update_user_preference(category: str, preference: str): map {
+    let path = ".helen/USER.md"
+    let content = ""
+    if path_exists(path) {
+        content = read_file(path)
+    } else {
+        content = "# User Preferences\n\n> Captured during interactions.\n\n"
+    }
+
+    let section_header = "## " + category
+    if !contains(content, section_header) {
+        content = content + "\n" + section_header + "\n\n"
+    }
+
+    content = content + "- " + preference + "\n"
+
+    try {
+        write_file(path, content)
+        return {"status": "success", "message": "用户偏好已更新"}
+    } catch {
+        return {"status": "error", "message": "更新用户偏好失败"}
+    }
+}

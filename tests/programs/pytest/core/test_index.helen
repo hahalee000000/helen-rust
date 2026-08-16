@@ -1,0 +1,13 @@
+import std.core.*
+import std.str.*
+import std.list.*
+import std.dict.*
+import std.math.*
+import std.debug.*
+
+        main {
+            let list = [10, 20, 30]
+            let idx = list.index(20)
+            print(idx)
+        }
+        
