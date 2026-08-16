@@ -5476,11 +5476,11 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "get_session_id",
-        func: impl_get_session_id,
+        func: crate::transcript::transcript_get_session_id,
     },
     StdlibExport {
         name: "get_session_dir",
-        func: impl_get_session_dir,
+        func: crate::transcript::transcript_get_session_dir,
     },
     StdlibExport {
         name: "set_session_dir",
@@ -5488,7 +5488,7 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "list_sessions",
-        func: impl_list_sessions,
+        func: crate::transcript::transcript_list_sessions,
     },
     StdlibExport {
         name: "list_invocations",
@@ -5512,7 +5512,7 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "get_session_meta",
-        func: impl_get_session_meta,
+        func: crate::transcript::transcript_get_session_meta,
     },
     StdlibExport {
         name: "export_transcript",
@@ -5532,7 +5532,7 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "delete_session",
-        func: impl_delete_session,
+        func: crate::transcript::transcript_delete_session,
     },
     StdlibExport {
         name: "delete_current_session",
@@ -5540,7 +5540,7 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     },
     StdlibExport {
         name: "cleanup_sessions",
-        func: impl_cleanup_sessions,
+        func: crate::transcript::transcript_cleanup_sessions,
     },
     StdlibExport {
         name: "release_session_lock",

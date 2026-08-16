@@ -10,7 +10,7 @@ fn make_interp() -> Interpreter {
     Interpreter::new()
 }
 
-// ── Query functions (stubs — return empty lists) ────────────────────────
+// ── Query functions (return empty lists when no session) ─────────────────
 
 #[test]
 fn test_query_transcript_empty() {
@@ -54,7 +54,7 @@ fn test_list_invocations_empty() {
     }
 }
 
-// ── Get functions (stubs — return Null) ─────────────────────────────────
+// ── Get functions (return Null or empty structures when no session) ──────
 
 #[test]
 fn test_get_invocation_null() {
@@ -65,30 +65,53 @@ fn test_get_invocation_null() {
 }
 
 #[test]
-fn test_get_invocation_tree_null() {
+fn test_get_invocation_tree_empty_map() {
     let mut interp = make_interp();
     let result = transcript_get_invocation_tree(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Returns a map with empty invocations when no invocation_id provided
+    match result.unwrap() {
+        Value::Map(map) => {
+            let borrowed = map.borrow();
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("session_id"))));
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("invocations"))));
+        }
+        _ => panic!("Expected Map, got other type"),
+    }
 }
 
 #[test]
-fn test_get_spawn_tree_null() {
+fn test_get_spawn_tree_empty_map() {
     let mut interp = make_interp();
     let result = transcript_get_spawn_tree(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Returns a map with empty children when no session
+    match result.unwrap() {
+        Value::Map(map) => {
+            let borrowed = map.borrow();
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("session_id"))));
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("children"))));
+        }
+        _ => panic!("Expected Map, got other type"),
+    }
 }
 
 #[test]
-fn test_get_compression_audit_null() {
+fn test_get_compression_audit_empty_list() {
     let mut interp = make_interp();
     let result = transcript_get_compression_audit(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Returns empty list when no session
+    match result.unwrap() {
+        Value::List(list) => {
+            let borrowed = list.borrow();
+            assert_eq!(borrowed.len(), 0);
+        }
+        _ => panic!("Expected List, got other type"),
+    }
 }
 
-// ── Session management (stubs) ──────────────────────────────────────────
+// ── Session management ───────────────────────────────────────────────────
 
 #[test]
 fn test_get_spawned_sessions_empty() {
@@ -113,43 +136,78 @@ fn test_export_transcript_empty_json() {
 }
 
 #[test]
-fn test_replay_transcript_null() {
+fn test_replay_transcript_empty_list() {
     let mut interp = make_interp();
     let result = transcript_replay_transcript(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Returns empty list when no session
+    match result.unwrap() {
+        Value::List(list) => {
+            let borrowed = list.borrow();
+            assert_eq!(borrowed.len(), 0);
+        }
+        _ => panic!("Expected List, got other type"),
+    }
 }
 
 #[test]
-fn test_replay_full_session_null() {
+fn test_replay_full_session_empty_list() {
     let mut interp = make_interp();
     let result = transcript_replay_full_session(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Returns empty list when no session
+    match result.unwrap() {
+        Value::List(list) => {
+            let borrowed = list.borrow();
+            assert_eq!(borrowed.len(), 0);
+        }
+        _ => panic!("Expected List, got other type"),
+    }
 }
 
 #[test]
-fn test_resume_session_null() {
+fn test_resume_session_error() {
     let mut interp = make_interp();
     let result = transcript_resume_session(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Should return an error map when no session_id provided
+    match result.unwrap() {
+        Value::Map(map) => {
+            let borrowed = map.borrow();
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("status"))));
+        }
+        _ => panic!("Expected Map, got other type"),
+    }
 }
 
 #[test]
-fn test_delete_current_session_null() {
+fn test_delete_current_session_error() {
     let mut interp = make_interp();
     let result = transcript_delete_current_session(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Should return an error map when no session
+    match result.unwrap() {
+        Value::Map(map) => {
+            let borrowed = map.borrow();
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("status"))));
+        }
+        _ => panic!("Expected Map, got other type"),
+    }
 }
 
 #[test]
-fn test_release_session_lock_null() {
+fn test_release_session_lock_error() {
     let mut interp = make_interp();
     let result = transcript_release_session_lock(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Null);
+    // Should return an error map when no session_id provided
+    match result.unwrap() {
+        Value::Map(map) => {
+            let borrowed = map.borrow();
+            assert!(borrowed.contains_key(&Value::Str(Rc::from("status"))));
+        }
+        _ => panic!("Expected Map, got other type"),
+    }
 }
 
 #[test]
