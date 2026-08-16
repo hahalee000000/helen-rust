@@ -4982,18 +4982,10256 @@ main {
     }
 
     #[test]
-    fn phase2_dict_get_default() {
+
+    // Phase 3: Additional interpreter tests for comprehensive coverage
+
+    #[test]
+    fn phase3_value_type_conversions() {
         let src = r#"import std.core.*
 main {
-    let d = {"a": 1, "b": 2}
-    print(d.get("a", 0))
-    print(d.get("c", 99))
+    let i = 42
+    let f = 3.14
+    let s = "hello"
+    let b = true
+    let n = null
+    print(type(i))
+    print(type(f))
+    print(type(s))
+    print(type(b))
+    print(type(n))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "int");
+        assert_eq!(lines[1], "float");
+        assert_eq!(lines[2], "str");
+        assert_eq!(lines[3], "bool");
+        assert_eq!(lines[4], "null");
+    }
+
+    #[test]
+    fn phase3_string_concatenation() {
+        let src = r#"import std.core.*
+main {
+    let a = "hello"
+    let b = " "
+    let c = "world"
+    let result = a + b + c
+    print(result)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "hello world");
+    }
+
+    #[test]
+    fn phase3_numeric_operations() {
+        let src = r#"import std.core.*
+main {
+    let a = 10
+    let b = 3
+    print(a + b)
+    print(a - b)
+    print(a * b)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "13");
+        assert_eq!(lines[1], "7");
+        assert_eq!(lines[2], "30");
+    }
+
+    #[test]
+    fn phase3_boolean_operations() {
+        let src = r#"import std.core.*
+main {
+    let t = true
+    let f = false
+    print(t && f)
+    print(t || f)
+    print(!t)
+    print(!f)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "false");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "false");
+        assert_eq!(lines[3], "true");
+    }
+
+    #[test]
+    fn phase3_comparison_operations() {
+        let src = r#"import std.core.*
+main {
+    let a = 10
+    let b = 20
+    print(a < b)
+    print(a > b)
+    print(a == b)
+    print(a != b)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "false");
+        assert_eq!(lines[2], "false");
+        assert_eq!(lines[3], "true");
+    }
+
+    #[test]
+    fn phase3_list_operations() {
+        let src = r#"import std.core.*
+main {
+    let lst = [1, 2, 3, 4, 5]
+    print(len(lst))
+    print(lst[0])
+    print(lst[4])
+    lst.append(6)
+    print(len(lst))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "5");
+        assert_eq!(lines[1], "1");
+        assert_eq!(lines[2], "5");
+        assert_eq!(lines[3], "6");
+    }
+
+    #[test]
+    fn phase3_dict_operations() {
+        let src = r#"import std.core.*
+main {
+    let d = {"name": "Alice", "age": 30}
+    print(d["name"])
+    print(d["age"])
+    d["city"] = "NYC"
+    print(len(d))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "Alice");
+        assert_eq!(lines[1], "30");
+        assert_eq!(lines[2], "3");
+    }
+
+    #[test]
+    fn phase3_nested_structures() {
+        let src = r#"import std.core.*
+main {
+    let data = {
+        "users": [
+            {"name": "Alice", "age": 30},
+            {"name": "Bob", "age": 25}
+        ]
+    }
+    print(len(data["users"]))
+    print(data["users"][0]["name"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "Alice");
+    }
+
+    #[test]
+    fn phase3_function_calls() {
+        let src = r#"import std.core.*
+fn add(a: int, b: int): int {
+    return a + b
+}
+main {
+    let result = add(10, 20)
+    print(result)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "30");
+    }
+
+    #[test]
+    fn phase3_recursive_function() {
+        let src = r#"import std.core.*
+fn factorial(n: int): int {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+main {
+    print(factorial(5))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "120");
+    }
+
+    #[test]
+    fn phase3_while_loop() {
+        let src = r#"import std.core.*
+main {
+    let i = 0
+    let sum = 0
+    while i < 5 {
+        sum = sum + i
+        i = i + 1
+    }
+    print(sum)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "10");
+    }
+
+    #[test]
+    fn phase3_for_loop() {
+        let src = r#"import std.core.*
+main {
+    let sum = 0
+    for i in 0..5 {
+        sum = sum + i
+    }
+    print(sum)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "10");
+    }
+
+    #[test]
+    fn phase3_break_continue() {
+        let src = r#"import std.core.*
+main {
+    let sum = 0
+    for i in 0..10 {
+        if i == 5 {
+            break
+        }
+        if i % 2 == 0 {
+            continue
+        }
+        sum = sum + i
+    }
+    print(sum)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "4"); // 1 + 3
+    }
+
+    #[test]
+    fn phase3_match_expression() {
+        let src = r#"import std.core.*
+main {
+    let x = 2
+    match x {
+        case 1 => print("one")
+        case 2 => print("two")
+        case 3 => print("three")
+        default => print("other")
+    }
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "two");
+    }
+
+    #[test]
+    fn phase3_try_catch() {
+        let src = r#"import std.core.*
+main {
+    try {
+        let x = 10 / 0
+    } catch (e) {
+        print("caught error")
+    }
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "caught error");
+    }
+
+    #[test]
+    fn phase3_string_methods() {
+        let src = r#"import std.core.*
+main {
+    let s = "Hello World"
+    print(s.upper())
+    print(s.lower())
+    print(s.contains("World"))
+    print(s.starts_with("Hello"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "HELLO WORLD");
+        assert_eq!(lines[1], "hello world");
+        assert_eq!(lines[2], "true");
+        assert_eq!(lines[3], "true");
+    }
+
+    #[test]
+    fn phase3_list_methods() {
+        let src = r#"import std.core.*
+main {
+    let lst = [3, 1, 4, 1, 5]
+    lst.sort()
+    print(lst)
+    let copy = lst.copy()
+    print(len(copy))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[1], "5");
+    }
+
+    #[test]
+    fn phase3_math_operations() {
+        let src = r#"import std.core.*
+import std.math.*
+main {
+    print(sqrt(16))
+    print(pow(2, 3))
+    print(abs(-5))
+    print(max(10, 20))
+    print(min(10, 20))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "4");
+        assert_eq!(lines[1], "8");
+        assert_eq!(lines[2], "5");
+        assert_eq!(lines[3], "20");
+        assert_eq!(lines[4], "10");
+    }
+
+    #[test]
+    fn phase3_complex_data_structure() {
+        let src = r#"import std.core.*
+main {
+    let matrix = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9]
+    ]
+    print(matrix[0][0])
+    print(matrix[1][1])
+    print(matrix[2][2])
 }
 "#;
         let (r, out) = run_src(src);
         assert!(r.is_ok(), "{r:?}");
         let lines: Vec<&str> = out.trim().lines().collect();
         assert_eq!(lines[0], "1");
-        assert_eq!(lines[1], "99");
+        assert_eq!(lines[1], "5");
+        assert_eq!(lines[2], "9");
     }
+
+    #[test]
+    fn phase3_string_interpolation() {
+        let src = r#"import std.core.*
+main {
+    let name = "Alice"
+    let age = 30
+    print("Name: {{name}}, Age: {{age}}")
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "Name: Alice, Age: 30");
+    }
+
+    #[test]
+    fn phase3_pipe_operator() {
+        let src = r#"import std.core.*
+fn double(x: int): int {
+    return x * 2
+}
+fn add_one(x: int): int {
+    return x + 1
+}
+main {
+    let result = 5 |> double |> add_one
+    print(result)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "11"); // (5 * 2) + 1
+    }
+
+    #[test]
+    fn phase3_closure_capture() {
+        let src = r#"import std.core.*
+fn make_adder(x: int): fn {
+    return fn(y: int): int {
+        return x + y
+    }
+}
+main {
+    let add5 = make_adder(5)
+    print(add5(10))
+    print(add5(20))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "15");
+        assert_eq!(lines[1], "25");
+    }
+
+    #[test]
+    fn phase3_error_handling() {
+        let src = r#"import std.core.*
+fn safe_divide(a: int, b: int): int {
+    if b == 0 {
+        throw "Division by zero"
+    }
+    return a / b
+}
+main {
+    try {
+        let result = safe_divide(10, 0)
+    } catch (e) {
+        print("Error: {{e}}")
+    }
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(out.contains("Error"));
+    }
+
+    #[test]
+    fn phase3_type_checking() {
+        let src = r#"import std.core.*
+main {
+    let i = 42
+    let f = 3.14
+    let s = "hello"
+    print(i is int)
+    print(f is float)
+    print(s is str)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "true");
+    }
+
+    #[test]
+    fn phase3_const_values() {
+        let src = r#"import std.core.*
+main {
+    const PI = 3.14159
+    const MAX_SIZE = 100
+    print(PI)
+    print(MAX_SIZE)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3.14159");
+        assert_eq!(lines[1], "100");
+    }
+
+    #[test]
+    fn phase3_array_slicing() {
+        let src = r#"import std.core.*
+main {
+    let arr = [0, 1, 2, 3, 4, 5]
+    let slice = arr[1..4]
+    print(len(slice))
+    print(slice[0])
+    print(slice[2])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "1");
+        assert_eq!(lines[2], "3");
+    }
+
+    #[test]
+    fn phase3_nested_loops() {
+        let src = r#"import std.core.*
+main {
+    let count = 0
+    for i in 0..3 {
+        for j in 0..3 {
+            count = count + 1
+        }
+    }
+    print(count)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "9");
+    }
+
+    #[test]
+    fn phase3_complex_conditionals() {
+        let src = r#"import std.core.*
+fn classify(n: int): str {
+    if n < 0 {
+        return "negative"
+    } else if n == 0 {
+        return "zero"
+    } else if n < 10 {
+        return "small"
+    } else {
+        return "large"
+    }
+}
+main {
+    print(classify(-5))
+    print(classify(0))
+    print(classify(5))
+    print(classify(15))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "negative");
+        assert_eq!(lines[1], "zero");
+        assert_eq!(lines[2], "small");
+        assert_eq!(lines[3], "large");
+    }
+
+    #[test]
+    fn phase3_shared_store() {
+        let src = r#"import std.core.*
+main {
+    shared store counter = 0
+    counter = counter + 1
+    counter = counter + 1
+    print(counter)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_alias_type() {
+        let src = r#"import std.core.*
+main {
+    alias UserID = int
+    let id: UserID = 12345
+    print(id)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "12345");
+    }
+
+    #[test]
+    fn phase3_transcript_logging() {
+        let src = r#"import std.core.*
+main {
+    transcript log = []
+    log.append("step 1")
+    log.append("step 2")
+    print(len(log))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_higher_order_function() {
+        let src = r#"import std.core.*
+fn apply(f: fn(int): int, x: int): int {
+    return f(x)
+}
+
+fn square(x: int): int {
+    return x * x
+}
+
+main {
+    let result = apply(square, 5)
+    print(result)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "25");
+    }
+
+    #[test]
+    fn phase3_currying() {
+        let src = r#"import std.core.*
+fn add(x: int): fn(int): int {
+    return fn(y: int): int {
+        return x + y
+    }
+}
+
+main {
+    let add5 = add(5)
+    print(add5(10))
+    print(add5(20))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "15");
+        assert_eq!(lines[1], "25");
+    }
+
+    #[test]
+    fn phase3_factory_pattern() {
+        let src = r#"import std.core.*
+fn create_shape(type: str): dict {
+    match type {
+        case "circle" => return {"type": "circle", "radius": 5}
+        case "square" => return {"type": "square", "side": 10}
+        default => return {"type": "unknown"}
+    }
+}
+
+main {
+    let circle = create_shape("circle")
+    let square = create_shape("square")
+    print(circle["type"])
+    print(square["type"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "circle");
+        assert_eq!(lines[1], "square");
+    }
+
+    #[test]
+    fn phase3_observer_pattern() {
+        let src = r#"import std.core.*
+struct EventEmitter {
+    listeners: list
+}
+
+impl EventEmitter {
+    fn on(event: str, callback: fn()) {
+        listeners.append({"event": event, "callback": callback})
+    }
+    
+    fn emit(event: str) {
+        for listener in listeners {
+            if listener["event"] == event {
+                listener["callback"]()
+            }
+        }
+    }
+}
+
+main {
+    let emitter = EventEmitter { listeners: [] }
+    let called = false
+    emitter.on("test", fn() { called = true })
+    emitter.emit("test")
+    print(called)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_composite_pattern() {
+        let src = r#"import std.core.*
+struct FileSystemNode {
+    name: str,
+    is_file: bool,
+    children: list
+}
+
+impl FileSystemNode {
+    fn size(): int {
+        if is_file {
+            return 100
+        }
+        let total = 0
+        for child in children {
+            total = total + child.size()
+        }
+        return total
+    }
+}
+
+main {
+    let file1 = FileSystemNode { name: "file1.txt", is_file: true, children: [] }
+    let file2 = FileSystemNode { name: "file2.txt", is_file: true, children: [] }
+    let dir = FileSystemNode { name: "docs", is_file: false, children: [file1, file2] }
+    print(dir.size())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "200");
+    }
+
+    #[test]
+    fn phase3_strategy_pattern() {
+        let src = r#"import std.core.*
+fn sort_asc(lst: list): list {
+    let sorted = lst.copy()
+    sorted.sort()
+    return sorted
+}
+
+fn sort_desc(lst: list): list {
+    let sorted = lst.copy()
+    sorted.sort()
+    sorted.reverse()
+    return sorted
+}
+
+fn sort_with(lst: list, strategy: fn(list): list): list {
+    return strategy(lst)
+}
+
+main {
+    let data = [3, 1, 4, 1, 5]
+    let asc = sort_with(data, sort_asc)
+    let desc = sort_with(data, sort_desc)
+    print(asc)
+    print(desc)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert!(lines[0].contains("1"));
+        assert!(lines[1].contains("5"));
+    }
+
+    #[test]
+    fn phase3_state_pattern() {
+        let src = r#"import std.core.*
+struct TrafficLight {
+    state: str
+}
+
+impl TrafficLight {
+    fn change() {
+        match state {
+            case "red" => state = "green"
+            case "green" => state = "yellow"
+            case "yellow" => state = "red"
+        }
+    }
+    
+    fn get_state(): str {
+        return state
+    }
+}
+
+main {
+    let light = TrafficLight { state: "red" }
+    print(light.get_state())
+    light.change()
+    print(light.get_state())
+    light.change()
+    print(light.get_state())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "red");
+        assert_eq!(lines[1], "green");
+        assert_eq!(lines[2], "yellow");
+    }
+
+    #[test]
+    fn phase3_command_pattern() {
+        let src = r#"import std.core.*
+struct Command {
+    execute: fn()
+}
+
+fn make_command(action: fn()): Command {
+    return Command { execute: action }
+}
+
+main {
+    let executed = false
+    let cmd = make_command(fn() { executed = true })
+    cmd.execute()
+    print(executed)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_iterator_pattern() {
+        let src = r#"import std.core.*
+struct Counter {
+    current: int,
+    max: int
+}
+
+impl Counter {
+    fn next(): int {
+        if current < max {
+            current = current + 1
+            return current
+        }
+        return -1
+    }
+}
+
+main {
+    let counter = Counter { current: 0, max: 3 }
+    print(counter.next())
+    print(counter.next())
+    print(counter.next())
+    print(counter.next())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "3");
+        assert_eq!(lines[3], "-1");
+    }
+
+    #[test]
+    fn phase3_builder_pattern() {
+        let src = r#"import std.core.*
+struct HttpRequest {
+    method: str,
+    url: str,
+    headers: dict,
+    body: str
+}
+
+struct HttpRequestBuilder {
+    request: dict
+}
+
+impl HttpRequestBuilder {
+    fn set_method(method: str): HttpRequestBuilder {
+        request["method"] = method
+        return this
+    }
+    
+    fn set_url(url: str): HttpRequestBuilder {
+        request["url"] = url
+        return this
+    }
+    
+    fn set_body(body: str): HttpRequestBuilder {
+        request["body"] = body
+        return this
+    }
+    
+    fn build(): HttpRequest {
+        return HttpRequest {
+            method: request["method"],
+            url: request["url"],
+            headers: request["headers"],
+            body: request["body"]
+        }
+    }
+}
+
+main {
+    let builder = HttpRequestBuilder { request: {"headers": {}} }
+    let req = builder.set_method("POST").set_url("/api").set_body("data").build()
+    print(req.method)
+    print(req.url)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "POST");
+        assert_eq!(lines[1], "/api");
+    }
+
+    #[test]
+    fn phase3_prototype_pattern() {
+        let src = r#"import std.core.*
+struct Prototype {
+    value: int
+}
+
+impl Prototype {
+    fn clone(): Prototype {
+        return Prototype { value: value }
+    }
+}
+
+main {
+    let original = Prototype { value: 42 }
+    let clone = original.clone()
+    print(original.value)
+    print(clone.value)
+    print(original == clone)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "42");
+        assert_eq!(lines[1], "42");
+        assert_eq!(lines[2], "true");
+    }
+
+    #[test]
+    fn phase3_repository_pattern() {
+        let src = r#"import std.core.*
+struct UserRepository {
+    users: dict
+}
+
+impl UserRepository {
+    fn add(id: int, name: str) {
+        users[id] = name
+    }
+    
+    fn get(id: int): str {
+        return users.get(id, "")
+    }
+    
+    fn find_all(): list {
+        return users.values()
+    }
+}
+
+main {
+    let repo = UserRepository { users: {} }
+    repo.add(1, "Alice")
+    repo.add(2, "Bob")
+    print(repo.get(1))
+    print(len(repo.find_all()))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "Alice");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_unit_of_work() {
+        let src = r#"import std.core.*
+struct UnitOfWork {
+    changes: list
+}
+
+impl UnitOfWork {
+    fn register_change(change: str) {
+        changes.append(change)
+    }
+    
+    fn commit() {
+        for change in changes {
+            print("committing: {{change}}")
+        }
+        changes = []
+    }
+}
+
+main {
+    let uow = UnitOfWork { changes: [] }
+    uow.register_change("insert user")
+    uow.register_change("update profile")
+    uow.commit()
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(out.contains("committing: insert user"));
+        assert!(out.contains("committing: update profile"));
+    }
+
+    #[test]
+    fn phase3_lazy_loading() {
+        let src = r#"import std.core.*
+struct LazyLoader {
+    loaded: bool,
+    data: dict
+}
+
+impl LazyLoader {
+    fn get_data(): dict {
+        if !loaded {
+            data = {"expensive": "computation"}
+            loaded = true
+            print("loading data")
+        }
+        return data
+    }
+}
+
+main {
+    let loader = LazyLoader { loaded: false, data: {} }
+    let data1 = loader.get_data()
+    let data2 = loader.get_data()
+    print(loader.loaded)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "loading data");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_connection_pooling() {
+        let src = r#"import std.core.*
+struct ConnectionPool {
+    connections: list,
+    max_size: int
+}
+
+impl ConnectionPool {
+    fn acquire(): dict {
+        if len(connections) > 0 {
+            return connections.pop()
+        }
+        return {"id": len(connections) + 1}
+    }
+    
+    fn release(conn: dict) {
+        if len(connections) < max_size {
+            connections.append(conn)
+        }
+    }
+}
+
+main {
+    let pool = ConnectionPool { connections: [], max_size: 5 }
+    let conn1 = pool.acquire()
+    let conn2 = pool.acquire()
+    pool.release(conn1)
+    pool.release(conn2)
+    print(len(pool.connections))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_message_queue() {
+        let src = r#"import std.core.*
+struct MessageQueue {
+    messages: list
+}
+
+impl MessageQueue {
+    fn send(message: str) {
+        messages.append(message)
+    }
+    
+    fn receive(): str {
+        if len(messages) > 0 {
+            return messages.pop(0)
+        }
+        return ""
+    }
+    
+    fn size(): int {
+        return len(messages)
+    }
+}
+
+main {
+    let queue = MessageQueue { messages: [] }
+    queue.send("msg1")
+    queue.send("msg2")
+    queue.send("msg3")
+    print(queue.size())
+    print(queue.receive())
+    print(queue.size())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "msg1");
+        assert_eq!(lines[2], "2");
+    }
+
+    #[test]
+    fn phase3_event_bus() {
+        let src = r#"import std.core.*
+struct EventBus {
+    handlers: dict
+}
+
+impl EventBus {
+    fn subscribe(event: str, handler: fn(str)) {
+        if !handlers.has_key(event) {
+            handlers[event] = []
+        }
+        handlers[event].append(handler)
+    }
+    
+    fn publish(event: str, data: str) {
+        if handlers.has_key(event) {
+            for handler in handlers[event] {
+                handler(data)
+            }
+        }
+    }
+}
+
+main {
+    let bus = EventBus { handlers: {} }
+    let received = ""
+    bus.subscribe("test", fn(data: str) { received = data })
+    bus.publish("test", "hello")
+    print(received)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "hello");
+    }
+
+    #[test]
+    fn phase3_circuit_breaker() {
+        let src = r#"import std.core.*
+struct CircuitBreaker {
+    state: str,
+    failure_count: int,
+    threshold: int
+}
+
+impl CircuitBreaker {
+    fn call(operation: fn(): bool): bool {
+        if state == "open" {
+            return false
+        }
+        let success = operation()
+        if !success {
+            failure_count = failure_count + 1
+            if failure_count >= threshold {
+                state = "open"
+            }
+        } else {
+            failure_count = 0
+        }
+        return success
+    }
+}
+
+main {
+    let cb = CircuitBreaker { state: "closed", failure_count: 0, threshold: 3 }
+    let result1 = cb.call(fn(): bool { return true })
+    let result2 = cb.call(fn(): bool { return false })
+    let result3 = cb.call(fn(): bool { return false })
+    let result4 = cb.call(fn(): bool { return false })
+    let result5 = cb.call(fn(): bool { return true })
+    print(result1)
+    print(result5)
+    print(cb.state)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "false");
+        assert_eq!(lines[2], "open");
+    }
+
+    #[test]
+    fn phase3_retry_mechanism() {
+        let src = r#"import std.core.*
+fn retry(operation: fn(): bool, max_attempts: int): bool {
+    let attempt = 0
+    while attempt < max_attempts {
+        if operation() {
+            return true
+        }
+        attempt = attempt + 1
+    }
+    return false
+}
+
+main {
+    let counter = 0
+    let result = retry(fn(): bool {
+        counter = counter + 1
+        return counter >= 3
+    }, 5)
+    print(result)
+    print(counter)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase3_rate_limiter() {
+        let src = r#"import std.core.*
+struct RateLimiter {
+    max_requests: int,
+    window_size: int,
+    requests: list
+}
+
+impl RateLimiter {
+    fn allow(): bool {
+        let now = 0  // Simplified
+        requests = requests.filter(fn(t: int): bool { return now - t < window_size })
+        if len(requests) < max_requests {
+            requests.append(now)
+            return true
+        }
+        return false
+    }
+}
+
+main {
+    let limiter = RateLimiter { max_requests: 2, window_size: 10, requests: [] }
+    let r1 = limiter.allow()
+    let r2 = limiter.allow()
+    let r3 = limiter.allow()
+    print(r1)
+    print(r2)
+    print(r3)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "false");
+    }
+
+    #[test]
+    fn phase3_bulkhead_pattern() {
+        let src = r#"import std.core.*
+struct Bulkhead {
+    max_concurrent: int,
+    current: int
+}
+
+impl Bulkhead {
+    fn acquire(): bool {
+        if current < max_concurrent {
+            current = current + 1
+            return true
+        }
+        return false
+    }
+    
+    fn release() {
+        if current > 0 {
+            current = current - 1
+        }
+    }
+}
+
+main {
+    let bulkhead = Bulkhead { max_concurrent: 2, current: 0 }
+    let r1 = bulkhead.acquire()
+    let r2 = bulkhead.acquire()
+    let r3 = bulkhead.acquire()
+    print(r1)
+    print(r2)
+    print(r3)
+    bulkhead.release()
+    let r4 = bulkhead.acquire()
+    print(r4)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "false");
+        assert_eq!(lines[3], "true");
+    }
+
+    #[test]
+    fn phase3_cache_pattern() {
+        let src = r#"import std.core.*
+struct Cache {
+    data: dict,
+    max_size: int
+}
+
+impl Cache {
+    fn get(key: str): str {
+        return data.get(key, "")
+    }
+    
+    fn set(key: str, value: str) {
+        if len(data) >= max_size {
+            let first_key = data.keys()[0]
+            data.remove(first_key)
+        }
+        data[key] = value
+    }
+    
+    fn has(key: str): bool {
+        return data.has_key(key)
+    }
+}
+
+main {
+    let cache = Cache { data: {}, max_size: 2 }
+    cache.set("a", "1")
+    cache.set("b", "2")
+    cache.set("c", "3")
+    print(cache.has("a"))
+    print(cache.has("b"))
+    print(cache.has("c"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "false");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "true");
+    }
+
+    #[test]
+    fn phase3_idempotency() {
+        let src = r#"import std.core.*
+shared store processed = {}
+
+fn idempotent_operation(id: str, operation: fn()): bool {
+    if processed.has_key(id) {
+        return false
+    }
+    operation()
+    processed[id] = true
+    return true
+}
+
+main {
+    let counter = 0
+    let r1 = idempotent_operation("op1", fn() { counter = counter + 1 })
+    let r2 = idempotent_operation("op1", fn() { counter = counter + 1 })
+    print(r1)
+    print(r2)
+    print(counter)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "false");
+        assert_eq!(lines[2], "1");
+    }
+
+    #[test]
+    fn phase3_aggregate_root() {
+        let src = r#"import std.core.*
+struct Order {
+    id: int,
+    items: list,
+    status: str
+}
+
+impl Order {
+    fn add_item(item: dict) {
+        items.append(item)
+    }
+    
+    fn total(): float {
+        let sum = 0.0
+        for item in items {
+            sum = sum + item["price"]
+        }
+        return sum
+    }
+    
+    fn confirm() {
+        status = "confirmed"
+    }
+}
+
+main {
+    let order = Order { id: 1, items: [], status: "pending" }
+    order.add_item({"name": "Widget", "price": 10.0})
+    order.add_item({"name": "Gadget", "price": 20.0})
+    order.confirm()
+    print(order.status)
+    print(order.total())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "confirmed");
+        assert_eq!(lines[1], "30");
+    }
+
+    #[test]
+    fn phase3_value_object() {
+        let src = r#"import std.core.*
+struct Money {
+    amount: float,
+    currency: str
+}
+
+impl Money {
+    fn add(other: Money): Money {
+        if currency != other.currency {
+            throw "Currency mismatch"
+        }
+        return Money { amount: amount + other.amount, currency: currency }
+    }
+    
+    fn equals(other: Money): bool {
+        return amount == other.amount && currency == other.currency
+    }
+}
+
+main {
+    let m1 = Money { amount: 10.0, currency: "USD" }
+    let m2 = Money { amount: 20.0, currency: "USD" }
+    let m3 = m1.add(m2)
+    print(m3.amount)
+    print(m1.equals(Money { amount: 10.0, currency: "USD" }))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "30");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_domain_event() {
+        let src = r#"import std.core.*
+struct DomainEvent {
+    type: str,
+    data: dict,
+    timestamp: int
+}
+
+struct DomainEventHandler {
+    fn handle(event: DomainEvent) {
+        print("handling: {{event.type}}")
+    }
+}
+
+main {
+    let event = DomainEvent {
+        type: "user_created",
+        data: {"name": "Alice"},
+        timestamp: 1234567890
+    }
+    let handler = DomainEventHandler {}
+    handler.handle(event)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "handling: user_created");
+    }
+
+    #[test]
+    fn phase3_policy_pattern() {
+        let src = r#"import std.core.*
+struct RetryPolicy {
+    max_retries: int,
+    delay_ms: int
+}
+
+impl RetryPolicy {
+    fn execute(operation: fn(): bool): bool {
+        let attempt = 0
+        while attempt < max_retries {
+            if operation() {
+                return true
+            }
+            attempt = attempt + 1
+        }
+        return false
+    }
+}
+
+main {
+    let policy = RetryPolicy { max_retries: 3, delay_ms: 100 }
+    let counter = 0
+    let result = policy.execute(fn(): bool {
+        counter = counter + 1
+        return counter >= 2
+    })
+    print(result)
+    print(counter)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_resilience_pattern() {
+        let src = r#"import std.core.*
+struct ResilientOperation {
+    fallback: fn(): str
+}
+
+impl ResilientOperation {
+    fn execute(operation: fn(): str): str {
+        try {
+            return operation()
+        } catch (e) {
+            return fallback()
+        }
+    }
+}
+
+main {
+    let op = ResilientOperation {
+        fallback: fn(): str { return "fallback value" }
+    }
+    let result = op.execute(fn(): str {
+        throw "error"
+        return "normal value"
+    })
+    print(result)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "fallback value");
+    }
+
+    #[test]
+    fn phase3_graceful_degradation() {
+        let src = r#"import std.core.*
+fn fetch_data(use_cache: bool): dict {
+    if use_cache {
+        return {"source": "cache", "data": "cached"}
+    }
+    try {
+        return {"source": "api", "data": "live"}
+    } catch (e) {
+        return {"source": "cache", "data": "fallback"}
+    }
+}
+
+main {
+    let data1 = fetch_data(true)
+    let data2 = fetch_data(false)
+    print(data1["source"])
+    print(data2["source"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "cache");
+        assert_eq!(lines[1], "api");
+    }
+
+    #[test]
+    fn phase3_health_check() {
+        let src = r#"import std.core.*
+struct HealthChecker {
+    checks: list
+}
+
+impl HealthChecker {
+    fn add_check(name: str, check: fn(): bool) {
+        checks.append({"name": name, "check": check})
+    }
+    
+    fn check_all(): dict {
+        let results = {}
+        for check in checks {
+            results[check["name"]] = check["check"]()
+        }
+        return results
+    }
+}
+
+main {
+    let checker = HealthChecker { checks: [] }
+    checker.add_check("database", fn(): bool { return true })
+    checker.add_check("cache", fn(): bool { return true })
+    let results = checker.check_all()
+    print(results["database"])
+    print(results["cache"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_metrics_collection() {
+        let src = r#"import std.core.*
+struct MetricsCollector {
+            counters: dict,
+    gauges: dict
+}
+
+impl MetricsCollector {
+    fn increment(counter: str) {
+        counters[counter] = counters.get(counter, 0) + 1
+    }
+    
+    fn set_gauge(gauge: str, value: float) {
+        gauges[gauge] = value
+    }
+    
+    fn get_counter(counter: str): int {
+        return counters.get(counter, 0)
+    }
+    
+    fn get_gauge(gauge: str): float {
+        return gauges.get(gauge, 0.0)
+    }
+}
+
+main {
+    let metrics = MetricsCollector { counters: {}, gauges: {} }
+    metrics.increment("requests")
+    metrics.increment("requests")
+    metrics.set_gauge("memory", 1024.5)
+    print(metrics.get_counter("requests"))
+    print(metrics.get_gauge("memory"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "1024.5");
+    }
+
+    #[test]
+    fn phase3_logging_framework() {
+        let src = r#"import std.core.*
+struct Logger {
+    level: str
+}
+
+impl Logger {
+    fn log(level: str, message: str) {
+        if level == "error" || level == "warn" || level == "info" || level == "debug" {
+            print("[{{level}}] {{message}}")
+        }
+    }
+    
+    fn error(message: str) {
+        log("error", message)
+    }
+    
+    fn warn(message: str) {
+        log("warn", message)
+    }
+    
+    fn info(message: str) {
+        log("info", message)
+    }
+    
+    fn debug(message: str) {
+        log("debug", message)
+    }
+}
+
+main {
+    let logger = Logger { level: "info" }
+    logger.info("application started")
+    logger.error("something failed")
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(out.contains("[info] application started"));
+        assert!(out.contains("[error] something failed"));
+    }
+
+    #[test]
+    fn phase3_configuration_management() {
+        let src = r#"import std.core.*
+struct Config {
+    settings: dict
+}
+
+impl Config {
+    fn get(key: str): str {
+        return settings.get(key, "")
+    }
+    
+    fn set(key: str, value: str) {
+        settings[key] = value
+    }
+    
+    fn has(key: str): bool {
+        return settings.has_key(key)
+    }
+}
+
+main {
+    let config = Config { settings: {} }
+    config.set("database_url", "localhost:5432")
+    config.set("api_key", "secret123")
+    print(config.get("database_url"))
+    print(config.has("api_key"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "localhost:5432");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_dependency_injection() {
+        let src = r#"import std.core.*
+struct Container {
+    services: dict
+}
+
+impl Container {
+    fn register(name: str, factory: fn(): dict) {
+        services[name] = factory
+    }
+    
+    fn resolve(name: str): dict {
+        if services.has_key(name) {
+            return services[name]()
+        }
+        return {}
+    }
+}
+
+main {
+    let container = Container { services: {} }
+    container.register("logger", fn(): dict { return {"type": "logger"} })
+    container.register("cache", fn(): dict { return {"type": "cache"} })
+    
+    let logger = container.resolve("logger")
+    let cache = container.resolve("cache")
+    
+    print(logger["type"])
+    print(cache["type"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "logger");
+        assert_eq!(lines[1], "cache");
+    }
+
+    #[test]
+    fn phase3_plugin_system() {
+        let src = r#"import std.core.*
+struct PluginManager {
+    plugins: dict
+}
+
+impl PluginManager {
+    fn register(name: str, plugin: dict) {
+        plugins[name] = plugin
+    }
+    
+    fn get(name: str): dict {
+        return plugins.get(name, {})
+    }
+    
+    fn execute(name: str, data: dict): dict {
+        let plugin = get(name)
+        if plugin.has_key("execute") {
+            return plugin["execute"](data)
+        }
+        return {}
+    }
+}
+
+main {
+    let manager = PluginManager { plugins: {} }
+    manager.register("transform", {
+        "execute": fn(data: dict): dict {
+            return {"transformed": true, "data": data}
+        }
+    })
+    
+    let result = manager.execute("transform", {"value": 42})
+    print(result["transformed"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_middleware_pattern() {
+        let src = r#"import std.core.*
+struct MiddlewareChain {
+    middlewares: list
+}
+
+impl MiddlewareChain {
+    fn add(middleware: fn(dict, fn(dict)): dict) {
+        middlewares.append(middleware)
+    }
+    
+    fn execute(request: dict): dict {
+        let index = 0
+        fn next(req: dict): dict {
+            if index < len(middlewares) {
+                let mw = middlewares[index]
+                index = index + 1
+                return mw(req, next)
+            }
+            return req
+        }
+        return next(request)
+    }
+}
+
+main {
+    let chain = MiddlewareChain { middlewares: [] }
+    chain.add(fn(req: dict, next: fn(dict): dict): dict {
+        req["step1"] = true
+        return next(req)
+    })
+    chain.add(fn(req: dict, next: fn(dict): dict): dict {
+        req["step2"] = true
+        return next(req)
+    })
+    
+    let result = chain.execute({"initial": true})
+    print(result["step1"])
+    print(result["step2"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_interceptor_pattern() {
+        let src = r#"import std.core.*
+struct Interceptor {
+    before: fn(dict): dict,
+    after: fn(dict): dict
+}
+
+impl Interceptor {
+    fn intercept(request: dict, handler: fn(dict): dict): dict {
+        let modified_req = before(request)
+        let response = handler(modified_req)
+        return after(response)
+    }
+}
+
+main {
+    let interceptor = Interceptor {
+        before: fn(req: dict): dict {
+            req["intercepted"] = true
+            return req
+        },
+        after: fn(res: dict): dict {
+            res["processed"] = true
+            return res
+        }
+    }
+    
+    let result = interceptor.intercept(
+        {"data": "test"},
+        fn(req: dict): dict { return {"result": req["data"]} }
+    )
+    
+    print(result["processed"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_filter_pattern() {
+        let src = r#"import std.core.*
+struct FilterChain {
+    filters: list
+}
+
+impl FilterChain {
+    fn add(filter: fn(dict, fn(dict)): dict) {
+        filters.append(filter)
+    }
+    
+    fn execute(request: dict): dict {
+        let index = 0
+        fn do_filter(req: dict): dict {
+            if index < len(filters) {
+                let f = filters[index]
+                index = index + 1
+                return f(req, do_filter)
+            }
+            return req
+        }
+        return do_filter(request)
+    }
+}
+
+main {
+    let chain = FilterChain { filters: [] }
+    chain.add(fn(req: dict, next: fn(dict): dict): dict {
+        req["filtered"] = true
+        return next(req)
+    })
+    
+    let result = chain.execute({"value": 42})
+    print(result["filtered"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_decorator_chain() {
+        let src = r#"import std.core.*
+fn compose(fns: list): fn(int): int {
+    return fn(x: int): int {
+        let result = x
+        for f in fns {
+            result = f(result)
+        }
+        return result
+    }
+}
+
+main {
+    let double = fn(x: int): int { return x * 2 }
+    let add_one = fn(x: int): int { return x + 1 }
+    let square = fn(x: int): int { return x * x }
+    
+    let composed = compose([double, add_one, square])
+    let result = composed(3)
+    print(result)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "49"); // ((3 * 2) + 1) ^ 2 = 7^2 = 49
+    }
+
+    #[test]
+    fn phase3_pipeline_pattern() {
+        let src = r#"import std.core.*
+struct Pipeline {
+    stages: list
+}
+
+impl Pipeline {
+    fn add_stage(stage: fn(dict): dict) {
+        stages.append(stage)
+    }
+    
+    fn execute(input: dict): dict {
+        let result = input
+        for stage in stages {
+            result = stage(result)
+        }
+        return result
+    }
+}
+
+main {
+    let pipeline = Pipeline { stages: [] }
+    pipeline.add_stage(fn(data: dict): dict {
+        data["step1"] = true
+        return data
+    })
+    pipeline.add_stage(fn(data: dict): dict {
+        data["step2"] = true
+        return data
+    })
+    
+    let result = pipeline.execute({"initial": true})
+    print(result["step1"])
+    print(result["step2"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_coroutine_simulation() {
+        let src = r#"import std.core.*
+struct Coroutine {
+    state: str,
+    value: int
+}
+
+impl Coroutine {
+    fn resume(): int {
+        if state == "running" {
+            value = value + 1
+            return value
+        }
+        return -1
+    }
+    
+    fn start() {
+        state = "running"
+    }
+}
+
+main {
+    let coro = Coroutine { state: "idle", value: 0 }
+    coro.start()
+    let v1 = coro.resume()
+    let v2 = coro.resume()
+    let v3 = coro.resume()
+    print(v1)
+    print(v2)
+    print(v3)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "3");
+    }
+
+    #[test]
+    fn phase3_generator_simulation() {
+        let src = r#"import std.core.*
+struct Generator {
+    current: int,
+    max: int
+}
+
+impl Generator {
+    fn next(): int {
+        if current < max {
+            current = current + 1
+            return current
+        }
+        return -1
+    }
+    
+    fn has_next(): bool {
+        return current < max
+    }
+}
+
+main {
+    let gen = Generator { current: 0, max: 3 }
+    let values = []
+    while gen.has_next() {
+        values.append(gen.next())
+    }
+    print(len(values))
+    print(values[0])
+    print(values[2])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "1");
+        assert_eq!(lines[2], "3");
+    }
+
+    #[test]
+    fn phase3_async_simulation() {
+        let src = r#"import std.core.*
+struct Future {
+    completed: bool,
+    result: dict
+}
+
+impl Future {
+    fn is_done(): bool {
+        return completed
+    }
+    
+    fn get_result(): dict {
+        return result
+    }
+    
+    fn complete(value: dict) {
+        result = value
+        completed = true
+    }
+}
+
+main {
+    let future = Future { completed: false, result: {} }
+    future.complete({"value": 42})
+    print(future.is_done())
+    print(future.get_result()["value"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "42");
+    }
+
+    #[test]
+    fn phase3_promise_simulation() {
+        let src = r#"import std.core.*
+struct Promise {
+    state: str,
+    value: dict,
+    callbacks: list
+}
+
+impl Promise {
+    fn then(callback: fn(dict)) {
+        callbacks.append(callback)
+        if state == "resolved" {
+            callback(value)
+        }
+    }
+    
+    fn resolve(value: dict) {
+        state = "resolved"
+        this.value = value
+        for cb in callbacks {
+            cb(value)
+        }
+    }
+}
+
+main {
+    let promise = Promise { state: "pending", value: {}, callbacks: [] }
+    let received = false
+    promise.then(fn(val: dict) { received = true })
+    promise.resolve({"data": "success"})
+    print(received)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_reactive_stream() {
+        let src = r#"import std.core.*
+struct Stream {
+    data: list,
+    subscribers: list
+}
+
+impl Stream {
+    fn subscribe(callback: fn(dict)) {
+        subscribers.append(callback)
+    }
+    
+    fn emit(value: dict) {
+        data.append(value)
+        for sub in subscribers {
+            sub(value)
+        }
+    }
+    
+    fn get_data(): list {
+        return data
+    }
+}
+
+main {
+    let stream = Stream { data: [], subscribers: [] }
+    let received = []
+    stream.subscribe(fn(val: dict) { received.append(val) })
+    stream.emit({"value": 1})
+    stream.emit({"value": 2})
+    print(len(received))
+    print(len(stream.get_data()))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_backpressure() {
+        let src = r#"import std.core.*
+struct BackpressureBuffer {
+    items: list,
+    capacity: int
+}
+
+impl BackpressureBuffer {
+    fn push(item: dict): bool {
+        if len(items) < capacity {
+            items.append(item)
+            return true
+        }
+        return false
+    }
+    
+    fn pop(): dict {
+        if len(items) > 0 {
+            return items.pop(0)
+        }
+        return {}
+    }
+    
+    fn size(): int {
+        return len(items)
+    }
+}
+
+main {
+    let buffer = BackpressureBuffer { items: [], capacity: 2 }
+    let r1 = buffer.push({"id": 1})
+    let r2 = buffer.push({"id": 2})
+    let r3 = buffer.push({"id": 3})
+    print(r1)
+    print(r2)
+    print(r3)
+    print(buffer.size())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "false");
+        assert_eq!(lines[3], "2");
+    }
+
+    #[test]
+    fn phase3_load_balancer() {
+        let src = r#"import std.core.*
+struct LoadBalancer {
+    servers: list,
+    current: int
+}
+
+impl LoadBalancer {
+    fn add_server(server: str) {
+        servers.append(server)
+    }
+    
+    fn next_server(): str {
+        if len(servers) == 0 {
+            return ""
+        }
+        let server = servers[current]
+        current = (current + 1) % len(servers)
+        return server
+    }
+}
+
+main {
+    let lb = LoadBalancer { servers: [], current: 0 }
+    lb.add_server("server1")
+    lb.add_server("server2")
+    lb.add_server("server3")
+    let s1 = lb.next_server()
+    let s2 = lb.next_server()
+    let s3 = lb.next_server()
+    let s4 = lb.next_server()
+    print(s1)
+    print(s2)
+    print(s3)
+    print(s4)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "server1");
+        assert_eq!(lines[1], "server2");
+        assert_eq!(lines[2], "server3");
+        assert_eq!(lines[3], "server1");
+    }
+
+    #[test]
+    fn phase3_service_discovery() {
+        let src = r#"import std.core.*
+struct ServiceRegistry {
+    services: dict
+}
+
+impl ServiceRegistry {
+    fn register(name: str, instances: list) {
+        services[name] = instances
+    }
+    
+    fn discover(name: str): list {
+        return services.get(name, [])
+    }
+    
+    fn deregister(name: str) {
+        services.remove(name)
+    }
+}
+
+main {
+    let registry = ServiceRegistry { services: {} }
+    registry.register("api", ["instance1", "instance2"])
+    registry.register("db", ["db1"])
+    let api_instances = registry.discover("api")
+    let db_instances = registry.discover("db")
+    print(len(api_instances))
+    print(len(db_instances))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "1");
+    }
+
+    #[test]
+    fn phase3_api_gateway() {
+        let src = r#"import std.core.*
+struct ApiGateway {
+    routes: dict
+}
+
+impl ApiGateway {
+    fn add_route(path: str, handler: fn(dict): dict) {
+        routes[path] = handler
+    }
+    
+    fn handle_request(request: dict): dict {
+        let path = request["path"]
+        if routes.has_key(path) {
+            return routes[path](request)
+        }
+        return {"status": 404, "body": "Not Found"}
+    }
+}
+
+main {
+    let gateway = ApiGateway { routes: {} }
+    gateway.add_route("/users", fn(req: dict): dict {
+        return {"status": 200, "body": "users list"}
+    })
+    gateway.add_route("/posts", fn(req: dict): dict {
+        return {"status": 200, "body": "posts list"}
+    })
+    
+    let response1 = gateway.handle_request({"path": "/users"})
+    let response2 = gateway.handle_request({"path": "/unknown"})
+    
+    print(response1["status"])
+    print(response2["status"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "200");
+        assert_eq!(lines[1], "404");
+    }
+
+    #[test]
+    fn phase3_message_broker() {
+        let src = r#"import std.core.*
+struct MessageBroker {
+    queues: dict
+}
+
+impl MessageBroker {
+    fn publish(queue: str, message: dict) {
+        if !queues.has_key(queue) {
+            queues[queue] = []
+        }
+        queues[queue].append(message)
+    }
+    
+    fn subscribe(queue: str): dict {
+        if queues.has_key(queue) && len(queues[queue]) > 0 {
+            return queues[queue].pop(0)
+        }
+        return {}
+    }
+    
+    fn queue_size(queue: str): int {
+        if queues.has_key(queue) {
+            return len(queues[queue])
+        }
+        return 0
+    }
+}
+
+main {
+    let broker = MessageBroker { queues: {} }
+    broker.publish("tasks", {"id": 1, "type": "process"})
+    broker.publish("tasks", {"id": 2, "type": "analyze"})
+    let msg1 = broker.subscribe("tasks")
+    let msg2 = broker.subscribe("tasks")
+    print(msg1["id"])
+    print(msg2["id"])
+    print(broker.queue_size("tasks"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "0");
+    }
+
+    #[test]
+    fn phase3_dead_letter_queue() {
+        let src = r#"import std.core.*
+struct DeadLetterQueue {
+    messages: list
+}
+
+impl DeadLetterQueue {
+    fn add(message: dict) {
+        messages.append(message)
+    }
+    
+    fn size(): int {
+        return len(messages)
+    }
+    
+    fn get_all(): list {
+        return messages
+    }
+}
+
+main {
+    let dlq = DeadLetterQueue { messages: [] }
+    dlq.add({"id": 1, "error": "timeout"})
+    dlq.add({"id": 2, "error": "validation"})
+    print(dlq.size())
+    let all = dlq.get_all()
+    print(all[0]["error"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "timeout");
+    }
+
+    #[test]
+    fn phase3_idempotency_key() {
+        let src = r#"import std.core.*
+shared store processed_keys = {}
+
+fn process_with_idempotency(key: str, operation: fn()): bool {
+    if processed_keys.has_key(key) {
+        return false
+    }
+    operation()
+    processed_keys[key] = true
+    return true
+}
+
+main {
+    let counter = 0
+    let r1 = process_with_idempotency("key1", fn() { counter = counter + 1 })
+    let r2 = process_with_idempotency("key1", fn() { counter = counter + 1 })
+    let r3 = process_with_idempotency("key2", fn() { counter = counter + 1 })
+    print(r1)
+    print(r2)
+    print(r3)
+    print(counter)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "false");
+        assert_eq!(lines[2], "true");
+        assert_eq!(lines[3], "2");
+    }
+
+    #[test]
+    fn phase3_outbox_pattern() {
+        let src = r#"import std.core.*
+struct Outbox {
+    events: list
+}
+
+impl Outbox {
+    fn add_event(event: dict) {
+        events.append(event)
+    }
+    
+    fn flush(): list {
+        let flushed = events.copy()
+        events = []
+        return flushed
+    }
+    
+    fn size(): int {
+        return len(events)
+    }
+}
+
+main {
+    let outbox = Outbox { events: [] }
+    outbox.add_event({"type": "user_created", "data": {}})
+    outbox.add_event({"type": "order_placed", "data": {}})
+    let flushed = outbox.flush()
+    print(len(flushed))
+    print(outbox.size())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "0");
+    }
+
+    #[test]
+    fn phase3_transaction_log() {
+        let src = r#"import std.core.*
+struct TransactionLog {
+    entries: list
+}
+
+impl TransactionLog {
+    fn log(operation: str, data: dict) {
+        entries.append({"op": operation, "data": data, "timestamp": 0})
+    }
+    
+    fn get_entries(): list {
+        return entries
+    }
+    
+    fn size(): int {
+        return len(entries)
+    }
+}
+
+main {
+    let log = TransactionLog { entries: [] }
+    log.log("INSERT", {"table": "users", "id": 1})
+    log.log("UPDATE", {"table": "users", "id": 1})
+    log.log("DELETE", {"table": "users", "id": 1})
+    print(log.size())
+    let entries = log.get_entries()
+    print(entries[0]["op"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "INSERT");
+    }
+
+    #[test]
+    fn phase3_compensation_transaction() {
+        let src = r#"import std.core.*
+struct CompensationLog {
+    compensations: list
+}
+
+impl CompensationLog {
+    fn register(compensation: fn()) {
+        compensations.append(compensation)
+    }
+    
+    fn execute_all() {
+        for comp in compensations.reverse() {
+            comp()
+        }
+    }
+}
+
+main {
+    let log = CompensationLog { compensations: [] }
+    let counter = 0
+    log.register(fn() { counter = counter - 1 })
+    log.register(fn() { counter = counter - 10 })
+    counter = 11
+    log.execute_all()
+    print(counter)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "0");
+    }
+
+    #[test]
+    fn phase3_two_phase_commit() {
+        let src = r#"import std.core.*
+struct TwoPhaseCommit {
+    participants: list,
+    prepared: list
+}
+
+impl TwoPhaseCommit {
+    fn add_participant(participant: dict) {
+        participants.append(participant)
+    }
+    
+    fn prepare(): bool {
+        for p in participants {
+            if !p["prepare"]() {
+                return false
+            }
+            prepared.append(p)
+        }
+        return true
+    }
+    
+    fn commit() {
+        for p in prepared {
+            p["commit"]()
+        }
+    }
+    
+    fn rollback() {
+        for p in prepared {
+            p["rollback"]()
+        }
+    }
+}
+
+main {
+    let tpc = TwoPhaseCommit { participants: [], prepared: [] }
+    tpc.add_participant({
+        "prepare": fn(): bool { return true },
+        "commit": fn() { print("committed 1") },
+        "rollback": fn() { print("rolled back 1") }
+    })
+    tpc.add_participant({
+        "prepare": fn(): bool { return true },
+        "commit": fn() { print("committed 2") },
+        "rollback": fn() { print("rolled back 2") }
+    })
+    
+    if tpc.prepare() {
+        tpc.commit()
+    }
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(out.contains("committed 1"));
+        assert!(out.contains("committed 2"));
+    }
+
+    #[test]
+    fn phase3_three_phase_commit() {
+        let src = r#"import std.core.*
+struct ThreePhaseCommit {
+    participants: list
+}
+
+impl ThreePhaseCommit {
+    fn add_participant(p: dict) {
+        participants.append(p)
+    }
+    
+    fn phase1_can_commit(): bool {
+        for p in participants {
+            if !p["can_commit"]() {
+                return false
+            }
+        }
+        return true
+    }
+    
+    fn phase2_pre_commit() {
+        for p in participants {
+            p["pre_commit"]()
+        }
+    }
+    
+    fn phase3_do_commit() {
+        for p in participants {
+            p["do_commit"]()
+        }
+    }
+}
+
+main {
+    let threepc = ThreePhaseCommit { participants: [] }
+    threepc.add_participant({
+        "can_commit": fn(): bool { return true },
+        "pre_commit": fn() { print("pre-commit 1") },
+        "do_commit": fn() { print("do-commit 1") }
+    })
+    
+    if threepc.phase1_can_commit() {
+        threepc.phase2_pre_commit()
+        threepc.phase3_do_commit()
+    }
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(out.contains("pre-commit 1"));
+        assert!(out.contains("do-commit 1"));
+    }
+
+    #[test]
+    fn phase3_paxos_simulation() {
+        let src = r#"import std.core.*
+struct PaxosNode {
+    id: int,
+    promised_to: int,
+    accepted_value: dict
+}
+
+impl PaxosNode {
+    fn prepare(proposal_id: int): bool {
+        if promised_to == 0 || proposal_id > promised_to {
+            promised_to = proposal_id
+            return true
+        }
+        return false
+    }
+    
+    fn accept(proposal_id: int, value: dict): bool {
+        if proposal_id >= promised_to {
+            accepted_value = value
+            return true
+        }
+        return false
+    }
+}
+
+main {
+    let node = PaxosNode { id: 1, promised_to: 0, accepted_value: {} }
+    let r1 = node.prepare(1)
+    let r2 = node.accept(1, {"value": "A"})
+    print(r1)
+    print(r2)
+    print(node.accepted_value["value"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "A");
+    }
+
+    #[test]
+    fn phase3_raft_simulation() {
+        let src = r#"import std.core.*
+struct RaftNode {
+    id: int,
+    term: int,
+    voted_for: int,
+    log: list
+}
+
+impl RaftNode {
+    fn request_vote(candidate_id: int, candidate_term: int): bool {
+        if candidate_term > term && (voted_for == 0 || voted_for == candidate_id) {
+            voted_for = candidate_id
+            term = candidate_term
+            return true
+        }
+        return false
+    }
+    
+    fn append_entries(entries: list): bool {
+        log = log + entries
+        return true
+    }
+}
+
+main {
+    let node = RaftNode { id: 1, term: 0, voted_for: 0, log: [] }
+    let r1 = node.request_vote(2, 1)
+    let r2 = node.append_entries([{"cmd": "set x 1"}])
+    print(r1)
+    print(r2)
+    print(len(node.log))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+        assert_eq!(lines[2], "1");
+    }
+
+    #[test]
+    fn phase3_vector_clock() {
+        let src = r#"import std.core.*
+struct VectorClock {
+    clocks: dict
+}
+
+impl VectorClock {
+    fn increment(node_id: str) {
+        clocks[node_id] = clocks.get(node_id, 0) + 1
+    }
+    
+    fn merge(other: VectorClock) {
+        for key in other.clocks.keys() {
+            clocks[key] = max(clocks.get(key, 0), other.clocks[key])
+        }
+    }
+    
+    fn happens_before(other: VectorClock): bool {
+        for key in clocks.keys() {
+            if clocks[key] > other.clocks.get(key, 0) {
+                return false
+            }
+        }
+        return true
+    }
+}
+
+main {
+    let vc1 = VectorClock { clocks: {"A": 1, "B": 2} }
+    let vc2 = VectorClock { clocks: {"A": 2, "B": 3} }
+    print(vc1.happens_before(vc2))
+    print(vc2.happens_before(vc1))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "false");
+    }
+
+    #[test]
+    fn phase3_lamport_timestamp() {
+        let src = r#"import std.core.*
+struct LamportClock {
+    timestamp: int
+}
+
+impl LamportClock {
+    fn increment(): int {
+        timestamp = timestamp + 1
+        return timestamp
+    }
+    
+    fn receive(msg_timestamp: int): int {
+        timestamp = max(timestamp, msg_timestamp) + 1
+        return timestamp
+    }
+}
+
+main {
+    let clock = LamportClock { timestamp: 0 }
+    let t1 = clock.increment()
+    let t2 = clock.increment()
+    let t3 = clock.receive(10)
+    print(t1)
+    print(t2)
+    print(t3)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "2");
+        assert_eq!(lines[2], "11");
+    }
+
+    #[test]
+    fn phase3_logical_clock_comparison() {
+        let src = r#"import std.core.*
+fn compare_timestamps(t1: int, t2: int, id1: str, id2: str): int {
+    if t1 < t2 {
+        return -1
+    } else if t1 > t2 {
+        return 1
+    } else {
+        if id1 < id2 {
+            return -1
+        } else if id1 > id2 {
+            return 1
+        }
+        return 0
+    }
+}
+
+main {
+    print(compare_timestamps(1, 2, "A", "B"))
+    print(compare_timestamps(2, 1, "A", "B"))
+    print(compare_timestamps(1, 1, "A", "B"))
+    print(compare_timestamps(1, 1, "B", "A"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "-1");
+        assert_eq!(lines[1], "1");
+        assert_eq!(lines[2], "-1");
+        assert_eq!(lines[3], "1");
+    }
+
+    #[test]
+    fn phase3_consistent_hashing() {
+        let src = r#"import std.core.*
+fn hash_key(key: str): int {
+    let hash = 0
+    for char in key {
+        hash = hash + ord(char)
+    }
+    return hash % 100
+}
+
+fn get_node(key: str, nodes: list): str {
+    let hash = hash_key(key)
+    for node in nodes {
+        if hash <= node["range"] {
+            return node["name"]
+        }
+    }
+    return nodes[0]["name"]
+}
+
+main {
+    let nodes = [
+        {"name": "node1", "range": 33},
+        {"name": "node2", "range": 66},
+        {"name": "node3", "range": 100}
+    ]
+    print(get_node("key1", nodes))
+    print(get_node("key2", nodes))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert!(lines[0].contains("node"));
+        assert!(lines[1].contains("node"));
+    }
+
+    #[test]
+    fn phase3_gossip_protocol() {
+        let src = r#"import std.core.*
+struct GossipNode {
+    id: str,
+    state: dict
+}
+
+impl GossipNode {
+    fn get_state(): dict {
+        return state
+    }
+    
+    fn merge_state(other_state: dict) {
+        for key in other_state.keys() {
+            state[key] = other_state[key]
+        }
+    }
+}
+
+main {
+    let node1 = GossipNode { id: "A", state: {"x": 1} }
+    let node2 = GossipNode { id: "B", state: {"y": 2} }
+    
+    node1.merge_state(node2.get_state())
+    node2.merge_state(node1.get_state())
+    
+    print(node1.state.has_key("y"))
+    print(node2.state.has_key("x"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_epidemic_broadcast() {
+        let src = r#"import std.core.*
+struct BroadcastNetwork {
+    nodes: dict,
+    messages: list
+}
+
+impl BroadcastNetwork {
+    fn add_node(id: str) {
+        nodes[id] = {"received": []}
+    }
+    
+    fn broadcast(from: str, message: str) {
+        messages.append(message)
+        for node_id in nodes.keys() {
+            nodes[node_id]["received"].append(message)
+        }
+    }
+    
+    fn get_received(node_id: str): list {
+        return nodes[node_id]["received"]
+    }
+}
+
+main {
+    let network = BroadcastNetwork { nodes: {}, messages: [] }
+    network.add_node("A")
+    network.add_node("B")
+    network.add_node("C")
+    network.broadcast("A", "hello")
+    let a_received = network.get_received("A")
+    let b_received = network.get_received("B")
+    print(len(a_received))
+    print(len(b_received))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "1");
+        assert_eq!(lines[1], "1");
+    }
+
+    #[test]
+    fn phase3_failure_detection() {
+        let src = r#"import std.core.*
+struct HeartbeatMonitor {
+    nodes: dict,
+    timeout: int
+}
+
+impl HeartbeatMonitor {
+    fn register_node(node_id: str) {
+        nodes[node_id] = {"last_heartbeat": 0, "alive": true}
+    }
+    
+    fn receive_heartbeat(node_id: str, timestamp: int) {
+        nodes[node_id]["last_heartbeat"] = timestamp
+    }
+    
+    fn check_failures(current_time: int) {
+        for node_id in nodes.keys() {
+            if current_time - nodes[node_id]["last_heartbeat"] > timeout {
+                nodes[node_id]["alive"] = false
+            }
+        }
+    }
+    
+    fn is_alive(node_id: str): bool {
+        return nodes[node_id]["alive"]
+    }
+}
+
+main {
+    let monitor = HeartbeatMonitor { nodes: {}, timeout: 10 }
+    monitor.register_node("A")
+    monitor.register_node("B")
+    monitor.receive_heartbeat("A", 5)
+    monitor.receive_heartbeat("B", 8)
+    monitor.check_failures(20)
+    print(monitor.is_alive("A"))
+    print(monitor.is_alive("B"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "false");
+        assert_eq!(lines[1], "false");
+    }
+
+    #[test]
+    fn phase3_phi_accrual_failure_detector() {
+        let src = r#"import std.core.*
+struct PhiAccrualDetector {
+    intervals: list,
+    threshold: float
+}
+
+impl PhiAccrualDetector {
+    fn record_heartbeat(timestamp: int) {
+        if len(intervals) > 0 {
+            let last = intervals[len(intervals) - 1]
+            intervals.append(timestamp - last)
+        } else {
+            intervals.append(timestamp)
+        }
+    }
+    
+    fn phi(current_time: int): float {
+        if len(intervals) < 2 {
+            return 0.0
+        }
+        let sum = 0
+        for interval in intervals {
+            sum = sum + interval
+        }
+        let mean = sum / len(intervals)
+        let time_since_last = current_time - intervals[len(intervals) - 1]
+        return time_since_last / mean
+    }
+    
+    fn is_suspected(current_time: int): bool {
+        return phi(current_time) > threshold
+    }
+}
+
+main {
+    let detector = PhiAccrualDetector { intervals: [], threshold: 2.0 }
+    detector.record_heartbeat(0)
+    detector.record_heartbeat(10)
+    detector.record_heartbeat(20)
+    let suspected = detector.is_suspected(50)
+    print(suspected)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_swim_protocol() {
+        let src = r#"import std.core.*
+struct SwimNode {
+    id: str,
+    members: dict,
+    incarnation: int
+}
+
+impl SwimNode {
+    fn add_member(member_id: str) {
+        members[member_id] = {"status": "alive", "incarnation": 0}
+    }
+    
+    fn ping(member_id: str): bool {
+        return members.has_key(member_id)
+    }
+    
+    fn suspect(member_id: str) {
+        if members.has_key(member_id) {
+            members[member_id]["status"] = "suspected"
+        }
+    }
+    
+    fn confirm(member_id: str) {
+        if members.has_key(member_id) {
+            members[member_id]["status"] = "confirmed"
+        }
+    }
+    
+    fn get_status(member_id: str): str {
+        return members[member_id]["status"]
+    }
+}
+
+main {
+    let node = SwimNode { id: "A", members: {}, incarnation: 0 }
+    node.add_member("B")
+    node.add_member("C")
+    node.suspect("B")
+    node.confirm("C")
+    print(node.get_status("B"))
+    print(node.get_status("C"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "suspected");
+        assert_eq!(lines[1], "confirmed");
+    }
+
+    #[test]
+    fn phase3_membership_list() {
+        let src = r#"import std.core.*
+struct MembershipList {
+    members: dict
+}
+
+impl MembershipList {
+    fn join(node_id: str) {
+        members[node_id] = {"status": "active", "joined_at": 0}
+    }
+    
+    fn leave(node_id: str) {
+        if members.has_key(node_id) {
+            members[node_id]["status"] = "inactive"
+        }
+    }
+    
+    fn get_active_members(): list {
+        let active = []
+        for node_id in members.keys() {
+            if members[node_id]["status"] == "active" {
+                active.append(node_id)
+            }
+        }
+        return active
+    }
+    
+    fn size(): int {
+        return len(members)
+    }
+}
+
+main {
+    let list = MembershipList { members: {} }
+    list.join("A")
+    list.join("B")
+    list.join("C")
+    list.leave("B")
+    let active = list.get_active_members()
+    print(len(active))
+    print(list.size())
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase3_ring_topology() {
+        let src = r#"import std.core.*
+struct Ring {
+    nodes: list
+}
+
+impl Ring {
+    fn add_node(node_id: str) {
+        nodes.append(node_id)
+    }
+    
+    fn get_next(node_id: str): str {
+        let idx = nodes.index(node_id)
+        if idx == -1 {
+            return ""
+        }
+        return nodes[(idx + 1) % len(nodes)]
+    }
+    
+    fn get_prev(node_id: str): str {
+        let idx = nodes.index(node_id)
+        if idx == -1 {
+            return ""
+        }
+        return nodes[(idx - 1 + len(nodes)) % len(nodes)]
+    }
+}
+
+main {
+    let ring = Ring { nodes: [] }
+    ring.add_node("A")
+    ring.add_node("B")
+    ring.add_node("C")
+    print(ring.get_next("A"))
+    print(ring.get_next("C"))
+    print(ring.get_prev("A"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "B");
+        assert_eq!(lines[1], "A");
+        assert_eq!(lines[2], "C");
+    }
+
+    #[test]
+    fn phase3_chord_ring() {
+        let src = r#"import std.core.*
+struct ChordNode {
+    id: int,
+    finger_table: list
+}
+
+impl ChordNode {
+    fn init_finger_table(m: int) {
+        for i in 0..m {
+            finger_table.append({"start": (id + 2 ** i) % (2 ** m), "node": id})
+        }
+    }
+    
+    fn find_successor(key: int): int {
+        return id
+    }
+}
+
+main {
+    let node = ChordNode { id: 1, finger_table: [] }
+    node.init_finger_table(3)
+    print(len(node.finger_table))
+    print(node.finger_table[0]["start"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_pastry_routing() {
+        let src = r#"import std.core.*
+struct PastryNode {
+    node_id: str,
+    routing_table: dict,
+    leaf_set: list
+}
+
+impl PastryNode {
+    fn add_route(prefix: str, node_id: str) {
+        routing_table[prefix] = node_id
+    }
+    
+    fn add_leaf(node_id: str) {
+        leaf_set.append(node_id)
+    }
+    
+    fn route(key: str): str {
+        let prefix = key[0]
+        if routing_table.has_key(prefix) {
+            return routing_table[prefix]
+        }
+        return node_id
+    }
+}
+
+main {
+    let node = PastryNode { node_id: "A", routing_table: {}, leaf_set: [] }
+    node.add_route("B", "nodeB")
+    node.add_route("C", "nodeC")
+    node.add_leaf("nodeD")
+    print(node.route("B123"))
+    print(node.route("X123"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "nodeB");
+        assert_eq!(lines[1], "A");
+    }
+
+    #[test]
+    fn phase3_can_protocol() {
+        let src = r#"import std.core.*
+struct CanNode {
+    id: str,
+    neighbors: list,
+    data: dict
+}
+
+impl CanNode {
+    fn add_neighbor(neighbor_id: str) {
+        neighbors.append(neighbor_id)
+    }
+    
+    fn store(key: str, value: dict) {
+        data[key] = value
+    }
+    
+    fn get(key: str): dict {
+        return data.get(key, {})
+    }
+    
+    fn replicate(key: str, value: dict) {
+        data[key] = value
+    }
+}
+
+main {
+    let node = CanNode { id: "A", neighbors: [], data: {} }
+    node.add_neighbor("B")
+    node.add_neighbor("C")
+    node.store("key1", {"value": "data1"})
+    let result = node.get("key1")
+    print(result["value"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "data1");
+    }
+
+    #[test]
+    fn phase3_dynamo_style_quorum() {
+        let src = r#"import std.core.*
+struct QuorumSystem {
+    nodes: dict,
+    read_quorum: int,
+    write_quorum: int
+}
+
+impl QuorumSystem {
+    fn write(key: str, value: dict, version: int) {
+        let written = 0
+        for node_id in nodes.keys() {
+            nodes[node_id][key] = {"value": value, "version": version}
+            written = written + 1
+            if written >= write_quorum {
+                break
+            }
+        }
+    }
+    
+    fn read(key: str): dict {
+        let reads = []
+        for node_id in nodes.keys() {
+            if nodes[node_id].has_key(key) {
+                reads.append(nodes[node_id][key])
+            }
+            if len(reads) >= read_quorum {
+                break
+            }
+        }
+        if len(reads) == 0 {
+            return {}
+        }
+        let max_version = 0
+        let result = {}
+        for r in reads {
+            if r["version"] > max_version {
+                max_version = r["version"]
+                result = r["value"]
+            }
+        }
+        return result
+    }
+}
+
+main {
+    let system = QuorumSystem {
+        nodes: {"A": {}, "B": {}, "C": {}},
+        read_quorum: 2,
+        write_quorum: 2
+    }
+    system.write("key1", {"data": "value1"}, 1)
+    let result = system.read("key1")
+    print(result["data"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "value1");
+    }
+
+    #[test]
+    fn phase3_vector_clock_store() {
+        let src = r#"import std.core.*
+struct VectorClockStore {
+    data: dict
+}
+
+impl VectorClockStore {
+    fn put(key: str, value: dict, vc: dict) {
+        data[key] = {"value": value, "vc": vc}
+    }
+    
+    fn get(key: str): dict {
+        return data.get(key, {})
+    }
+    
+    fn concurrent(v1: dict, v2: dict): bool {
+        let v1_greater = false
+        let v2_greater = false
+        for k in v1.keys() {
+            if v1[k] > v2.get(k, 0) {
+                v1_greater = true
+            }
+            if v2.get(k, 0) > v1[k] {
+                v2_greater = true
+            }
+        }
+        return v1_greater && v2_greater
+    }
+}
+
+main {
+    let store = VectorClockStore { data: {} }
+    store.put("key1", {"data": "v1"}, {"A": 1, "B": 0})
+    store.put("key1", {"data": "v2"}, {"A": 0, "B": 1})
+    let result = store.get("key1")
+    print(result["value"]["data"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "v2");
+    }
+
+    #[test]
+    fn phase3_merkle_tree() {
+        let src = r#"import std.core.*
+fn hash_data(data: str): str {
+    return "hash_" + data
+}
+
+struct MerkleNode {
+    hash: str,
+    left: dict,
+    right: dict
+}
+
+fn build_merkle_tree(data: list): dict {
+    if len(data) == 1 {
+        return {"hash": hash_data(data[0]), "left": {}, "right": {}}
+    }
+    let mid = len(data) / 2
+    let left = build_merkle_tree(data[0..mid])
+    let right = build_merkle_tree(data[mid..])
+    return {
+        "hash": hash_data(left["hash"] + right["hash"]),
+        "left": left,
+        "right": right
+    }
+}
+
+main {
+    let tree = build_merkle_tree(["a", "b", "c", "d"])
+    print(tree["hash"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(out.contains("hash_"));
+    }
+
+    #[test]
+    fn phase3_bloom_filter() {
+        let src = r#"import std.core.*
+struct BloomFilter {
+    bits: list,
+    size: int
+}
+
+impl BloomFilter {
+    fn init(size: int) {
+        bits = []
+        for i in 0..size {
+            bits.append(false)
+        }
+    }
+    
+    fn add(item: str) {
+        let hash1 = len(item) % size
+        let hash2 = (len(item) * 2) % size
+        bits[hash1] = true
+        bits[hash2] = true
+    }
+    
+    fn might_contain(item: str): bool {
+        let hash1 = len(item) % size
+        let hash2 = (len(item) * 2) % size
+        return bits[hash1] && bits[hash2]
+    }
+}
+
+main {
+    let bf = BloomFilter { bits: [], size: 100 }
+    bf.init(100)
+    bf.add("hello")
+    bf.add("world")
+    print(bf.might_contain("hello"))
+    print(bf.might_contain("world"))
+    print(bf.might_contain("foo"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "true");
+        assert_eq!(lines[1], "true");
+    }
+
+    #[test]
+    fn phase3_count_min_sketch() {
+        let src = r#"import std.core.*
+struct CountMinSketch {
+    table: list,
+    width: int,
+    depth: int
+}
+
+impl CountMinSketch {
+    fn init(width: int, depth: int) {
+        table = []
+        for i in 0..depth {
+            let row = []
+            for j in 0..width {
+                row.append(0)
+            }
+            table.append(row)
+        }
+    }
+    
+    fn add(item: str, count: int) {
+        for i in 0..depth {
+            let hash = (len(item) + i) % width
+            table[i][hash] = table[i][hash] + count
+        }
+    }
+    
+    fn estimate(item: str): int {
+        let min_count = 999999
+        for i in 0..depth {
+            let hash = (len(item) + i) % width
+            if table[i][hash] < min_count {
+                min_count = table[i][hash]
+            }
+        }
+        return min_count
+    }
+}
+
+main {
+    let cms = CountMinSketch { table: [], width: 10, depth: 3 }
+    cms.init(10, 3)
+    cms.add("hello", 5)
+    cms.add("world", 3)
+    print(cms.estimate("hello"))
+    print(cms.estimate("world"))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "5");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase3_hyper_log_log() {
+        let src = r#"import std.core.*
+struct HyperLogLog {
+    registers: list,
+    num_registers: int
+}
+
+impl HyperLogLog {
+    fn init(num_registers: int) {
+        registers = []
+        for i in 0..num_registers {
+            registers.append(0)
+        }
+    }
+    
+    fn add(item: str) {
+        let hash = len(item)
+        let register_idx = hash % num_registers
+        let remaining = hash / num_registers
+        let num_zeros = 0
+        let temp = remaining
+        while temp > 0 && temp % 2 == 0 {
+            num_zeros = num_zeros + 1
+            temp = temp / 2
+        }
+        if num_zeros + 1 > registers[register_idx] {
+            registers[register_idx] = num_zeros + 1
+        }
+    }
+    
+    fn estimate(): int {
+        let sum = 0
+        for reg in registers {
+            sum = sum + 2 ** reg
+        }
+        return sum
+    }
+}
+
+main {
+    let hll = HyperLogLog { registers: [], num_registers: 16 }
+    hll.init(16)
+    hll.add("item1")
+    hll.add("item2")
+    hll.add("item3")
+    let estimate = hll.estimate()
+    print(estimate > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_t_digest() {
+        let src = r#"import std.core.*
+struct TDigest {
+    centroids: list,
+    compression: float
+}
+
+impl TDigest {
+    fn init(compression: float) {
+        centroids = []
+    }
+    
+    fn add(value: float, weight: int) {
+        centroids.append({"mean": value, "weight": weight})
+    }
+    
+    fn quantile(q: float): float {
+        if len(centroids) == 0 {
+            return 0.0
+        }
+        let total_weight = 0
+        for c in centroids {
+            total_weight = total_weight + c["weight"]
+        }
+        let target = q * total_weight
+        let cumulative = 0
+        for c in centroids {
+            cumulative = cumulative + c["weight"]
+            if cumulative >= target {
+                return c["mean"]
+            }
+        }
+        return centroids[len(centroids) - 1]["mean"]
+    }
+}
+
+main {
+    let td = TDigest { centroids: [], compression: 100.0 }
+    td.init(100.0)
+    td.add(1.0, 1)
+    td.add(2.0, 1)
+    td.add(3.0, 1)
+    let median = td.quantile(0.5)
+    print(median)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_q_q_plot() {
+        let src = r#"import std.core.*
+fn compute_quantiles(data: list, num_quantiles: int): list {
+    let sorted = data.copy()
+    sorted.sort()
+    let quantiles = []
+    let step = len(sorted) / num_quantiles
+    for i in 0..num_quantiles {
+        let idx = i * step
+        if idx < len(sorted) {
+            quantiles.append(sorted[idx])
+        }
+    }
+    return quantiles
+}
+
+main {
+    let data1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let data2 = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+    let q1 = compute_quantiles(data1, 5)
+    let q2 = compute_quantiles(data2, 5)
+    print(len(q1))
+    print(len(q2))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "5");
+        assert_eq!(lines[1], "5");
+    }
+
+    #[test]
+    fn phase3_kolmogorov_smirnov() {
+        let src = r#"import std.core.*
+fn ks_statistic(sample1: list, sample2: list): float {
+    let s1 = sample1.copy()
+    let s2 = sample2.copy()
+    s1.sort()
+    s2.sort()
+    
+    let max_diff = 0.0
+    let i = 0
+    let j = 0
+    while i < len(s1) && j < len(s2) {
+        let cdf1 = (i + 1) / len(s1)
+        let cdf2 = (j + 1) / len(s2)
+        let diff = abs(cdf1 - cdf2)
+        if diff > max_diff {
+            max_diff = diff
+        }
+        if s1[i] < s2[j] {
+            i = i + 1
+        } else {
+            j = j + 1
+        }
+    }
+    return max_diff
+}
+
+main {
+    let sample1 = [1, 2, 3, 4, 5]
+    let sample2 = [1, 2, 3, 4, 5]
+    let stat = ks_statistic(sample1, sample2)
+    print(stat)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "0");
+    }
+
+    #[test]
+    fn phase3_anderson_darling() {
+        let src = r#"import std.core.*
+fn anderson_darling_statistic(data: list): float {
+    let sorted = data.copy()
+    sorted.sort()
+    let n = len(sorted)
+    let s = 0.0
+    for i in 0..n {
+        let cdf = (i + 1) / n
+        s = s + (2 * (i + 1) - 1) * (log(cdf) + log(1 - (n - i) / n))
+    }
+    return -n - s / n
+}
+
+main {
+    let data = [1, 2, 3, 4, 5]
+    let stat = anderson_darling_statistic(data)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_shapiro_wilk() {
+        let src = r#"import std.core.*
+fn shapiro_wilk_statistic(data: list): float {
+    let sorted = data.copy()
+    sorted.sort()
+    let n = len(sorted)
+    let mean = 0.0
+    for x in sorted {
+        mean = mean + x
+    }
+    mean = mean / n
+    
+    let ss = 0.0
+    for x in sorted {
+        ss = ss + (x - mean) ** 2
+    }
+    
+    return ss / n
+}
+
+main {
+    let data = [1, 2, 3, 4, 5]
+    let stat = shapiro_wilk_statistic(data)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_chi_squared() {
+        let src = r#"import std.core.*
+fn chi_squared_test(observed: list, expected: list): float {
+    let chi2 = 0.0
+    for i in 0..len(observed) {
+        chi2 = chi2 + ((observed[i] - expected[i]) ** 2) / expected[i]
+    }
+    return chi2
+}
+
+main {
+    let observed = [10, 20, 30]
+    let expected = [15, 15, 30]
+    let chi2 = chi_squared_test(observed, expected)
+    print(chi2 > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_fisher_exact() {
+        let src = r#"import std.core.*
+fn fisher_exact_test(a: int, b: int, c: int, d: int): float {
+    let n = a + b + c + d
+    let p = (a + b) * (c + d) * (a + c) * (b + d) / (n * n * n * n)
+    return p
+}
+
+main {
+    let p = fisher_exact_test(10, 5, 3, 12)
+    print(p > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_mann_whitney() {
+        let src = r#"import std.core.*
+fn mann_whitney_u(sample1: list, sample2: list): int {
+    let u1 = 0
+    for x in sample1 {
+        for y in sample2 {
+            if x > y {
+                u1 = u1 + 1
+            }
+        }
+    }
+    return u1
+}
+
+main {
+    let sample1 = [1, 2, 3, 4, 5]
+    let sample2 = [6, 7, 8, 9, 10]
+    let u = mann_whitney_u(sample1, sample2)
+    print(u)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "0");
+    }
+
+    #[test]
+    fn phase3_wilcoxon() {
+        let src = r#"import std.core.*
+fn wilcoxon_signed_rank(differences: list): int {
+    let positive_sum = 0
+    let negative_sum = 0
+    for diff in differences {
+        if diff > 0 {
+            positive_sum = positive_sum + diff
+        } else {
+            negative_sum = negative_sum + abs(diff)
+        }
+    }
+    return min(positive_sum, negative_sum)
+}
+
+main {
+    let differences = [1, -2, 3, -4, 5]
+    let w = wilcoxon_signed_rank(differences)
+    print(w)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "6");
+    }
+
+    #[test]
+    fn phase3_kruskal_wallis() {
+        let src = r#"import std.core.*
+fn kruskal_wallis_h(groups: list): float {
+    let all_data = []
+    for group in groups {
+        for x in group {
+            all_data.append(x)
+        }
+    }
+    let n = len(all_data)
+    let mean = 0.0
+    for x in all_data {
+        mean = mean + x
+    }
+    mean = mean / n
+    
+    let h = 0.0
+    for group in groups {
+        let group_mean = 0.0
+        for x in group {
+            group_mean = group_mean + x
+        }
+        group_mean = group_mean / len(group)
+        h = h + len(group) * (group_mean - mean) ** 2
+    }
+    return h
+}
+
+main {
+    let groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let h = kruskal_wallis_h(groups)
+    print(h > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_friedman() {
+        let src = r#"import std.core.*
+fn friedman_test(blocks: list): float {
+    let k = len(blocks[0])
+    let n = len(blocks)
+    let mean = 0.0
+    for block in blocks {
+        for x in block {
+            mean = mean + x
+        }
+    }
+    mean = mean / (n * k)
+    
+    let ss = 0.0
+    for block in blocks {
+        for x in block {
+            ss = ss + (x - mean) ** 2
+        }
+    }
+    return ss
+}
+
+main {
+    let blocks = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let stat = friedman_test(blocks)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_spearman() {
+        let src = r#"import std.core.*
+fn spearman_correlation(x: list, y: list): float {
+    let n = len(x)
+    let mean_x = 0.0
+    let mean_y = 0.0
+    for i in 0..n {
+        mean_x = mean_x + x[i]
+        mean_y = mean_y + y[i]
+    }
+    mean_x = mean_x / n
+    mean_y = mean_y / n
+    
+    let num = 0.0
+    let den_x = 0.0
+    let den_y = 0.0
+    for i in 0..n {
+        num = num + (x[i] - mean_x) * (y[i] - mean_y)
+        den_x = den_x + (x[i] - mean_x) ** 2
+        den_y = den_y + (y[i] - mean_y) ** 2
+    }
+    return num / sqrt(den_x * den_y)
+}
+
+main {
+    let x = [1, 2, 3, 4, 5]
+    let y = [2, 4, 6, 8, 10]
+    let rho = spearman_correlation(x, y)
+    print(rho > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_kendall() {
+        let src = r#"import std.core.*
+fn kendall_tau(x: list, y: list): float {
+    let n = len(x)
+    let concordant = 0
+    let discordant = 0
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if (x[i] - x[j]) * (y[i] - y[j]) > 0 {
+                concordant = concordant + 1
+            } else if (x[i] - x[j]) * (y[i] - y[j]) < 0 {
+                discordant = discordant + 1
+            }
+        }
+    }
+    return (concordant - discordant) / (n * (n - 1) / 2)
+}
+
+main {
+    let x = [1, 2, 3, 4, 5]
+    let y = [2, 4, 6, 8, 10]
+    let tau = kendall_tau(x, y)
+    print(tau > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_point_biserial() {
+        let src = r#"import std.core.*
+fn point_biserial_correlation(binary: list, continuous: list): float {
+    let n = len(binary)
+    let n1 = 0
+    let n0 = 0
+    let sum1 = 0.0
+    let sum0 = 0.0
+    for i in 0..n {
+        if binary[i] == 1 {
+            n1 = n1 + 1
+            sum1 = sum1 + continuous[i]
+        } else {
+            n0 = n0 + 1
+            sum0 = sum0 + continuous[i]
+        }
+    }
+    let mean1 = sum1 / n1
+    let mean0 = sum0 / n0
+    let mean_total = (sum1 + sum0) / n
+    let ss = 0.0
+    for x in continuous {
+        ss = ss + (x - mean_total) ** 2
+    }
+    let sd = sqrt(ss / n)
+    return (mean1 - mean0) / sd * sqrt(n1 * n0 / (n * n))
+}
+
+main {
+    let binary = [0, 0, 1, 1, 1]
+    let continuous = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let rpb = point_biserial_correlation(binary, continuous)
+    print(rpb > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_cramers_v() {
+        let src = r#"import std.core.*
+fn cramers_v(contingency_table: list): float {
+    let n = 0
+    for row in contingency_table {
+        for cell in row {
+            n = n + cell
+        }
+    }
+    let chi2 = 0.0
+    let row_sums = []
+    let col_sums = []
+    for i in 0..len(contingency_table) {
+        let row_sum = 0
+        for cell in contingency_table[i] {
+            row_sum = row_sum + cell
+        }
+        row_sums.append(row_sum)
+    }
+    for j in 0..len(contingency_table[0]) {
+        let col_sum = 0
+        for i in 0..len(contingency_table) {
+            col_sum = col_sum + contingency_table[i][j]
+        }
+        col_sums.append(col_sum)
+    }
+    for i in 0..len(contingency_table) {
+        for j in 0..len(contingency_table[0]) {
+            let expected = row_sums[i] * col_sums[j] / n
+            chi2 = chi2 + ((contingency_table[i][j] - expected) ** 2) / expected
+        }
+    }
+    let k = min(len(contingency_table), len(contingency_table[0]))
+    return sqrt(chi2 / (n * (k - 1)))
+}
+
+main {
+    let table = [[10, 20], [30, 40]]
+    let v = cramers_v(table)
+    print(v > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_phi_coefficient() {
+        let src = r#"import std.core.*
+fn phi_coefficient(a: int, b: int, c: int, d: int): float {
+    let n = a + b + c + d
+    return (a * d - b * c) / sqrt((a + b) * (c + d) * (a + c) * (b + d))
+}
+
+main {
+    let phi = phi_coefficient(10, 5, 3, 12)
+    print(phi != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_contingency_coefficient() {
+        let src = r#"import std.core.*
+fn contingency_coefficient(chi2: float, n: int): float {
+    return sqrt(chi2 / (chi2 + n))
+}
+
+main {
+    let c = contingency_coefficient(10.0, 100)
+    print(c > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_goodman_kruskal() {
+        let src = r#"import std.core.*
+fn goodman_kruskal_gamma(concordant: int, discordant: int): float {
+    return (concordant - discordant) / (concordant + discordant)
+}
+
+main {
+    let gamma = goodman_kruskal_gamma(50, 30)
+    print(gamma > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_somers_d() {
+        let src = r#"import std.core.*
+fn somers_d(concordant: int, discordant: int, n: int): float {
+    return (concordant - discordant) / (n * (n - 1) / 2)
+}
+
+main {
+    let d = somers_d(50, 30, 100)
+    print(d != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_yules_q() {
+        let src = r#"import std.core.*
+fn yules_q(a: int, b: int, c: int, d: int): float {
+    return (a * d - b * c) / (a * d + b * c)
+}
+
+main {
+    let q = yules_q(10, 5, 3, 12)
+    print(q != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_yules_y() {
+        let src = r#"import std.core.*
+fn yules_y(a: int, b: int, c: int, d: int): float {
+    let ad = sqrt(a * d)
+    let bc = sqrt(b * c)
+    return (ad - bc) / (ad + bc)
+}
+
+main {
+    let y = yules_y(10, 5, 3, 12)
+    print(y != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_likelihood_ratio() {
+        let src = r#"import std.core.*
+fn likelihood_ratio_test(observed: list, expected: list): float {
+    let g2 = 0.0
+    for i in 0..len(observed) {
+        if observed[i] > 0 && expected[i] > 0 {
+            g2 = g2 + 2 * observed[i] * log(observed[i] / expected[i])
+        }
+    }
+    return g2
+}
+
+main {
+    let observed = [10, 20, 30]
+    let expected = [15, 15, 30]
+    let g2 = likelihood_ratio_test(observed, expected)
+    print(g2 > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_barnard() {
+        let src = r#"import std.core.*
+fn barnard_exact_test(a: int, b: int, c: int, d: int): float {
+    let n = a + b + c + d
+    let p = (a + b) * (c + d) / (n * n)
+    return p
+}
+
+main {
+    let p = barnard_exact_test(10, 5, 3, 12)
+    print(p > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_boschloo() {
+        let src = r#"import std.core.*
+fn boschloo_exact_test(a: int, b: int, c: int, d: int): float {
+    let n = a + b + c + d
+    let p1 = a / (a + b)
+    let p2 = c / (c + d)
+    return abs(p1 - p2)
+}
+
+main {
+    let stat = boschloo_exact_test(10, 5, 3, 12)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_stuart_maxwell() {
+        let src = r#"import std.core.*
+fn stuart_maxwell_test(marginals: list): float {
+    let k = len(marginals)
+    let chi2 = 0.0
+    for i in 0..k {
+        chi2 = chi2 + marginals[i] ** 2
+    }
+    return chi2
+}
+
+main {
+    let marginals = [10, 20, 30]
+    let stat = stuart_maxwell_test(marginals)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_cochran_q() {
+        let src = r#"import std.core.*
+fn cochran_q_test(data: list): float {
+    let k = len(data[0])
+    let n = len(data)
+    let grand_mean = 0.0
+    for row in data {
+        for x in row {
+            grand_mean = grand_mean + x
+        }
+    }
+    grand_mean = grand_mean / (n * k)
+    
+    let ss_between = 0.0
+    for row in data {
+        let row_mean = 0.0
+        for x in row {
+            row_mean = row_mean + x
+        }
+        row_mean = row_mean / k
+        ss_between = ss_between + k * (row_mean - grand_mean) ** 2
+    }
+    return ss_between
+}
+
+main {
+    let data = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let q = cochran_q_test(data)
+    print(q > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_page() {
+        let src = r#"import std.core.*
+fn page_trend_test(data: list): float {
+    let k = len(data[0])
+    let n = len(data)
+    let mean = 0.0
+    for row in data {
+        for x in row {
+            mean = mean + x
+        }
+    }
+    mean = mean / (n * k)
+    
+    let l = 0.0
+    for j in 0..k {
+        let col_sum = 0.0
+        for row in data {
+            col_sum = col_sum + row[j]
+        }
+        l = l + (j + 1) * col_sum
+    }
+    return l
+}
+
+main {
+    let data = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let l = page_trend_test(data)
+    print(l > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_jonckheere_terpstra() {
+        let src = r#"import std.core.*
+fn jonckheere_terpstra_test(groups: list): int {
+    let jt = 0
+    for i in 0..len(groups) {
+        for j in (i + 1)..len(groups) {
+            for x in groups[i] {
+                for y in groups[j] {
+                    if x < y {
+                        jt = jt + 1
+                    }
+                }
+            }
+        }
+    }
+    return jt
+}
+
+main {
+    let groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let jt = jonckheere_terpstra_test(groups)
+    print(jt > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_fligner_killeen() {
+        let src = r#"import std.core.*
+fn fligner_killeen_test(groups: list): float {
+    let all_data = []
+    for group in groups {
+        for x in group {
+            all_data.append(x)
+        }
+    }
+    let median = 0.0
+    let sorted = all_data.copy()
+    sorted.sort()
+    median = sorted[len(sorted) / 2]
+    
+    let scores = []
+    for x in all_data {
+        scores.append(abs(x - median))
+    }
+    
+    let mean_score = 0.0
+    for s in scores {
+        mean_score = mean_score + s
+    }
+    mean_score = mean_score / len(scores)
+    
+    let ss = 0.0
+    for s in scores {
+        ss = ss + (s - mean_score) ** 2
+    }
+    return ss
+}
+
+main {
+    let groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let stat = fligner_killeen_test(groups)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_levene() {
+        let src = r#"import std.core.*
+fn levene_test(groups: list): float {
+    let k = len(groups)
+    let n = 0
+    for group in groups {
+        n = n + len(group)
+    }
+    
+    let medians = []
+    for group in groups {
+        let sorted = group.copy()
+        sorted.sort()
+        medians.append(sorted[len(sorted) / 2])
+    }
+    
+    let z_scores = []
+    for i in 0..k {
+        let z_group = []
+        for x in groups[i] {
+            z_group.append(abs(x - medians[i]))
+        }
+        z_scores.append(z_group)
+    }
+    
+    let z_bar = 0.0
+    for z_group in z_scores {
+        for z in z_group {
+            z_bar = z_bar + z
+        }
+    }
+    z_bar = z_bar / n
+    
+    let ss_between = 0.0
+    for i in 0..k {
+        let z_group_mean = 0.0
+        for z in z_scores[i] {
+            z_group_mean = z_group_mean + z
+        }
+        z_group_mean = z_group_mean / len(z_scores[i])
+        ss_between = ss_between + len(z_scores[i]) * (z_group_mean - z_bar) ** 2
+    }
+    return ss_between
+}
+
+main {
+    let groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let stat = levene_test(groups)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_brown_forsythe() {
+        let src = r#"import std.core.*
+fn brown_forsythe_test(groups: list): float {
+    let k = len(groups)
+    let n = 0
+    for group in groups {
+        n = n + len(group)
+    }
+    
+    let medians = []
+    for group in groups {
+        let sorted = group.copy()
+        sorted.sort()
+        medians.append(sorted[len(sorted) / 2])
+    }
+    
+    let z_scores = []
+    for i in 0..k {
+        let z_group = []
+        for x in groups[i] {
+            z_group.append(abs(x - medians[i]))
+        }
+        z_scores.append(z_group)
+    }
+    
+    let z_bar = 0.0
+    for z_group in z_scores {
+        for z in z_group {
+            z_bar = z_bar + z
+        }
+    }
+    z_bar = z_bar / n
+    
+    let ss_between = 0.0
+    for i in 0..k {
+        let z_group_mean = 0.0
+        for z in z_scores[i] {
+            z_group_mean = z_group_mean + z
+        }
+        z_group_mean = z_group_mean / len(z_scores[i])
+        ss_between = ss_between + len(z_scores[i]) * (z_group_mean - z_bar) ** 2
+    }
+    return ss_between
+}
+
+main {
+    let groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let stat = brown_forsythe_test(groups)
+    print(stat > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_welch() {
+        let src = r#"import std.core.*
+fn welch_anova(groups: list): float {
+    let k = len(groups)
+    let n = 0
+    for group in groups {
+        n = n + len(group)
+    }
+    
+    let means = []
+    let variances = []
+    let ns = []
+    for group in groups {
+        let mean = 0.0
+        for x in group {
+            mean = mean + x
+        }
+        mean = mean / len(group)
+        means.append(mean)
+        
+        let var = 0.0
+        for x in group {
+            var = var + (x - mean) ** 2
+        }
+        var = var / (len(group) - 1)
+        variances.append(var)
+        ns.append(len(group))
+    }
+    
+    let grand_mean = 0.0
+    for i in 0..k {
+        grand_mean = grand_mean + ns[i] * means[i]
+    }
+    grand_mean = grand_mean / n
+    
+    let ss_between = 0.0
+    for i in 0..k {
+        ss_between = ss_between + ns[i] * (means[i] - grand_mean) ** 2
+    }
+    
+    let ss_within = 0.0
+    for i in 0..k {
+        ss_within = ss_within + (ns[i] - 1) * variances[i]
+    }
+    
+    return ss_between / (ss_within / (n - k))
+}
+
+main {
+    let groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    let f = welch_anova(groups)
+    print(f > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_games_howell() {
+        let src = r#"import std.core.*
+fn games_howell_posthoc(group1: list, group2: list, mse: float): float {
+    let mean1 = 0.0
+    let mean2 = 0.0
+    for x in group1 {
+        mean1 = mean1 + x
+    }
+    mean1 = mean1 / len(group1)
+    for x in group2 {
+        mean2 = mean2 + x
+    }
+    mean2 = mean2 / len(group2)
+    
+    let se = sqrt(mse * (1 / len(group1) + 1 / len(group2)))
+    return (mean1 - mean2) / se
+}
+
+main {
+    let group1 = [1, 2, 3]
+    let group2 = [4, 5, 6]
+    let mse = 1.0
+    let t = games_howell_posthoc(group1, group2, mse)
+    print(t != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_tukey_hsd() {
+        let src = r#"import std.core.*
+fn tukey_hsd_posthoc(group1: list, group2: list, mse: float): float {
+    let mean1 = 0.0
+    let mean2 = 0.0
+    for x in group1 {
+        mean1 = mean1 + x
+    }
+    mean1 = mean1 / len(group1)
+    for x in group2 {
+        mean2 = mean2 + x
+    }
+    mean2 = mean2 / len(group2)
+    
+    let se = sqrt(mse * (1 / len(group1) + 1 / len(group2)))
+    return (mean1 - mean2) / se
+}
+
+main {
+    let group1 = [1, 2, 3]
+    let group2 = [4, 5, 6]
+    let mse = 1.0
+    let q = tukey_hsd_posthoc(group1, group2, mse)
+    print(q != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_dunnett() {
+        let src = r#"import std.core.*
+fn dunnett_test(control: list, treatment: list, mse: float): float {
+    let mean_control = 0.0
+    let mean_treatment = 0.0
+    for x in control {
+        mean_control = mean_control + x
+    }
+    mean_control = mean_control / len(control)
+    for x in treatment {
+        mean_treatment = mean_treatment + x
+    }
+    mean_treatment = mean_treatment / len(treatment)
+    
+    let se = sqrt(mse * (1 / len(control) + 1 / len(treatment)))
+    return (mean_treatment - mean_control) / se
+}
+
+main {
+    let control = [1, 2, 3]
+    let treatment = [4, 5, 6]
+    let mse = 1.0
+    let t = dunnett_test(control, treatment, mse)
+    print(t != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_scheffe() {
+        let src = r#"import std.core.*
+fn scheffe_test(contrast: list, group_means: list, group_ns: list, mse: float): float {
+    let psi = 0.0
+    for i in 0..len(contrast) {
+        psi = psi + contrast[i] * group_means[i]
+    }
+    
+    let se = 0.0
+    for i in 0..len(contrast) {
+        se = se + (contrast[i] ** 2) / group_ns[i]
+    }
+    se = sqrt(mse * se)
+    
+    return psi / se
+}
+
+main {
+    let contrast = [1, -1, 0]
+    let group_means = [10.0, 20.0, 30.0]
+    let group_ns = [5, 5, 5]
+    let mse = 2.0
+    let f = scheffe_test(contrast, group_means, group_ns, mse)
+    print(f != 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_bonferroni() {
+        let src = r#"import std.core.*
+fn bonferroni_correction(p_value: float, num_comparisons: int): float {
+    return p_value * num_comparisons
+}
+
+main {
+    let p = 0.01
+    let num_comp = 5
+    let corrected = bonferroni_correction(p, num_comp)
+    print(corrected)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "0.05");
+    }
+
+    #[test]
+    fn phase3_holm_bonferroni() {
+        let src = r#"import std.core.*
+fn holm_bonferroni_correction(p_values: list): list {
+    let sorted_p = p_values.copy()
+    sorted_p.sort()
+    let n = len(sorted_p)
+    let corrected = []
+    for i in 0..n {
+        let adj_p = sorted_p[i] * (n - i)
+        corrected.append(adj_p)
+    }
+    return corrected
+}
+
+main {
+    let p_values = [0.01, 0.02, 0.03]
+    let corrected = holm_bonferroni_correction(p_values)
+    print(len(corrected))
+    print(corrected[0])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "0.03");
+    }
+
+    #[test]
+    fn phase3_hochberg() {
+        let src = r#"import std.core.*
+fn hochberg_correction(p_values: list): list {
+    let sorted_p = p_values.copy()
+    sorted_p.sort()
+    let n = len(sorted_p)
+    let corrected = []
+    let min_p = 1.0
+    for i in (0..n).reverse() {
+        let adj_p = sorted_p[i] * (n - i)
+        if adj_p < min_p {
+            min_p = adj_p
+        }
+        corrected.append(min_p)
+    }
+    corrected.reverse()
+    return corrected
+}
+
+main {
+    let p_values = [0.01, 0.02, 0.03]
+    let corrected = hochberg_correction(p_values)
+    print(len(corrected))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_hommel() {
+        let src = r#"import std.core.*
+fn hommel_correction(p_values: list): list {
+    let sorted_p = p_values.copy()
+    sorted_p.sort()
+    let n = len(sorted_p)
+    let corrected = []
+    for i in 0..n {
+        let adj_p = sorted_p[i] * n / (i + 1)
+        corrected.append(adj_p)
+    }
+    return corrected
+}
+
+main {
+    let p_values = [0.01, 0.02, 0.03]
+    let corrected = hommel_correction(p_values)
+    print(len(corrected))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_benjamini_hochberg() {
+        let src = r#"import std.core.*
+fn benjamini_hochberg_fdr(p_values: list, alpha: float): list {
+    let sorted_p = p_values.copy()
+    sorted_p.sort()
+    let n = len(sorted_p)
+    let rejected = []
+    for i in 0..n {
+        let threshold = alpha * (i + 1) / n
+        if sorted_p[i] <= threshold {
+            rejected.append(i)
+        }
+    }
+    return rejected
+}
+
+main {
+    let p_values = [0.01, 0.02, 0.03, 0.04, 0.05]
+    let alpha = 0.05
+    let rejected = benjamini_hochberg_fdr(p_values, alpha)
+    print(len(rejected))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_benjamini_yekutieli() {
+        let src = r#"import std.core.*
+fn benjamini_yekutieli_fdr(p_values: list, alpha: float): list {
+    let sorted_p = p_values.copy()
+    sorted_p.sort()
+    let n = len(sorted_p)
+    let c = 0.0
+    for i in 1..(n + 1) {
+        c = c + 1.0 / i
+    }
+    let rejected = []
+    for i in 0..n {
+        let threshold = alpha * (i + 1) / (n * c)
+        if sorted_p[i] <= threshold {
+            rejected.append(i)
+        }
+    }
+    return rejected
+}
+
+main {
+    let p_values = [0.01, 0.02, 0.03, 0.04, 0.05]
+    let alpha = 0.05
+    let rejected = benjamini_yekutieli_fdr(p_values, alpha)
+    print(len(rejected) > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_storey_q_value() {
+        let src = r#"import std.core.*
+fn storey_q_value(p_values: list, lambda: float): float {
+    let n = len(p_values)
+    let pi0 = 0.0
+    for p in p_values {
+        if p > lambda {
+            pi0 = pi0 + 1
+        }
+    }
+    pi0 = pi0 / (n * (1 - lambda))
+    
+    let sorted_p = p_values.copy()
+    sorted_p.sort()
+    let q_values = []
+    for i in 0..n {
+        let q = pi0 * n * sorted_p[i] / (i + 1)
+        q_values.append(q)
+    }
+    return q_values[0]
+}
+
+main {
+    let p_values = [0.01, 0.02, 0.03, 0.04, 0.05]
+    let lambda = 0.5
+    let q = storey_q_value(p_values, lambda)
+    print(q > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_local_fdr() {
+        let src = r#"import std.core.*
+fn local_fdr(z_scores: list, null_mean: float, null_sd: float): list {
+    let fdrs = []
+    for z in z_scores {
+        let p_null = exp(-0.5 * ((z - null_mean) / null_sd) ** 2) / (null_sd * sqrt(2 * 3.14159))
+        fdrs.append(p_null)
+    }
+    return fdrs
+}
+
+main {
+    let z_scores = [0.0, 1.0, 2.0, 3.0]
+    let null_mean = 0.0
+    let null_sd = 1.0
+    let fdrs = local_fdr(z_scores, null_mean, null_sd)
+    print(len(fdrs))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "4");
+    }
+
+    #[test]
+    fn phase3_empirical_bayes() {
+        let src = r#"import std.core.*
+fn empirical_bayes_estimate(data: list): float {
+    let mean = 0.0
+    for x in data {
+        mean = mean + x
+    }
+    mean = mean / len(data)
+    
+    let var = 0.0
+    for x in data {
+        var = var + (x - mean) ** 2
+    }
+    var = var / len(data)
+    
+    return mean
+}
+
+main {
+    let data = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let estimate = empirical_bayes_estimate(data)
+    print(estimate)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_james_stein() {
+        let src = r#"import std.core.*
+fn james_stein_estimator(means: list, grand_mean: float): list {
+    let k = len(means)
+    let sum_sq = 0.0
+    for m in means {
+        sum_sq = sum_sq + (m - grand_mean) ** 2
+    }
+    
+    let shrinkage = 1.0 - (k - 2) / sum_sq
+    if shrinkage < 0 {
+        shrinkage = 0
+    }
+    
+    let estimates = []
+    for m in means {
+        let est = grand_mean + shrinkage * (m - grand_mean)
+        estimates.append(est)
+    }
+    return estimates
+}
+
+main {
+    let means = [10.0, 20.0, 30.0]
+    let grand_mean = 20.0
+    let estimates = james_stein_estimator(means, grand_mean)
+    print(len(estimates))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_ridge_regression() {
+        let src = r#"import std.core.*
+fn ridge_regression_coefficients(x: list, y: list, lambda: float): list {
+    let n = len(x)
+    let p = len(x[0])
+    
+    let xtx = []
+    for i in 0..p {
+        let row = []
+        for j in 0..p {
+            let sum = 0.0
+            for k in 0..n {
+                sum = sum + x[k][i] * x[k][j]
+            }
+            row.append(sum)
+        }
+        xtx.append(row)
+    }
+    
+    for i in 0..p {
+        xtx[i][i] = xtx[i][i] + lambda
+    }
+    
+    return [0.0]
+}
+
+main {
+    let x = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let y = [1.0, 2.0, 3.0]
+    let lambda = 0.1
+    let coeffs = ridge_regression_coefficients(x, y, lambda)
+    print(len(coeffs))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "1");
+    }
+
+    #[test]
+    fn phase3_lasso_regression() {
+        let src = r#"import std.core.*
+fn lasso_regression_coefficients(x: list, y: list, lambda: float): list {
+    let n = len(x)
+    let p = len(x[0])
+    
+    let coefficients = []
+    for i in 0..p {
+        coefficients.append(0.0)
+    }
+    
+    return coefficients
+}
+
+main {
+    let x = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let y = [1.0, 2.0, 3.0]
+    let lambda = 0.1
+    let coeffs = lasso_regression_coefficients(x, y, lambda)
+    print(len(coeffs))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_elastic_net() {
+        let src = r#"import std.core.*
+fn elastic_net_coefficients(x: list, y: list, lambda1: float, lambda2: float): list {
+    let n = len(x)
+    let p = len(x[0])
+    
+    let coefficients = []
+    for i in 0..p {
+        coefficients.append(0.0)
+    }
+    
+    return coefficients
+}
+
+main {
+    let x = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let y = [1.0, 2.0, 3.0]
+    let lambda1 = 0.1
+    let lambda2 = 0.1
+    let coeffs = elastic_net_coefficients(x, y, lambda1, lambda2)
+    print(len(coeffs))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_principal_component() {
+        let src = r#"import std.core.*
+fn pca_eigenvalues(data: list): list {
+    let n = len(data)
+    let p = len(data[0])
+    
+    let means = []
+    for j in 0..p {
+        let mean = 0.0
+        for i in 0..n {
+            mean = mean + data[i][j]
+        }
+        means.append(mean / n)
+    }
+    
+    let centered = []
+    for i in 0..n {
+        let row = []
+        for j in 0..p {
+            row.append(data[i][j] - means[j])
+        }
+        centered.append(row)
+    }
+    
+    let covariance = []
+    for i in 0..p {
+        let row = []
+        for j in 0..p {
+            let sum = 0.0
+            for k in 0..n {
+                sum = sum + centered[k][i] * centered[k][j]
+            }
+            row.append(sum / (n - 1))
+        }
+        covariance.append(row)
+    }
+    
+    let eigenvalues = []
+    for i in 0..p {
+        eigenvalues.append(covariance[i][i])
+    }
+    return eigenvalues
+}
+
+main {
+    let data = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let eigenvalues = pca_eigenvalues(data)
+    print(len(eigenvalues))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_factor_analysis() {
+        let src = r#"import std.core.*
+fn factor_analysis_loadings(data: list, num_factors: int): list {
+    let n = len(data)
+    let p = len(data[0])
+    
+    let loadings = []
+    for i in 0..p {
+        let row = []
+        for j in 0..num_factors {
+            row.append(0.0)
+        }
+        loadings.append(row)
+    }
+    return loadings
+}
+
+main {
+    let data = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+    let num_factors = 2
+    let loadings = factor_analysis_loadings(data, num_factors)
+    print(len(loadings))
+    print(len(loadings[0]))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_independent_component() {
+        let src = r#"import std.core.*
+fn ica_unmixing_matrix(data: list): list {
+    let n = len(data)
+    let p = len(data[0])
+    
+    let w = []
+    for i in 0..p {
+        let row = []
+        for j in 0..p {
+            if i == j {
+                row.append(1.0)
+            } else {
+                row.append(0.0)
+            }
+        }
+        w.append(row)
+    }
+    return w
+}
+
+main {
+    let data = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let w = ica_unmixing_matrix(data)
+    print(len(w))
+    print(w[0][0])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "1");
+    }
+
+    #[test]
+    fn phase3_nonnegative_matrix_factorization() {
+        let src = r#"import std.core.*
+fn nmf_factors(v: list, r: int): list {
+    let m = len(v)
+    let n = len(v[0])
+    
+    let w = []
+    for i in 0..m {
+        let row = []
+        for j in 0..r {
+            row.append(1.0)
+        }
+        w.append(row)
+    }
+    
+    let h = []
+    for i in 0..r {
+        let row = []
+        for j in 0..n {
+            row.append(1.0)
+        }
+        h.append(row)
+    }
+    
+    return [w, h]
+}
+
+main {
+    let v = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let r = 2
+    let factors = nmf_factors(v, r)
+    print(len(factors))
+    print(len(factors[0]))
+    print(len(factors[1]))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "3");
+        assert_eq!(lines[2], "2");
+    }
+
+    #[test]
+    fn phase3_dictionary_learning() {
+        let src = r#"import std.core.*
+fn dictionary_learning(data: list, num_atoms: int): list {
+    let n = len(data)
+    let p = len(data[0])
+    
+    let dictionary = []
+    for i in 0..num_atoms {
+        let atom = []
+        for j in 0..p {
+            atom.append(1.0 / sqrt(p))
+        }
+        dictionary.append(atom)
+    }
+    return dictionary
+}
+
+main {
+    let data = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    let num_atoms = 2
+    let dictionary = dictionary_learning(data, num_atoms)
+    print(len(dictionary))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_sparse_coding() {
+        let src = r#"import std.core.*
+fn sparse_code(x: list, dictionary: list, lambda: float): list {
+    let num_atoms = len(dictionary)
+    let coefficients = []
+    for i in 0..num_atoms {
+        coefficients.append(0.0)
+    }
+    return coefficients
+}
+
+main {
+    let x = [1.0, 2.0, 3.0]
+    let dictionary = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+    let lambda = 0.1
+    let code = sparse_code(x, dictionary, lambda)
+    print(len(code))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_compressed_sensing() {
+        let src = r#"import std.core.*
+fn compressed_sensing_recovery(measurements: list, sensing_matrix: list): list {
+    let n = len(sensing_matrix[0])
+    let recovered = []
+    for i in 0..n {
+        recovered.append(0.0)
+    }
+    return recovered
+}
+
+main {
+    let measurements = [1.0, 2.0, 3.0]
+    let sensing_matrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+    let recovered = compressed_sensing_recovery(measurements, sensing_matrix)
+    print(len(recovered))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_wavelet_transform() {
+        let src = r#"import std.core.*
+fn discrete_wavelet_transform(signal: list): list {
+    let n = len(signal)
+    let approximation = []
+    let detail = []
+    for i in 0..(n / 2) {
+        approximation.append((signal[2 * i] + signal[2 * i + 1]) / 2)
+        detail.append((signal[2 * i] - signal[2 * i + 1]) / 2)
+    }
+    return approximation + detail
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0]
+    let coeffs = discrete_wavelet_transform(signal)
+    print(len(coeffs))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "4");
+    }
+
+    #[test]
+    fn phase3_fourier_transform() {
+        let src = r#"import std.core.*
+fn discrete_fourier_transform(signal: list): list {
+    let n = len(signal)
+    let spectrum = []
+    for k in 0..n {
+        let real = 0.0
+        let imag = 0.0
+        for t in 0..n {
+            let angle = 2 * 3.14159 * t * k / n
+            real = real + signal[t] * cos(angle)
+            imag = imag - signal[t] * sin(angle)
+        }
+        spectrum.append(sqrt(real * real + imag * imag))
+    }
+    return spectrum
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0]
+    let spectrum = discrete_fourier_transform(signal)
+    print(len(spectrum))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "4");
+    }
+
+    #[test]
+    fn phase3_laplace_transform() {
+        let src = r#"import std.core.*
+fn numerical_laplace_transform(f: fn(float): float, s: float, t_max: float, dt: float): float {
+    let result = 0.0
+    let t = 0.0
+    while t < t_max {
+        result = result + f(t) * exp(-s * t) * dt
+        t = t + dt
+    }
+    return result
+}
+
+main {
+    let f = fn(t: float): float { return 1.0 }
+    let s = 1.0
+    let t_max = 10.0
+    let dt = 0.1
+    let result = numerical_laplace_transform(f, s, t_max, dt)
+    print(result > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_z_transform() {
+        let src = r#"import std.core.*
+fn z_transform_coefficients(sequence: list, z: float): float {
+    let result = 0.0
+    for n in 0..len(sequence) {
+        result = result + sequence[n] * (z ** (-n))
+    }
+    return result
+}
+
+main {
+    let sequence = [1.0, 2.0, 3.0]
+    let z = 2.0
+    let result = z_transform_coefficients(sequence, z)
+    print(result > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_hilbert_transform() {
+        let src = r#"import std.core.*
+fn hilbert_transform(signal: list): list {
+    let n = len(signal)
+    let analytic = []
+    for i in 0..n {
+        analytic.append(signal[i])
+    }
+    return analytic
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0]
+    let analytic = hilbert_transform(signal)
+    print(len(analytic))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "4");
+    }
+
+    #[test]
+    fn phase3_cepstrum() {
+        let src = r#"import std.core.*
+fn cepstrum(signal: list): list {
+    let n = len(signal)
+    let cepstral = []
+    for i in 0..n {
+        cepstral.append(log(abs(signal[i]) + 1))
+    }
+    return cepstral
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0]
+    let cepstral = cepstrum(signal)
+    print(len(cepstral))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "4");
+    }
+
+    #[test]
+    fn phase3_spectrogram() {
+        let src = r#"import std.core.*
+fn spectrogram(signal: list, window_size: int, hop_size: int): list {
+    let n = len(signal)
+    let num_frames = (n - window_size) / hop_size + 1
+    let frames = []
+    for i in 0..num_frames {
+        let frame = []
+        for j in 0..window_size {
+            frame.append(signal[i * hop_size + j])
+        }
+        frames.append(frame)
+    }
+    return frames
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    let window_size = 4
+    let hop_size = 2
+    let frames = spectrogram(signal, window_size, hop_size)
+    print(len(frames))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_mel_frequency() {
+        let src = r#"import std.core.*
+fn hz_to_mel(hz: float): float {
+    return 2595 * log10(1 + hz / 700)
+}
+
+fn mel_to_hz(mel: float): float {
+    return 700 * (10 ** (mel / 2595) - 1)
+}
+
+main {
+    let hz = 1000.0
+    let mel = hz_to_mel(hz)
+    let hz_back = mel_to_hz(mel)
+    print(abs(hz - hz_back) < 0.01)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_mfcc() {
+        let src = r#"import std.core.*
+fn mfcc_features(signal: list, num_coefficients: int): list {
+    let n = len(signal)
+    let features = []
+    for i in 0..num_coefficients {
+        features.append(0.0)
+    }
+    return features
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    let num_coefficients = 13
+    let features = mfcc_features(signal, num_coefficients)
+    print(len(features))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "13");
+    }
+
+    #[test]
+    fn phase3_linear_prediction() {
+        let src = r#"import std.core.*
+fn linear_prediction_coefficients(signal: list, order: int): list {
+    let coefficients = []
+    for i in 0..order {
+        coefficients.append(0.0)
+    }
+    return coefficients
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let order = 3
+    let coefficients = linear_prediction_coefficients(signal, order)
+    print(len(coefficients))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_autocorrelation() {
+        let src = r#"import std.core.*
+fn autocorrelation(signal: list, lag: int): float {
+    let n = len(signal)
+    let mean = 0.0
+    for x in signal {
+        mean = mean + x
+    }
+    mean = mean / n
+    
+    let numerator = 0.0
+    let denominator = 0.0
+    for i in 0..(n - lag) {
+        numerator = numerator + (signal[i] - mean) * (signal[i + lag] - mean)
+    }
+    for i in 0..n {
+        denominator = denominator + (signal[i] - mean) ** 2
+    }
+    return numerator / denominator
+}
+
+main {
+    let signal = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let lag = 1
+    let ac = autocorrelation(signal, lag)
+    print(ac > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_cross_correlation() {
+        let src = r#"import std.core.*
+fn cross_correlation(signal1: list, signal2: list, lag: int): float {
+    let n = len(signal1)
+    let mean1 = 0.0
+    let mean2 = 0.0
+    for x in signal1 {
+        mean1 = mean1 + x
+    }
+    mean1 = mean1 / n
+    for x in signal2 {
+        mean2 = mean2 + x
+    }
+    mean2 = mean2 / n
+    
+    let numerator = 0.0
+    for i in 0..(n - lag) {
+        numerator = numerator + (signal1[i] - mean1) * (signal2[i + lag] - mean2)
+    }
+    return numerator
+}
+
+main {
+    let signal1 = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let signal2 = [2.0, 4.0, 6.0, 8.0, 10.0]
+    let lag = 0
+    let cc = cross_correlation(signal1, signal2, lag)
+    print(cc > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_coherence() {
+        let src = r#"import std.core.*
+fn coherence(signal1: list, signal2: list): float {
+    let n = len(signal1)
+    let sum1 = 0.0
+    let sum2 = 0.0
+    for x in signal1 {
+        sum1 = sum1 + x
+    }
+    for x in signal2 {
+        sum2 = sum2 + x
+    }
+    return (sum1 * sum2) / (n * n)
+}
+
+main {
+    let signal1 = [1.0, 2.0, 3.0]
+    let signal2 = [2.0, 4.0, 6.0]
+    let coh = coherence(signal1, signal2)
+    print(coh > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_transfer_function() {
+        let src = r#"import std.core.*
+fn transfer_function(input: list, output: list): float {
+    let n = len(input)
+    let sum_in = 0.0
+    let sum_out = 0.0
+    for x in input {
+        sum_in = sum_in + x
+    }
+    for x in output {
+        sum_out = sum_out + x
+    }
+    return sum_out / sum_in
+}
+
+main {
+    let input = [1.0, 2.0, 3.0]
+    let output = [2.0, 4.0, 6.0]
+    let tf = transfer_function(input, output)
+    print(tf)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_impulse_response() {
+        let src = r#"import std.core.*
+fn impulse_response(system: fn(float): float, n: int): list {
+    let response = []
+    for i in 0..n {
+        if i == 0 {
+            response.append(system(1.0))
+        } else {
+            response.append(system(0.0))
+        }
+    }
+    return response
+}
+
+main {
+    let system = fn(x: float): float { return x * 2 }
+    let n = 5
+    let ir = impulse_response(system, n)
+    print(len(ir))
+    print(ir[0])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "5");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_step_response() {
+        let src = r#"import std.core.*
+fn step_response(system: fn(float): float, n: int): list {
+    let response = []
+    for i in 0..n {
+        response.append(system(1.0))
+    }
+    return response
+}
+
+main {
+    let system = fn(x: float): float { return x * 2 }
+    let n = 5
+    let sr = step_response(system, n)
+    print(len(sr))
+    print(sr[0])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "5");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_frequency_response() {
+        let src = r#"import std.core.*
+fn frequency_response(system: fn(float): float, frequencies: list): list {
+    let response = []
+    for f in frequencies {
+        response.append(system(f))
+    }
+    return response
+}
+
+main {
+    let system = fn(f: float): float { return 1.0 / (1.0 + f) }
+    let frequencies = [0.0, 1.0, 2.0, 3.0]
+    let fr = frequency_response(system, frequencies)
+    print(len(fr))
+    print(fr[0])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "4");
+        assert_eq!(lines[1], "1");
+    }
+
+    #[test]
+    fn phase3_bode_plot() {
+        let src = r#"import std.core.*
+fn bode_plot(frequencies: list, magnitudes: list): list {
+    let db_magnitudes = []
+    for m in magnitudes {
+        db_magnitudes.append(20 * log10(m))
+    }
+    return db_magnitudes
+}
+
+main {
+    let frequencies = [1.0, 10.0, 100.0]
+    let magnitudes = [1.0, 0.1, 0.01]
+    let db = bode_plot(frequencies, magnitudes)
+    print(len(db))
+    print(db[0])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "0");
+    }
+
+    #[test]
+    fn phase3_nyquist_plot() {
+        let src = r#"import std.core.*
+fn nyquist_plot(real_parts: list, imag_parts: list): list {
+    let points = []
+    for i in 0..len(real_parts) {
+        points.append({"real": real_parts[i], "imag": imag_parts[i]})
+    }
+    return points
+}
+
+main {
+    let real_parts = [1.0, 0.5, 0.0]
+    let imag_parts = [0.0, 0.5, 1.0]
+    let points = nyquist_plot(real_parts, imag_parts)
+    print(len(points))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_root_locus() {
+        let src = r#"import std.core.*
+fn root_locus(numerator: list, denominator: list, gains: list): list {
+    let roots = []
+    for gain in gains {
+        roots.append(gain)
+    }
+    return roots
+}
+
+main {
+    let numerator = [1.0]
+    let denominator = [1.0, 2.0, 1.0]
+    let gains = [0.1, 1.0, 10.0]
+    let r = root_locus(numerator, denominator, gains)
+    print(len(r))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_pid_controller() {
+        let src = r#"import std.core.*
+struct PIDController {
+    kp: float,
+    ki: float,
+    kd: float,
+    integral: float,
+    prev_error: float
+}
+
+impl PIDController {
+    fn compute(setpoint: float, measurement: float, dt: float): float {
+        let error = setpoint - measurement
+        integral = integral + error * dt
+        let derivative = (error - prev_error) / dt
+        prev_error = error
+        return kp * error + ki * integral + kd * derivative
+    }
+}
+
+main {
+    let pid = PIDController { kp: 1.0, ki: 0.1, kd: 0.01, integral: 0.0, prev_error: 0.0 }
+    let output = pid.compute(10.0, 5.0, 0.1)
+    print(output > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_state_space() {
+        let src = r#"import std.core.*
+struct StateSpaceSystem {
+    a: list,
+    b: list,
+    c: list,
+    d: list
+}
+
+impl StateSpaceSystem {
+    fn simulate(x0: list, u: list, dt: float): list {
+        let n = len(x0)
+        let x_next = []
+        for i in 0..n {
+            let sum = 0.0
+            for j in 0..n {
+                sum = sum + a[i][j] * x0[j]
+            }
+            for j in 0..len(u) {
+                sum = sum + b[i][j] * u[j]
+            }
+            x_next.append(x0[i] + sum * dt)
+        }
+        return x_next
+    }
+}
+
+main {
+    let sys = StateSpaceSystem {
+        a: [[0.0, 1.0], [-1.0, -1.0]],
+        b: [[0.0], [1.0]],
+        c: [[1.0, 0.0]],
+        d: [[0.0]]
+    }
+    let x0 = [1.0, 0.0]
+    let u = [1.0]
+    let x_next = sys.simulate(x0, u, 0.1)
+    print(len(x_next))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_kalman_filter() {
+        let src = r#"import std.core.*
+struct KalmanFilter {
+    x: list,
+    p: list,
+    q: float,
+    r: float
+}
+
+impl KalmanFilter {
+    fn predict() {
+        p = p + q
+    }
+    
+    fn update(measurement: float) {
+        let k = p / (p + r)
+        x[0] = x[0] + k * (measurement - x[0])
+        p = (1 - k) * p
+    }
+}
+
+main {
+    let kf = KalmanFilter { x: [0.0], p: [1.0], q: 0.1, r: 0.1 }
+    kf.predict()
+    kf.update(1.0)
+    print(kf.x[0] > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_extended_kalman_filter() {
+        let src = r#"import std.core.*
+struct ExtendedKalmanFilter {
+    x: list,
+    p: list
+}
+
+impl ExtendedKalmanFilter {
+    fn predict(f: fn(list): list, q: float) {
+        x = f(x)
+        p = p + q
+    }
+    
+    fn update(h: fn(list): float, measurement: float, r: float) {
+        let z_pred = h(x)
+        let y = measurement - z_pred
+        let k = p / (p + r)
+        x[0] = x[0] + k * y
+        p = (1 - k) * p
+    }
+}
+
+main {
+    let ekf = ExtendedKalmanFilter { x: [0.0], p: [1.0] }
+    ekf.predict(fn(x: list): list { return [x[0] + 1.0] }, 0.1)
+    ekf.update(fn(x: list): float { return x[0] }, 2.0, 0.1)
+    print(ekf.x[0] > 0)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "true");
+    }
+
+    #[test]
+    fn phase3_unscented_kalman_filter() {
+        let src = r#"import std.core.*
+struct UnscentedKalmanFilter {
+    x: list,
+    p: list,
+    alpha: float,
+    beta: float,
+    kappa: float
+}
+
+impl UnscentedKalmanFilter {
+    fn generate_sigma_points(): list {
+        let n = len(x)
+        let lambda = alpha * alpha * (n + kappa) - n
+        let sigma_points = []
+        sigma_points.append(x)
+        for i in 0..n {
+            let point = x.copy()
+            point[i] = point[i] + sqrt((n + lambda) * p[i])
+            sigma_points.append(point)
+        }
+        for i in 0..n {
+            let point = x.copy()
+            point[i] = point[i] - sqrt((n + lambda) * p[i])
+            sigma_points.append(point)
+        }
+        return sigma_points
+    }
+}
+
+main {
+    let ukf = UnscentedKalmanFilter { x: [0.0], p: [1.0], alpha: 0.1, beta: 2.0, kappa: 0.0 }
+    let sigma_points = ukf.generate_sigma_points()
+    print(len(sigma_points))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_particle_filter() {
+        let src = r#"import std.core.*
+struct ParticleFilter {
+    particles: list,
+    weights: list
+}
+
+impl ParticleFilter {
+    fn init(num_particles: int, initial_state: list) {
+        particles = []
+        weights = []
+        for i in 0..num_particles {
+            particles.append(initial_state.copy())
+            weights.append(1.0 / num_particles)
+        }
+    }
+    
+    fn predict(state_transition: fn(list): list) {
+        for i in 0..len(particles) {
+            particles[i] = state_transition(particles[i])
+        }
+    }
+    
+    fn update(measurement: float, measurement_model: fn(list): float) {
+        let total_weight = 0.0
+        for i in 0..len(particles) {
+            let likelihood = measurement_model(particles[i])
+            weights[i] = weights[i] * likelihood
+            total_weight = total_weight + weights[i]
+        }
+        for i in 0..len(weights) {
+            weights[i] = weights[i] / total_weight
+        }
+    }
+}
+
+main {
+    let pf = ParticleFilter { particles: [], weights: [] }
+    pf.init(10, [0.0])
+    print(len(pf.particles))
+    print(len(pf.weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "10");
+        assert_eq!(lines[1], "10");
+    }
+
+    #[test]
+    fn phase3_interacting_multiple_model() {
+        let src = r#"import std.core.*
+struct IMMFilter {
+    models: list,
+    probabilities: list
+}
+
+impl IMMFilter {
+    fn init(num_models: int) {
+        models = []
+        probabilities = []
+        for i in 0..num_models {
+            models.append({"x": [0.0], "p": [1.0]})
+            probabilities.append(1.0 / num_models)
+        }
+    }
+    
+    fn interaction(transition_matrix: list) {
+        let n = len(models)
+        let new_probs = []
+        for i in 0..n {
+            let sum = 0.0
+            for j in 0..n {
+                sum = sum + transition_matrix[j][i] * probabilities[j]
+            }
+            new_probs.append(sum)
+        }
+        probabilities = new_probs
+    }
+}
+
+main {
+    let imm = IMMFilter { models: [], probabilities: [] }
+    imm.init(3)
+    print(len(imm.models))
+    print(len(imm.probabilities))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase3_gaussian_mixture_filter() {
+        let src = r#"import std.core.*
+struct GaussianMixtureFilter {
+    means: list,
+    covariances: list,
+    weights: list
+}
+
+impl GaussianMixtureFilter {
+    fn init(num_components: int, dimension: int) {
+        means = []
+        covariances = []
+        weights = []
+        for i in 0..num_components {
+            let mean = []
+            let cov = []
+            for j in 0..dimension {
+                mean.append(0.0)
+                let cov_row = []
+                for k in 0..dimension {
+                    if j == k {
+                        cov_row.append(1.0)
+                    } else {
+                        cov_row.append(0.0)
+                    }
+                }
+                cov.append(cov_row)
+            }
+            means.append(mean)
+            covariances.append(cov)
+            weights.append(1.0 / num_components)
+        }
+    }
+}
+
+main {
+    let gmf = GaussianMixtureFilter { means: [], covariances: [], weights: [] }
+    gmf.init(3, 2)
+    print(len(gmf.means))
+    print(len(gmf.weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "3");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase3_multiple_hypothesis_tracking() {
+        let src = r#"import std.core.*
+struct MHTFilter {
+    hypotheses: list
+}
+
+impl MHTFilter {
+    fn init() {
+        hypotheses = []
+    }
+    
+    fn add_hypothesis(state: list, score: float) {
+        hypotheses.append({"state": state, "score": score})
+    }
+    
+    fn prune(min_score: float) {
+        let new_hypotheses = []
+        for h in hypotheses {
+            if h["score"] >= min_score {
+                new_hypotheses.append(h)
+            }
+        }
+        hypotheses = new_hypotheses
+    }
+    
+    fn get_best(): dict {
+        if len(hypotheses) == 0 {
+            return {}
+        }
+        let best = hypotheses[0]
+        for h in hypotheses {
+            if h["score"] > best["score"] {
+                best = h
+            }
+        }
+        return best
+    }
+}
+
+main {
+    let mht = MHTFilter { hypotheses: [] }
+    mht.init()
+    mht.add_hypothesis([1.0, 2.0], 0.5)
+    mht.add_hypothesis([3.0, 4.0], 0.8)
+    mht.add_hypothesis([5.0, 6.0], 0.3)
+    mht.prune(0.4)
+    let best = mht.get_best()
+    print(best["score"])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "0.8");
+    }
+
+    #[test]
+    fn phase3_joint_probabilistic_data_association() {
+        let src = r#"import std.core.*
+struct JPDAFilter {
+    tracks: list,
+    measurements: list
+}
+
+impl JPDAFilter {
+    fn init() {
+        tracks = []
+        measurements = []
+    }
+    
+    fn add_track(track_id: int, state: list) {
+        tracks.append({"id": track_id, "state": state})
+    }
+    
+    fn add_measurement(measurement_id: int, position: list) {
+        measurements.append({"id": measurement_id, "position": position})
+    }
+    
+    fn associate(): list {
+        let associations = []
+        for track in tracks {
+            let best_measurement = {}
+            let best_distance = 999999.0
+            for measurement in measurements {
+                let distance = 0.0
+                for i in 0..len(track["state"]) {
+                    distance = distance + (track["state"][i] - measurement["position"][i]) ** 2
+                }
+                distance = sqrt(distance)
+                if distance < best_distance {
+                    best_distance = distance
+                    best_measurement = measurement
+                }
+            }
+            if len(best_measurement) > 0 {
+                associations.append({"track": track["id"], "measurement": best_measurement["id"]})
+            }
+        }
+        return associations
+    }
+}
+
+main {
+    let jpda = JPDAFilter { tracks: [], measurements: [] }
+    jpda.init()
+    jpda.add_track(1, [1.0, 2.0])
+    jpda.add_track(2, [3.0, 4.0])
+    jpda.add_measurement(1, [1.1, 2.1])
+    jpda.add_measurement(2, [3.1, 4.1])
+    let associations = jpda.associate()
+    print(len(associations))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_global_nearest_neighbor() {
+        let src = r#"import std.core.*
+struct GNNFilter {
+    tracks: list,
+    measurements: list
+}
+
+impl GNNFilter {
+    fn init() {
+        tracks = []
+        measurements = []
+    }
+    
+    fn add_track(track_id: int, state: list) {
+        tracks.append({"id": track_id, "state": state})
+    }
+    
+    fn add_measurement(measurement_id: int, position: list) {
+        measurements.append({"id": measurement_id, "position": position})
+    }
+    
+    fn associate(): list {
+        let associations = []
+        let used_measurements = []
+        for track in tracks {
+            let best_measurement = {}
+            let best_distance = 999999.0
+            for measurement in measurements {
+                let already_used = false
+                for used in used_measurements {
+                    if used == measurement["id"] {
+                        already_used = true
+                    }
+                }
+                if already_used {
+                    continue
+                }
+                let distance = 0.0
+                for i in 0..len(track["state"]) {
+                    distance = distance + (track["state"][i] - measurement["position"][i]) ** 2
+                }
+                distance = sqrt(distance)
+                if distance < best_distance {
+                    best_distance = distance
+                    best_measurement = measurement
+                }
+            }
+            if len(best_measurement) > 0 {
+                associations.append({"track": track["id"], "measurement": best_measurement["id"]})
+                used_measurements.append(best_measurement["id"])
+            }
+        }
+        return associations
+    }
+}
+
+main {
+    let gnn = GNNFilter { tracks: [], measurements: [] }
+    gnn.init()
+    gnn.add_track(1, [1.0, 2.0])
+    gnn.add_track(2, [3.0, 4.0])
+    gnn.add_measurement(1, [1.1, 2.1])
+    gnn.add_measurement(2, [3.1, 4.1])
+    let associations = gnn.associate()
+    print(len(associations))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_auction_algorithm() {
+        let src = r#"import std.core.*
+fn auction_assignment(cost_matrix: list): list {
+    let n = len(cost_matrix)
+    let assignment = []
+    let prices = []
+    for i in 0..n {
+        assignment.append(-1)
+        prices.append(0.0)
+    }
+    
+    let epsilon = 0.1
+    let max_iterations = 100
+    let iteration = 0
+    
+    while iteration < max_iterations {
+        let all_assigned = true
+        for i in 0..n {
+            if assignment[i] == -1 {
+                all_assigned = false
+                let best_j = -1
+                let best_value = -999999.0
+                for j in 0..n {
+                    let value = cost_matrix[i][j] - prices[j]
+                    if value > best_value {
+                        best_value = value
+                        best_j = j
+                    }
+                }
+                if best_j != -1 {
+                    assignment[i] = best_j
+                    prices[best_j] = prices[best_j] + epsilon
+                }
+            }
+        }
+        if all_assigned {
+            break
+        }
+        iteration = iteration + 1
+    }
+    
+    return assignment
+}
+
+main {
+    let cost_matrix = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+    let assignment = auction_assignment(cost_matrix)
+    print(len(assignment))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_hungarian_algorithm() {
+        let src = r#"import std.core.*
+fn hungarian_assignment(cost_matrix: list): list {
+    let n = len(cost_matrix)
+    let assignment = []
+    for i in 0..n {
+        assignment.append(i)
+    }
+    return assignment
+}
+
+main {
+    let cost_matrix = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+    let assignment = hungarian_assignment(cost_matrix)
+    print(len(assignment))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_munkres_algorithm() {
+        let src = r#"import std.core.*
+fn munkres_assignment(cost_matrix: list): list {
+    let n = len(cost_matrix)
+    let assignment = []
+    for i in 0..n {
+        assignment.append(i)
+    }
+    return assignment
+}
+
+main {
+    let cost_matrix = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+    let assignment = munkres_assignment(cost_matrix)
+    print(len(assignment))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_branch_and_bound() {
+        let src = r#"import std.core.*
+fn branch_and_bound_tsp(distance_matrix: list): list {
+    let n = len(distance_matrix)
+    let tour = []
+    for i in 0..n {
+        tour.append(i)
+    }
+    return tour
+}
+
+main {
+    let distance_matrix = [[0, 10, 15], [10, 0, 20], [15, 20, 0]]
+    let tour = branch_and_bound_tsp(distance_matrix)
+    print(len(tour))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_cutting_plane() {
+        let src = r#"import std.core.*
+fn cutting_plane_method(objective: list, constraints: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let solution = cutting_plane_method(objective, constraints)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_benders_decomposition() {
+        let src = r#"import std.core.*
+fn benders_decomposition(master_vars: int, subproblem_vars: int): list {
+    let solution = []
+    for i in 0..master_vars {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let master_vars = 3
+    let subproblem_vars = 2
+    let solution = benders_decomposition(master_vars, subproblem_vars)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_dantzig_wolfe() {
+        let src = r#"import std.core.*
+fn dantzig_wolfe_decomposition(num_blocks: int, vars_per_block: int): list {
+    let solution = []
+    for i in 0..(num_blocks * vars_per_block) {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let num_blocks = 3
+    let vars_per_block = 2
+    let solution = dantzig_wolfe_decomposition(num_blocks, vars_per_block)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "6");
+    }
+
+    #[test]
+    fn phase3_lagrangian_relaxation() {
+        let src = r#"import std.core.*
+fn lagrangian_relaxation(objective: list, constraints: list, lambda: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let lambda = [0.5]
+    let solution = lagrangian_relaxation(objective, constraints, lambda)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_column_generation() {
+        let src = r#"import std.core.*
+fn column_generation(master_problem: dict, pricing_problem: dict): list {
+    let solution = []
+    for i in 0..5 {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let master_problem = {"objective": [1.0, 2.0], "constraints": [[1.0, 1.0]]}
+    let pricing_problem = {"cost": [1.0, 1.0]}
+    let solution = column_generation(master_problem, pricing_problem)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_row_generation() {
+        let src = r#"import std.core.*
+fn row_generation(master_problem: dict, pricing_problem: dict): list {
+    let solution = []
+    for i in 0..5 {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let master_problem = {"objective": [1.0, 2.0], "constraints": [[1.0, 1.0]]}
+    let pricing_problem = {"cost": [1.0, 1.0]}
+    let solution = row_generation(master_problem, pricing_problem)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_goal_programming() {
+        let src = r#"import std.core.*
+fn goal_programming(objectives: list, goals: list, priorities: list): list {
+    let n = len(objectives[0])
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objectives = [[1.0, 2.0], [3.0, 4.0]]
+    let goals = [10.0, 20.0]
+    let priorities = [1, 2]
+    let solution = goal_programming(objectives, goals, priorities)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_fuzzy_linear_programming() {
+        let src = r#"import std.core.*
+fn fuzzy_linear_programming(objective: list, constraints: list, fuzzy_sets: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let fuzzy_sets = [{"type": "triangular", "params": [0.5, 1.0, 1.5]}]
+    let solution = fuzzy_linear_programming(objective, constraints, fuzzy_sets)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_stochastic_programming() {
+        let src = r#"import std.core.*
+fn stochastic_programming(objective: list, scenarios: list, probabilities: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let scenarios = [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]]
+    let probabilities = [0.5, 0.5]
+    let solution = stochastic_programming(objective, scenarios, probabilities)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_robust_optimization() {
+        let src = r#"import std.core.*
+fn robust_optimization(objective: list, uncertainty_set: dict): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let uncertainty_set = {"type": "box", "bounds": [[0.5, 1.5], [1.5, 2.5], [2.5, 3.5]]}
+    let solution = robust_optimization(objective, uncertainty_set)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_distributionally_robust() {
+        let src = r#"import std.core.*
+fn distributionally_robust_optimization(objective: list, ambiguity_set: dict): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let ambiguity_set = {"type": "wasserstein", "radius": 0.1}
+    let solution = distributionally_robust_optimization(objective, ambiguity_set)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_chance_constrained() {
+        let src = r#"import std.core.*
+fn chance_constrained_programming(objective: list, constraints: list, probability_level: float): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let probability_level = 0.95
+    let solution = chance_constrained_programming(objective, constraints, probability_level)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_semidefinite_programming() {
+        let src = r#"import std.core.*
+fn semidefinite_programming(objective: list, constraints: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let solution = semidefinite_programming(objective, constraints)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_second_order_cone() {
+        let src = r#"import std.core.*
+fn second_order_cone_programming(objective: list, constraints: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let solution = second_order_cone_programming(objective, constraints)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_geometric_programming() {
+        let src = r#"import std.core.*
+fn geometric_programming(objective: list, constraints: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(1.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let solution = geometric_programming(objective, constraints)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_signomial_programming() {
+        let src = r#"import std.core.*
+fn signomial_programming(objective: list, constraints: list): list {
+    let n = len(objective)
+    let solution = []
+    for i in 0..n {
+        solution.append(1.0)
+    }
+    return solution
+}
+
+main {
+    let objective = [1.0, 2.0, 3.0]
+    let constraints = [[1.0, 1.0, 1.0]]
+    let solution = signomial_programming(objective, constraints)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_complementarity_problem() {
+        let src = r#"import std.core.*
+fn linear_complementarity_problem(m: list, q: list): list {
+    let n = len(q)
+    let solution = []
+    for i in 0..n {
+        solution.append(0.0)
+    }
+    return solution
+}
+
+main {
+    let m = [[1.0, 0.0], [0.0, 1.0]]
+    let q = [1.0, 2.0]
+    let solution = linear_complementarity_problem(m, q)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_variational_inequality() {
+        let src = r#"import std.core.*
+fn variational_inequality(f: fn(list): list, constraint_set: dict): list {
+    let solution = [0.0, 0.0]
+    return solution
+}
+
+main {
+    let f = fn(x: list): list { return [x[0], x[1]] }
+    let constraint_set = {"type": "box", "lower": [0.0, 0.0], "upper": [1.0, 1.0]}
+    let solution = variational_inequality(f, constraint_set)
+    print(len(solution))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_nash_equilibrium() {
+        let src = r#"import std.core.*
+fn nash_equilibrium(payoff_matrices: list): list {
+    let n = len(payoff_matrices)
+    let equilibrium = []
+    for i in 0..n {
+        equilibrium.append(1.0 / n)
+    }
+    return equilibrium
+}
+
+main {
+    let payoff_matrices = [[[3, 1], [0, 2]], [[2, 0], [1, 3]]]
+    let equilibrium = nash_equilibrium(payoff_matrices)
+    print(len(equilibrium))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_correlated_equilibrium() {
+        let src = r#"import std.core.*
+fn correlated_equilibrium(payoff_matrices: list): list {
+    let n = len(payoff_matrices)
+    let m = len(payoff_matrices[0])
+    let distribution = []
+    for i in 0..n {
+        let row = []
+        for j in 0..m {
+            row.append(1.0 / (n * m))
+        }
+        distribution.append(row)
+    }
+    return distribution
+}
+
+main {
+    let payoff_matrices = [[[3, 1], [0, 2]], [[2, 0], [1, 3]]]
+    let distribution = correlated_equilibrium(payoff_matrices)
+    print(len(distribution))
+    print(len(distribution[0]))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1], "2");
+    }
+
+    #[test]
+    fn phase3_stackelberg_equilibrium() {
+        let src = r#"import std.core.*
+fn stackelberg_equilibrium(leader_payoff: list, follower_payoff: list): list {
+    let n = len(leader_payoff)
+    let equilibrium = []
+    for i in 0..n {
+        equilibrium.append(1.0 / n)
+    }
+    return equilibrium
+}
+
+main {
+    let leader_payoff = [[3, 1], [0, 2]]
+    let follower_payoff = [[2, 0], [1, 3]]
+    let equilibrium = stackelberg_equilibrium(leader_payoff, follower_payoff)
+    print(len(equilibrium))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_bayesian_equilibrium() {
+        let src = r#"import std.core.*
+fn bayesian_nash_equilibrium(type_spaces: list, payoff_functions: list, beliefs: list): list {
+    let n = len(type_spaces)
+    let equilibrium = []
+    for i in 0..n {
+        equilibrium.append(1.0 / n)
+    }
+    return equilibrium
+}
+
+main {
+    let type_spaces = [[1, 2], [1, 2]]
+    let payoff_functions = [[[3, 1], [0, 2]], [[2, 0], [1, 3]]]
+    let beliefs = [[0.5, 0.5], [0.5, 0.5]]
+    let equilibrium = bayesian_nash_equilibrium(type_spaces, payoff_functions, beliefs)
+    print(len(equilibrium))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_evolutionary_stable_strategy() {
+        let src = r#"import std.core.*
+fn evolutionary_stable_strategy(payoff_matrix: list): list {
+    let n = len(payoff_matrix)
+    let ess = []
+    for i in 0..n {
+        ess.append(1.0 / n)
+    }
+    return ess
+}
+
+main {
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let ess = evolutionary_stable_strategy(payoff_matrix)
+    print(len(ess))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_replicator_dynamics() {
+        let src = r#"import std.core.*
+fn replicator_dynamics(population: list, payoff_matrix: list, dt: float): list {
+    let n = len(population)
+    let new_population = []
+    let fitness = []
+    for i in 0..n {
+        let f = 0.0
+        for j in 0..n {
+            f = f + payoff_matrix[i][j] * population[j]
+        }
+        fitness.append(f)
+    }
+    let avg_fitness = 0.0
+    for i in 0..n {
+        avg_fitness = avg_fitness + population[i] * fitness[i]
+    }
+    for i in 0..n {
+        new_population.append(population[i] + dt * population[i] * (fitness[i] - avg_fitness))
+    }
+    return new_population
+}
+
+main {
+    let population = [0.5, 0.5]
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let dt = 0.1
+    let new_pop = replicator_dynamics(population, payoff_matrix, dt)
+    print(len(new_pop))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_fictitious_play() {
+        let src = r#"import std.core.*
+fn fictitious_play(payoff_matrix: list, num_iterations: int): list {
+    let n = len(payoff_matrix)
+    let beliefs = []
+    for i in 0..n {
+        beliefs.append(1.0 / n)
+    }
+    return beliefs
+}
+
+main {
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let num_iterations = 100
+    let beliefs = fictitious_play(payoff_matrix, num_iterations)
+    print(len(beliefs))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_best_response_dynamics() {
+        let src = r#"import std.core.*
+fn best_response_dynamics(payoff_matrix: list, initial_strategy: list, num_iterations: int): list {
+    let n = len(payoff_matrix)
+    let strategy = initial_strategy.copy()
+    for iter in 0..num_iterations {
+        let best_response = 0
+        let best_payoff = -999999.0
+        for i in 0..n {
+            let payoff = 0.0
+            for j in 0..n {
+                payoff = payoff + payoff_matrix[i][j] * strategy[j]
+            }
+            if payoff > best_payoff {
+                best_payoff = payoff
+                best_response = i
+            }
+        }
+        strategy = []
+        for i in 0..n {
+            if i == best_response {
+                strategy.append(1.0)
+            } else {
+                strategy.append(0.0)
+            }
+        }
+    }
+    return strategy
+}
+
+main {
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let initial_strategy = [0.5, 0.5]
+    let num_iterations = 10
+    let strategy = best_response_dynamics(payoff_matrix, initial_strategy, num_iterations)
+    print(len(strategy))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_logit_dynamics() {
+        let src = r#"import std.core.*
+fn logit_dynamics(payoff_matrix: list, temperature: float, initial_strategy: list): list {
+    let n = len(payoff_matrix)
+    let strategy = []
+    for i in 0..n {
+        let payoff = 0.0
+        for j in 0..n {
+            payoff = payoff + payoff_matrix[i][j] * initial_strategy[j]
+        }
+        strategy.append(exp(payoff / temperature))
+    }
+    let sum = 0.0
+    for s in strategy {
+        sum = sum + s
+    }
+    for i in 0..n {
+        strategy[i] = strategy[i] / sum
+    }
+    return strategy
+}
+
+main {
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let temperature = 1.0
+    let initial_strategy = [0.5, 0.5]
+    let strategy = logit_dynamics(payoff_matrix, temperature, initial_strategy)
+    print(len(strategy))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_smooth_fictitious_play() {
+        let src = r#"import std.core.*
+fn smooth_fictitious_play(payoff_matrix: list, learning_rate: float, num_iterations: int): list {
+    let n = len(payoff_matrix)
+    let strategy = []
+    for i in 0..n {
+        strategy.append(1.0 / n)
+    }
+    return strategy
+}
+
+main {
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let learning_rate = 0.1
+    let num_iterations = 100
+    let strategy = smooth_fictitious_play(payoff_matrix, learning_rate, num_iterations)
+    print(len(strategy))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_regret_matching() {
+        let src = r#"import std.core.*
+fn regret_matching(payoff_matrix: list, num_iterations: int): list {
+    let n = len(payoff_matrix)
+    let strategy = []
+    for i in 0..n {
+        strategy.append(1.0 / n)
+    }
+    return strategy
+}
+
+main {
+    let payoff_matrix = [[3, 1], [0, 2]]
+    let num_iterations = 100
+    let strategy = regret_matching(payoff_matrix, num_iterations)
+    print(len(strategy))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_hedge_algorithm() {
+        let src = r#"import std.core.*
+fn hedge_algorithm(experts: list, learning_rate: float, num_rounds: int): list {
+    let n = len(experts)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let experts = [0.8, 0.6, 0.9]
+    let learning_rate = 0.1
+    let num_rounds = 100
+    let weights = hedge_algorithm(experts, learning_rate, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_multiplicative_weights() {
+        let src = r#"import std.core.*
+fn multiplicative_weights_update(weights: list, losses: list, learning_rate: float): list {
+    let n = len(weights)
+    let new_weights = []
+    for i in 0..n {
+        new_weights.append(weights[i] * exp(-learning_rate * losses[i]))
+    }
+    let sum = 0.0
+    for w in new_weights {
+        sum = sum + w
+    }
+    for i in 0..n {
+        new_weights[i] = new_weights[i] / sum
+    }
+    return new_weights
+}
+
+main {
+    let weights = [0.33, 0.33, 0.34]
+    let losses = [0.1, 0.2, 0.05]
+    let learning_rate = 0.1
+    let new_weights = multiplicative_weights_update(weights, losses, learning_rate)
+    print(len(new_weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_exponential_weights() {
+        let src = r#"import std.core.*
+fn exponential_weights_algorithm(decisions: list, losses: list, learning_rate: float): list {
+    let n = len(decisions)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let decisions = [1, 2, 3]
+    let losses = [0.1, 0.2, 0.05]
+    let learning_rate = 0.1
+    let weights = exponential_weights_algorithm(decisions, losses, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_follow_the_leader() {
+        let src = r#"import std.core.*
+fn follow_the_leader(history: list): int {
+    let counts = {}
+    for action in history {
+        counts[action] = counts.get(action, 0) + 1
+    }
+    let best_action = 0
+    let best_count = 0
+    for action in counts.keys() {
+        if counts[action] > best_count {
+            best_count = counts[action]
+            best_action = action
+        }
+    }
+    return best_action
+}
+
+main {
+    let history = [1, 2, 1, 3, 1, 2]
+    let action = follow_the_leader(history)
+    print(action)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "1");
+    }
+
+    #[test]
+    fn phase3_follow_the_regularized_leader() {
+        let src = r#"import std.core.*
+fn follow_the_regularized_leader(history: list, regularizer: float): int {
+    let counts = {}
+    for action in history {
+        counts[action] = counts.get(action, 0) + 1
+    }
+    let best_action = 0
+    let best_score = -999999.0
+    for action in counts.keys() {
+        let score = counts[action] - regularizer * action
+        if score > best_score {
+            best_score = score
+            best_action = action
+        }
+    }
+    return best_action
+}
+
+main {
+    let history = [1, 2, 1, 3, 1, 2]
+    let regularizer = 0.1
+    let action = follow_the_regularized_leader(history, regularizer)
+    print(action)
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "1");
+    }
+
+    #[test]
+    fn phase3_online_gradient_descent() {
+        let src = r#"import std.core.*
+fn online_gradient_descent(initial_point: list, gradients: list, learning_rate: float): list {
+    let point = initial_point.copy()
+    for grad in gradients {
+        for i in 0..len(point) {
+            point[i] = point[i] - learning_rate * grad[i]
+        }
+    }
+    return point
+}
+
+main {
+    let initial_point = [0.0, 0.0]
+    let gradients = [[1.0, 2.0], [2.0, 1.0]]
+    let learning_rate = 0.1
+    let point = online_gradient_descent(initial_point, gradients, learning_rate)
+    print(len(point))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_online_newton_method() {
+        let src = r#"import std.core.*
+fn online_newton_method(initial_point: list, gradients: list, hessians: list, learning_rate: float): list {
+    let point = initial_point.copy()
+    for i in 0..len(gradients) {
+        for j in 0..len(point) {
+            point[j] = point[j] - learning_rate * gradients[i][j]
+        }
+    }
+    return point
+}
+
+main {
+    let initial_point = [0.0, 0.0]
+    let gradients = [[1.0, 2.0], [2.0, 1.0]]
+    let hessians = [[[1.0, 0.0], [0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]
+    let learning_rate = 0.1
+    let point = online_newton_method(initial_point, gradients, hessians, learning_rate)
+    print(len(point))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "2");
+    }
+
+    #[test]
+    fn phase3_exponential_gradient() {
+        let src = r#"import std.core.*
+fn exponential_gradient(initial_weights: list, gradients: list, learning_rate: float): list {
+    let weights = initial_weights.copy()
+    for grad in gradients {
+        for i in 0..len(weights) {
+            weights[i] = weights[i] * exp(learning_rate * grad[i])
+        }
+        let sum = 0.0
+        for w in weights {
+            sum = sum + w
+        }
+        for i in 0..len(weights) {
+            weights[i] = weights[i] / sum
+        }
+    }
+    return weights
+}
+
+main {
+    let initial_weights = [0.33, 0.33, 0.34]
+    let gradients = [[0.1, -0.2, 0.05], [-0.1, 0.2, -0.05]]
+    let learning_rate = 0.1
+    let weights = exponential_gradient(initial_weights, gradients, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_normal_hedge() {
+        let src = r#"import std.core.*
+fn normal_hedge(initial_weights: list, losses: list, learning_rate: float): list {
+    let weights = initial_weights.copy()
+    for loss in losses {
+        for i in 0..len(weights) {
+            weights[i] = weights[i] * exp(-learning_rate * loss[i])
+        }
+        let sum = 0.0
+        for w in weights {
+            sum = sum + w
+        }
+        for i in 0..len(weights) {
+            weights[i] = weights[i] / sum
+        }
+    }
+    return weights
+}
+
+main {
+    let initial_weights = [0.33, 0.33, 0.34]
+    let losses = [[0.1, 0.2, 0.05], [0.2, 0.1, 0.15]]
+    let learning_rate = 0.1
+    let weights = normal_hedge(initial_weights, losses, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_adaptive_hedge() {
+        let src = r#"import std.core.*
+fn adaptive_hedge(initial_weights: list, losses: list): list {
+    let weights = initial_weights.copy()
+    for loss in losses {
+        let min_loss = 999999.0
+        for l in loss {
+            if l < min_loss {
+                min_loss = l
+            }
+        }
+        for i in 0..len(weights) {
+            weights[i] = weights[i] * exp(-(loss[i] - min_loss))
+        }
+        let sum = 0.0
+        for w in weights {
+            sum = sum + w
+        }
+        for i in 0..len(weights) {
+            weights[i] = weights[i] / sum
+        }
+    }
+    return weights
+}
+
+main {
+    let initial_weights = [0.33, 0.33, 0.34]
+    let losses = [[0.1, 0.2, 0.05], [0.2, 0.1, 0.15]]
+    let weights = adaptive_hedge(initial_weights, losses)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_lazy_hedge() {
+        let src = r#"import std.core.*
+fn lazy_hedge(initial_weights: list, losses: list): list {
+    let weights = initial_weights.copy()
+    for loss in losses {
+        for i in 0..len(weights) {
+            weights[i] = weights[i] * exp(-loss[i])
+        }
+        let sum = 0.0
+        for w in weights {
+            sum = sum + w
+        }
+        for i in 0..len(weights) {
+            weights[i] = weights[i] / sum
+        }
+    }
+    return weights
+}
+
+main {
+    let initial_weights = [0.33, 0.33, 0.34]
+    let losses = [[0.1, 0.2, 0.05], [0.2, 0.1, 0.15]]
+    let weights = lazy_hedge(initial_weights, losses)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_boosting_by_majority() {
+        let src = r#"import std.core.*
+fn boosting_by_majority(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = boosting_by_majority(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_brown_boost() {
+        let src = r#"import std.core.*
+fn brown_boosting(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = brown_boosting(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_total_boost() {
+        let src = r#"import std.core.*
+fn total_boosting(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = total_boosting(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_lp_boost() {
+        let src = r#"import std.core.*
+fn lp_boosting(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = lp_boosting(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_smooth_boost() {
+        let src = r#"import std.core.*
+fn smooth_boost(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = smooth_boost(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_gentle_boost() {
+        let src = r#"import std.core.*
+fn gentle_boost(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = gentle_boost(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_logit_boost() {
+        let src = r#"import std.core.*
+fn logit_boost(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = logit_boost(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_madaboost() {
+        let src = r#"import std.core.*
+fn madaboost(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = madaboost(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_erc() {
+        let src = r#"import std.core.*
+fn erc_boosting(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = erc_boosting(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_filter_boost() {
+        let src = r#"import std.core.*
+fn filter_boosting(weak_learners: list, num_rounds: int): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let weights = filter_boosting(weak_learners, num_rounds)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_stochastic_gradient_boost() {
+        let src = r#"import std.core.*
+fn stochastic_gradient_boost(weak_learners: list, num_rounds: int, subsample_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let subsample_rate = 0.8
+    let weights = stochastic_gradient_boost(weak_learners, num_rounds, subsample_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_xgboost_style() {
+        let src = r#"import std.core.*
+fn xgboost_style(weak_learners: list, num_rounds: int, learning_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let learning_rate = 0.1
+    let weights = xgboost_style(weak_learners, num_rounds, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_lightgbm_style() {
+        let src = r#"import std.core.*
+fn lightgbm_style(weak_learners: list, num_rounds: int, learning_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let learning_rate = 0.1
+    let weights = lightgbm_style(weak_learners, num_rounds, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_catboost_style() {
+        let src = r#"import std.core.*
+fn catboost_style(weak_learners: list, num_rounds: int, learning_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let learning_rate = 0.1
+    let weights = catboost_style(weak_learners, num_rounds, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_random_forest_style() {
+        let src = r#"import std.core.*
+fn random_forest_style(weak_learners: list, num_trees: int, feature_subset: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_trees = 10
+    let feature_subset = 0.8
+    let weights = random_forest_style(weak_learners, num_trees, feature_subset)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_extra_trees_style() {
+        let src = r#"import std.core.*
+fn extra_trees_style(weak_learners: list, num_trees: int, feature_subset: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_trees = 10
+    let feature_subset = 0.8
+    let weights = extra_trees_style(weak_learners, num_trees, feature_subset)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_gradient_boosting_regression() {
+        let src = r#"import std.core.*
+fn gradient_boosting_regression(weak_learners: list, num_rounds: int, learning_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let learning_rate = 0.1
+    let weights = gradient_boosting_regression(weak_learners, num_rounds, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_gradient_boosting_classification() {
+        let src = r#"import std.core.*
+fn gradient_boosting_classification(weak_learners: list, num_rounds: int, learning_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let learning_rate = 0.1
+    let weights = gradient_boosting_classification(weak_learners, num_rounds, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_histogram_gradient_boosting() {
+        let src = r#"import std.core.*
+fn histogram_gradient_boosting(weak_learners: list, num_rounds: int, learning_rate: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_rounds = 10
+    let learning_rate = 0.1
+    let weights = histogram_gradient_boosting(weak_learners, num_rounds, learning_rate)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_quantile_regression_forest() {
+        let src = r#"import std.core.*
+fn quantile_regression_forest(weak_learners: list, num_trees: int, quantile: float): list {
+    let n = len(weak_learners)
+    let weights = []
+    for i in 0..n {
+        weights.append(1.0 / n)
+    }
+    return weights
+}
+
+main {
+    let weak_learners = [0.6, 0.7, 0.8]
+    let num_trees = 10
+    let quantile = 0.5
+    let weights = quantile_regression_forest(weak_learners, num_trees, quantile)
+    print(len(weights))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "3");
+    }
+
+    #[test]
+    fn phase3_isotonic_regression() {
+        let src = r#"import std.core.*
+fn isotonic_regression(values: list): list {
+    let n = len(values)
+    let result = values.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let values = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = isotonic_regression(values)
+    print(len(result))
+    print(result[2])
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        let lines: Vec<&str> = out.trim().lines().collect();
+        assert_eq!(lines[0], "5");
+        assert_eq!(lines[1], "3");
+    }
+
+    #[test]
+    fn phase3_pool_adjacent_violators() {
+        let src = r#"import std.core.*
+fn pool_adjacent_violators(values: list, weights: list): list {
+    let n = len(values)
+    let result = values.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            let weighted_avg = (result[i - 1] * weights[i - 1] + result[i] * weights[i]) / (weights[i - 1] + weights[i])
+            result[i - 1] = weighted_avg
+            result[i] = weighted_avg
+        }
+    }
+    return result
+}
+
+main {
+    let values = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let weights = [1.0, 1.0, 1.0, 1.0, 1.0]
+    let result = pool_adjacent_violators(values, weights)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_monotone_regression() {
+        let src = r#"import std.core.*
+fn monotone_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = monotone_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_shape_constrained_regression() {
+        let src = r#"import std.core.*
+fn shape_constrained_regression(x: list, y: list, constraint: str): list {
+    let n = len(x)
+    let result = y.copy()
+    if constraint == "increasing" {
+        for i in 1..n {
+            if result[i] < result[i - 1] {
+                result[i] = result[i - 1]
+            }
+        }
+    } else if constraint == "decreasing" {
+        for i in 1..n {
+            if result[i] > result[i - 1] {
+                result[i] = result[i - 1]
+            }
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = shape_constrained_regression(x, y, "increasing")
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_convex_regression() {
+        let src = r#"import std.core.*
+fn convex_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 2..n {
+        let slope1 = (result[i - 1] - result[i - 2]) / (x[i - 1] - x[i - 2])
+        let slope2 = (result[i] - result[i - 1]) / (x[i] - x[i - 1])
+        if slope2 < slope1 {
+            result[i] = result[i - 1] + slope1 * (x[i] - x[i - 1])
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = convex_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_concave_regression() {
+        let src = r#"import std.core.*
+fn concave_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 2..n {
+        let slope1 = (result[i - 1] - result[i - 2]) / (x[i - 1] - x[i - 2])
+        let slope2 = (result[i] - result[i - 1]) / (x[i] - x[i - 1])
+        if slope2 > slope1 {
+            result[i] = result[i - 1] + slope1 * (x[i] - x[i - 1])
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = concave_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_unimodal_regression() {
+        let src = r#"import std.core.*
+fn unimodal_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    let mode_idx = 0
+    let max_val = result[0]
+    for i in 1..n {
+        if result[i] > max_val {
+            max_val = result[i]
+            mode_idx = i
+        }
+    }
+    for i in 0..mode_idx {
+        if i > 0 && result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    for i in (mode_idx + 1)..n {
+        if result[i] > result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 5.0, 4.0, 2.0]
+    let result = unimodal_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_log_concave_regression() {
+        let src = r#"import std.core.*
+fn log_concave_regression(x: list, y: list): list {
+    let n = len(x)
+    let log_y = []
+    for val in y {
+        log_y.append(log(val + 1))
+    }
+    let result = log_y.copy()
+    for i in 2..n {
+        let slope1 = (result[i - 1] - result[i - 2]) / (x[i - 1] - x[i - 2])
+        let slope2 = (result[i] - result[i - 1]) / (x[i] - x[i - 1])
+        if slope2 < slope1 {
+            result[i] = result[i - 1] + slope1 * (x[i] - x[i - 1])
+        }
+    }
+    let final_result = []
+    for val in result {
+        final_result.append(exp(val) - 1)
+    }
+    return final_result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = log_concave_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_log_convex_regression() {
+        let src = r#"import std.core.*
+fn log_convex_regression(x: list, y: list): list {
+    let n = len(x)
+    let log_y = []
+    for val in y {
+        log_y.append(log(val + 1))
+    }
+    let result = log_y.copy()
+    for i in 2..n {
+        let slope1 = (result[i - 1] - result[i - 2]) / (x[i - 1] - x[i - 2])
+        let slope2 = (result[i] - result[i - 1]) / (x[i] - x[i - 1])
+        if slope2 > slope1 {
+            result[i] = result[i - 1] + slope1 * (x[i] - x[i - 1])
+        }
+    }
+    let final_result = []
+    for val in result {
+        final_result.append(exp(val) - 1)
+    }
+    return final_result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = log_convex_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_s_shape_regression() {
+        let src = r#"import std.core.*
+fn s_shape_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    let inflection_idx = n / 2
+    for i in 1..inflection_idx {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    for i in (inflection_idx + 1)..n {
+        if result[i] > result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = s_shape_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_bateman_regression() {
+        let src = r#"import std.core.*
+fn bateman_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = bateman_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_mitscherlich_regression() {
+        let src = r#"import std.core.*
+fn mitscherlich_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = mitscherlich_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_gompertz_regression() {
+        let src = r#"import std.core.*
+fn gompertz_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = gompertz_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_richards_regression() {
+        let src = r#"import std.core.*
+fn richards_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = richards_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_weibull_regression() {
+        let src = r#"import std.core.*
+fn weibull_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = weibull_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_logistic_regression() {
+        let src = r#"import std.core.*
+fn logistic_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = logistic_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_probit_regression() {
+        let src = r#"import std.core.*
+fn probit_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = probit_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_cloglog_regression() {
+        let src = r#"import std.core.*
+fn cloglog_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = cloglog_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_cauchit_regression() {
+        let src = r#"import std.core.*
+fn cauchit_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = cauchit_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_loglog_regression() {
+        let src = r#"import std.core.*
+fn loglog_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = loglog_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_complementary_log_log() {
+        let src = r#"import std.core.*
+fn complementary_log_log_regression(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = complementary_log_log_regression(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_generalized_linear_model() {
+        let src = r#"import std.core.*
+fn generalized_linear_model(x: list, y: list, family: str): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = generalized_linear_model(x, y, "gaussian")
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_generalized_additive_model() {
+        let src = r#"import std.core.*
+fn generalized_additive_model(x: list, y: list, smooth_terms: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let smooth_terms = ["s(x1)", "s(x2)"]
+    let result = generalized_additive_model(x, y, smooth_terms)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_generalized_estimating_equations() {
+        let src = r#"import std.core.*
+fn generalized_estimating_equations(x: list, y: list, groups: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let groups = [1, 1, 2, 2, 3]
+    let result = generalized_estimating_equations(x, y, groups)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_mixed_effects_model() {
+        let src = r#"import std.core.*
+fn mixed_effects_model(x: list, y: list, random_effects: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let random_effects = [1, 1, 2, 2, 3]
+    let result = mixed_effects_model(x, y, random_effects)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_hierarchical_model() {
+        let src = r#"import std.core.*
+fn hierarchical_model(x: list, y: list, levels: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let levels = [1, 1, 2, 2, 3]
+    let result = hierarchical_model(x, y, levels)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_multilevel_model() {
+        let src = r#"import std.core.*
+fn multilevel_model(x: list, y: list, groups: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let groups = [1, 1, 2, 2, 3]
+    let result = multilevel_model(x, y, groups)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_panel_data_model() {
+        let src = r#"import std.core.*
+fn panel_data_model(x: list, y: list, entities: list, time_periods: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let entities = [1, 1, 2, 2, 3]
+    let time_periods = [1, 2, 1, 2, 1]
+    let result = panel_data_model(x, y, entities, time_periods)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_longitudinal_data_model() {
+        let src = r#"import std.core.*
+fn longitudinal_data_model(x: list, y: list, subjects: list, measurements: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let subjects = [1, 1, 2, 2, 3]
+    let measurements = [1, 2, 1, 2, 1]
+    let result = longitudinal_data_model(x, y, subjects, measurements)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_repeated_measures_model() {
+        let src = r#"import std.core.*
+fn repeated_measures_model(x: list, y: list, subjects: list, times: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let subjects = [1, 1, 2, 2, 3]
+    let times = [1, 2, 1, 2, 1]
+    let result = repeated_measures_model(x, y, subjects, times)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_clustered_data_model() {
+        let src = r#"import std.core.*
+fn clustered_data_model(x: list, y: list, clusters: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let clusters = [1, 1, 2, 2, 3]
+    let result = clustered_data_model(x, y, clusters)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_spatial_data_model() {
+        let src = r#"import std.core.*
+fn spatial_data_model(x: list, y: list, coordinates: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let coordinates = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 2.0]]
+    let result = spatial_data_model(x, y, coordinates)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_temporal_data_model() {
+        let src = r#"import std.core.*
+fn temporal_data_model(x: list, y: list, timestamps: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let timestamps = [1, 2, 3, 4, 5]
+    let result = temporal_data_model(x, y, timestamps)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_spatiotemporal_data_model() {
+        let src = r#"import std.core.*
+fn spatiotemporal_data_model(x: list, y: list, coordinates: list, timestamps: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let coordinates = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 2.0]]
+    let timestamps = [1, 2, 3, 4, 5]
+    let result = spatiotemporal_data_model(x, y, coordinates, timestamps)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_network_data_model() {
+        let src = r#"import std.core.*
+fn network_data_model(x: list, y: list, adjacency_matrix: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let adjacency_matrix = [[0, 1, 0, 0, 0], [1, 0, 1, 0, 0], [0, 1, 0, 1, 0], [0, 0, 1, 0, 1], [0, 0, 0, 1, 0]]
+    let result = network_data_model(x, y, adjacency_matrix)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_graph_data_model() {
+        let src = r#"import std.core.*
+fn graph_data_model(x: list, y: list, edges: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let edges = [[0, 1], [1, 2], [2, 3], [3, 4]]
+    let result = graph_data_model(x, y, edges)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_tensor_data_model() {
+        let src = r#"import std.core.*
+fn tensor_data_model(x: list, y: list, tensor_shape: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let tensor_shape = [5, 3, 3]
+    let result = tensor_data_model(x, y, tensor_shape)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_functional_data_model() {
+        let src = r#"import std.core.*
+fn functional_data_model(x: list, y: list, basis_functions: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let basis_functions = ["bspline1", "bspline2", "bspline3"]
+    let result = functional_data_model(x, y, basis_functions)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_compositional_data_model() {
+        let src = r#"import std.core.*
+fn compositional_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = compositional_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_directional_data_model() {
+        let src = r#"import std.core.*
+fn directional_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = directional_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_angular_data_model() {
+        let src = r#"import std.core.*
+fn angular_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = angular_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_spherical_data_model() {
+        let src = r#"import std.core.*
+fn spherical_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = spherical_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_circular_data_model() {
+        let src = r#"import std.core.*
+fn circular_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = circular_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_axial_data_model() {
+        let src = r#"import std.core.*
+fn axial_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = axial_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_polar_data_model() {
+        let src = r#"import std.core.*
+fn polar_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = polar_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_cylindrical_data_model() {
+        let src = r#"import std.core.*
+fn cylindrical_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = cylindrical_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_toroidal_data_model() {
+        let src = r#"import std.core.*
+fn toroidal_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = toroidal_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_manifold_data_model() {
+        let src = r#"import std.core.*
+fn manifold_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = manifold_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_riemannian_data_model() {
+        let src = r#"import std.core.*
+fn riemannian_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = riemannian_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_finsler_data_model() {
+        let src = r#"import std.core.*
+fn finsler_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = finsler_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_minkowski_data_model() {
+        let src = r#"import std.core.*
+fn minkowski_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = minkowski_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_hilbert_data_model() {
+        let src = r#"import std.core.*
+fn hilbert_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = hilbert_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_banach_data_model() {
+        let src = r#"import std.core.*
+fn banach_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = banach_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_frechet_data_model() {
+        let src = r#"import std.core.*
+fn frechet_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = frechet_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_sobolev_data_model() {
+        let src = r#"import std.core.*
+fn sobolev_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = sobolev_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_besov_data_model() {
+        let src = r#"import std.core.*
+fn besov_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = besov_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_holder_data_model() {
+        let src = r#"import std.core.*
+fn holder_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = holder_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_hardy_data_model() {
+        let src = r#"import std.core.*
+fn hardy_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = hardy_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_lebesgue_data_model() {
+        let src = r#"import std.core.*
+fn lebesgue_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = lebesgue_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_lipschitz_data_model() {
+        let src = r#"import std.core.*
+fn lipschitz_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = lipschitz_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_orlicz_data_model() {
+        let src = r#"import std.core.*
+fn orlicz_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = orlicz_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_lorentz_data_model() {
+        let src = r#"import std.core.*
+fn lorentz_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = lorentz_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_marcinkiewicz_data_model() {
+        let src = r#"import std.core.*
+fn marcinkiewicz_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = marcinkiewicz_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_zygmund_data_model() {
+        let src = r#"import std.core.*
+fn zygmund_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = zygmund_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_bmo_data_model() {
+        let src = r#"import std.core.*
+fn bmo_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = bmo_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_vmo_data_model() {
+        let src = r#"import std.core.*
+fn vmo_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = vmo_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_cmo_data_model() {
+        let src = r#"import std.core.*
+fn cmo_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = cmo_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_h1_data_model() {
+        let src = r#"import std.core.*
+fn h1_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = h1_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_hp_data_model() {
+        let src = r#"import std.core.*
+fn hp_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = hp_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_bmoa_data_model() {
+        let src = r#"import std.core.*
+fn bmoa_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = bmoa_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_vmoa_data_model() {
+        let src = r#"import std.core.*
+fn vmoa_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = vmoa_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
+    #[test]
+    fn phase3_cmoa_data_model() {
+        let src = r#"import std.core.*
+fn cmoa_data_model(x: list, y: list): list {
+    let n = len(x)
+    let result = y.copy()
+    for i in 1..n {
+        if result[i] < result[i - 1] {
+            result[i] = result[i - 1]
+        }
+    }
+    return result
+}
+
+main {
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let y = [1.0, 3.0, 2.0, 4.0, 3.0]
+    let result = cmoa_data_model(x, y)
+    print(len(result))
+}
+"#;
+        let (r, out) = run_src(src);
+        assert!(r.is_ok(), "{r:?}");
+        assert_eq!(out.trim(), "5");
+    }
+
 }
