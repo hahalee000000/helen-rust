@@ -6,8 +6,8 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2]
-            list.extend([3, 4])
-            print(list)
+            let my_list = [1, 2]
+            my_list.extend([3, 4])
+            print(my_list)
         }
         

@@ -6,8 +6,8 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2, 2, 3, 2]
-            let cnt = list.count(2)
+            let my_list = [1, 2, 2, 3, 2]
+            let cnt = my_list.count(2)
             print(cnt)
         }
         

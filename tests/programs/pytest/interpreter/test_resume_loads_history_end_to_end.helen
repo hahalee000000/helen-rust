@@ -5,9 +5,9 @@ import std.dict.*
 import std.math.*
 import std.debug.*
 
-agent Probe(mode: str, reply: Channel) {
+agent Probe(my_mode: str, reply: Channel) {
     main {
-        if mode == "write" {
+        if my_mode == "write" {
             insert_message("user", "The secret code is BANANA_42")
             let sid = get_session_id()
             reply.send({"sid": sid})

@@ -6,8 +6,8 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2, 3, 2]
-            list.remove(2)
-            print(list)
+            let my_list = [1, 2, 3, 2]
+            my_list.remove(2)
+            print(my_list)
         }
         

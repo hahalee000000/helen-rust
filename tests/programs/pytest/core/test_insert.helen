@@ -6,8 +6,8 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2, 3]
-            list.insert(0, 0)
-            print(list)
+            let my_list = [1, 2, 3]
+            my_list.insert(0, 0)
+            print(my_list)
         }
         

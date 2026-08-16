@@ -6,8 +6,8 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [10, 20, 30]
-            let idx = list.index(20)
+            let my_list = [10, 20, 30]
+            let idx = my_list.index(20)
             print(idx)
         }
         

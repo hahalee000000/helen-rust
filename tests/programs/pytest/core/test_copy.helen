@@ -6,10 +6,10 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2, 3]
-            let copy = list.copy()
+            let my_list = [1, 2, 3]
+            let copy = my_list.copy()
             copy.append(4)
-            print(list)
+            print(my_list)
             print(copy)
         }
         

@@ -1,7 +1,162 @@
 {
-  "suite": "cli",
-  "source_dir": "/home/rxx/helen/tests/cli",
+  "suite": "core",
+  "source_dir": "/home/rxx/helen/tests/core",
   "generated_by": "extract_corpus.py (helen-rust M0)",
-  "extracted": [],
+  "extracted": [
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_skills_as_variable",
+      "line": 66,
+      "output": "core/test_skills_as_variable.helen",
+      "source_hash": "51c1c489779d88aa"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_skills_reassignment",
+      "line": 79,
+      "output": "core/test_skills_reassignment.helen",
+      "source_hash": "3c0c2fdaf45c16bb"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_let_in_functions_block",
+      "line": 105,
+      "output": "core/test_let_in_functions_block.helen",
+      "source_hash": "460fb047c8bc3f4b"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_const_in_functions_block",
+      "line": 127,
+      "output": "core/test_const_in_functions_block.helen",
+      "source_hash": "f947fdf3035e4c2a"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_multiple_vars_in_functions_block",
+      "line": 151,
+      "output": "core/test_multiple_vars_in_functions_block.helen",
+      "source_hash": "64b75b605167ed96"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_append",
+      "line": 168,
+      "output": "core/test_append.helen",
+      "source_hash": "ba67b614d12c747d"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_pop",
+      "line": 182,
+      "output": "core/test_pop.helen",
+      "source_hash": "b275029514b70c49"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_insert",
+      "line": 196,
+      "output": "core/test_insert.helen",
+      "source_hash": "8e41f70d599594c3"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_remove",
+      "line": 209,
+      "output": "core/test_remove.helen",
+      "source_hash": "e90cb7c633385e7e"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_reverse",
+      "line": 222,
+      "output": "core/test_reverse.helen",
+      "source_hash": "b82ea1273ded52aa"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_sort",
+      "line": 235,
+      "output": "core/test_sort.helen",
+      "source_hash": "26dfc8209e0ec7bc"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_extend",
+      "line": 248,
+      "output": "core/test_extend.helen",
+      "source_hash": "7873ffe35cde4962"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_index",
+      "line": 261,
+      "output": "core/test_index.helen",
+      "source_hash": "1c0d01c6ed5bcaa9"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_count",
+      "line": 274,
+      "output": "core/test_count.helen",
+      "source_hash": "a251e296775b317d"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_clear",
+      "line": 287,
+      "output": "core/test_clear.helen",
+      "source_hash": "55635d513d145a0a"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_copy",
+      "line": 302,
+      "output": "core/test_copy.helen",
+      "source_hash": "f740329786fd8eaa"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_range_match",
+      "line": 332,
+      "output": "core/test_range_match.helen",
+      "source_hash": "78e2978192a90802"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_range_boundary_inclusive",
+      "line": 351,
+      "output": "core/test_range_boundary_inclusive.helen",
+      "source_hash": "a2c4e3f5c466c085"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_range_no_match",
+      "line": 370,
+      "output": "core/test_range_no_match.helen",
+      "source_hash": "43576620286379f1"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_guard_with_range",
+      "line": 396,
+      "output": "core/test_guard_with_range.helen",
+      "source_hash": "a9af32b2b5fd46f3"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_guard_fallback",
+      "line": 418,
+      "output": "core/test_guard_fallback.helen",
+      "source_hash": "92ae443a69de6f81"
+    },
+    {
+      "source_file": "test_language_improvements.py",
+      "test_function": "test_guard_with_complex_condition",
+      "line": 437,
+      "output": "core/test_guard_with_complex_condition.helen",
+      "source_hash": "2f4b0db301e58163"
+    }
+  ],
   "skipped": []
 }

@@ -10,12 +10,12 @@ import std.debug.*
                 let a = 1
                 let b = 2
                 const c = 3
-                fn sum(): int {
+                fn my_sum(): int {
                     return a + b + c
                 }
             }
             main {
-                print(sum())
+                print(my_sum())
             }
         }
         main {

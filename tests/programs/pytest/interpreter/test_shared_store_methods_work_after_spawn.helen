@@ -16,7 +16,7 @@ agent Worker(reply: Channel) {
         try {
             Counter.increment()
             Counter.increment()
-            let count = Counter.get()
+            let my_count = Counter.get()
             reply.send({"status": "ok", "count": count})
         } catch RuntimeError err {
             reply.send({"status": "error", "msg": err.message})

@@ -6,8 +6,8 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2, 3]
-            list.reverse()
-            print(list)
+            let my_list = [1, 2, 3]
+            my_list.reverse()
+            print(my_list)
         }
         

@@ -6,9 +6,9 @@ import std.math.*
 import std.debug.*
 
         main {
-            let list = [1, 2, 3]
-            let popped = list.pop()
+            let my_list = [1, 2, 3]
+            let popped = my_list.pop()
             print(popped)
-            print(list)
+            print(my_list)
         }
         
