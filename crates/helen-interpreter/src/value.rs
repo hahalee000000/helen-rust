@@ -111,6 +111,8 @@ pub enum Value {
     ListMethod(Box<crate::interpreter::ListMethodValue>),
     /// A channel endpoint (v1.18 spawn) — shared across threads via Arc.
     Channel(std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>),
+    /// A MediaPart for multimodal content (images, video, audio).
+    MediaPart(std::rc::Rc<helen_runtime::media::MediaPart>),
     /// A shared store instance (v1.12).
     SharedStore(std::sync::Arc<SharedStoreInstance>),
     /// A bound shared-store method (`Counter.increment`).
@@ -141,6 +143,7 @@ impl Value {
             | Value::MapMethod(_)
             | Value::ListMethod(_)
             | Value::Channel(_)
+            | Value::MediaPart(_)
             | Value::SharedStore(_)
             | Value::StoreMethod(_)
             | Value::ChannelMethod(_)
@@ -169,6 +172,7 @@ impl Value {
             Value::Range(_, _) => "range".into(),
             Value::MapMethod(_) | Value::ListMethod(_) => "method".into(),
             Value::Channel(_) => "ChannelEndpoint".into(),
+            Value::MediaPart(_) => "MediaPart".into(),
             Value::SharedStore(_) => "SharedStore".into(),
             Value::StoreMethod(_) => "SharedStoreMethod".into(),
             Value::ChannelMethod(_) => "method".into(),
@@ -238,6 +242,7 @@ impl Value {
                     "spawned"
                 }
             ),
+            Value::MediaPart(mp) => format!("{}", mp),
             Value::SharedStore(s) => format!(
                 "<SharedStore {} with {} fields, {} methods>",
                 s.name,
@@ -301,6 +306,7 @@ impl Value {
                     "spawned"
                 }
             ),
+            Value::MediaPart(mp) => format!("{}", mp),
             Value::SharedStore(s) => format!(
                 "<SharedStore {} with {} fields, {} methods>",
                 s.name,
@@ -371,6 +377,7 @@ impl Value {
             }
             Value::SharedStore(s) => Value::SharedStore(s.deep_copy()),
             Value::Channel(ep) => Value::Channel(ep.clone()), // Arc — shared, Send+Sync
+            Value::MediaPart(mp) => Value::MediaPart(mp.clone()), // Rc — shared
             Value::BuiltinFn(f) => Value::BuiltinFn(Rc::new(f.as_ref().clone())),
             Value::UserFn(f) => Value::UserFn(Rc::new(f.as_ref().clone())),
             Value::Agent(a) => Value::Agent(Rc::new(a.as_ref().clone())),
@@ -516,6 +523,7 @@ impl PartialEq for Value {
             (Value::Range(a, b), Value::Range(c, d)) => a == c && b == d,
             // Identity equality for channels/stores (Python object identity).
             (Value::Channel(a), Value::Channel(b)) => std::sync::Arc::ptr_eq(a, b),
+            (Value::MediaPart(a), Value::MediaPart(b)) => std::rc::Rc::ptr_eq(a, b),
             (Value::SharedStore(a), Value::SharedStore(b)) => std::sync::Arc::ptr_eq(a, b),
             (Value::StoreMethod(a), Value::StoreMethod(b)) => {
                 std::sync::Arc::ptr_eq(&a.store, &b.store) && a.name == b.name
@@ -625,6 +633,10 @@ impl Hash for Value {
             Value::Channel(c) => {
                 0xCu8.hash(state);
                 std::ptr::hash(std::sync::Arc::as_ptr(c), state);
+            }
+            Value::MediaPart(mp) => {
+                0xC1u8.hash(state);
+                std::ptr::hash(std::rc::Rc::as_ptr(mp), state);
             }
             Value::SharedStore(s) => {
                 0xDu8.hash(state);

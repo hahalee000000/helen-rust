@@ -7,6 +7,7 @@
 pub mod calc;
 pub mod call_tracking;
 pub mod channel;
+pub mod media;
 pub mod compression;
 pub mod config;
 pub mod constants;

@@ -28,6 +28,7 @@ sha1.workspace = true
 sha2.workspace = true
 hmac.workspace = true
 uuid.workspace = true
+mime_guess = "2.0"
 
 [dev-dependencies]
 ryu = { workspace = true }
