@@ -1857,6 +1857,8 @@ impl Interpreter {
                     "clear" => Some(ListMethodKind::Clear),
                     "extend" => Some(ListMethodKind::Extend),
                     "reverse" => Some(ListMethodKind::Reverse),
+                    "copy" => Some(ListMethodKind::Copy),
+                    "sort" => Some(ListMethodKind::Sort),
                     _ => None,
                 };
                 if let Some(kind) = kind {
@@ -3258,6 +3260,8 @@ pub enum ListMethodKind {
     Clear,
     Extend,
     Reverse,
+    Copy,
+    Sort,
 }
 
 #[derive(Clone, Debug)]
@@ -3345,6 +3349,26 @@ impl ListMethodValue {
             }
             ListMethodKind::Reverse => {
                 list.reverse();
+                Ok(Value::Null)
+            }
+            ListMethodKind::Copy => {
+                // Return a shallow copy of the list
+                Ok(Value::List(Rc::new(RefCell::new(list.clone()))))
+            }
+            ListMethodKind::Sort => {
+                // Sort in-place (Python parity: list.sort() modifies the list)
+                list.sort_by(|a, b| {
+                    // Compare values using Python-like ordering
+                    match (a, b) {
+                        (Value::Int(x), Value::Int(y)) => x.cmp(y),
+                        (Value::Float(x), Value::Float(y)) => x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
+                        (Value::Int(x), Value::Float(y)) => x.to_f64().unwrap_or(0.0).partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
+                        (Value::Float(x), Value::Int(y)) => x.partial_cmp(&y.to_f64().unwrap_or(0.0)).unwrap_or(std::cmp::Ordering::Equal),
+                        (Value::Str(x), Value::Str(y)) => x.cmp(y),
+                        (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+                        _ => std::cmp::Ordering::Equal, // Incomparable types
+                    }
+                });
                 Ok(Value::Null)
             }
         }
