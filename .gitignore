@@ -20,4 +20,4 @@ venv/
 
 # Local state
 *.local
-.helen/
+# .helen/ — now tracked
