@@ -695,6 +695,43 @@ impl Interpreter {
 
     /// Execute a single statement.
     pub fn execute_stmt(&mut self, stmt: &Stmt) -> Result<Flow, ExceptionValue> {
+        // Coverage: record executed line (only when enabled — cheap check).
+        if self.observability.coverage.is_enabled() {
+            let span = stmt.span();
+            let file = if span.file.is_empty() {
+                self.source_file.as_deref()
+            } else {
+                Some(span.file.as_str())
+            };
+            self.observability
+                .coverage
+                .record_line(file, span.start_line);
+            // Register/record function declarations for coverage.
+            match stmt {
+                Stmt::FunctionDecl(f) => {
+                    self.observability.coverage.record_function(
+                        file,
+                        f.span.start_line,
+                        &f.name,
+                    );
+                }
+                Stmt::AgentDecl(a) => {
+                    self.observability.coverage.record_function(
+                        file,
+                        a.span.start_line,
+                        &a.name,
+                    );
+                }
+                Stmt::FnBlock(fb) => {
+                    self.observability.coverage.record_function(
+                        file,
+                        fb.span.start_line,
+                        "<fn_block>",
+                    );
+                }
+                _ => {}
+            }
+        }
         match stmt {
             Stmt::VarDecl(v) => {
                 let value = self.visit_var_decl(v)?;
@@ -1193,6 +1230,17 @@ impl Interpreter {
 
     fn visit_if(&mut self, s: &IfStmt) -> Result<Flow, ExceptionValue> {
         let condition = self.eval_expr(&s.condition)?;
+        // Coverage: record branch taken (0=false, 1=true).
+        if self.observability.coverage.is_enabled() {
+            let file = if s.span.file.is_empty() {
+                self.source_file.as_deref()
+            } else {
+                Some(s.span.file.as_str())
+            };
+            self.observability
+                .coverage
+                .record_branch(file, s.span.start_line, if condition.truthy() { 1 } else { 0 });
+        }
         if condition.truthy() {
             return self.execute_stmt(&s.then_branch);
         }

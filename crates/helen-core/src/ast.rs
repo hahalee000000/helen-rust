@@ -594,3 +594,43 @@ pub struct MatchExprNode {
     pub default_body: Option<Box<Expr>>,
     pub span: SourceSpan,
 }
+
+impl Stmt {
+    /// Return the statement's source span (all variants carry one).
+    /// Cloned to keep a simple owned return type.
+    pub fn span(&self) -> SourceSpan {
+        match self {
+            Stmt::VarDecl(s) => s.span.clone(),
+            Stmt::SharedStoreDecl(s) => s.span.clone(),
+            Stmt::If(s) => s.span.clone(),
+            Stmt::For(s) => s.span.clone(),
+            Stmt::While(s) => s.span.clone(),
+            Stmt::Break(s) => s.span.clone(),
+            Stmt::Continue(s) => s.span.clone(),
+            Stmt::Return(s) => s.span.clone(),
+            Stmt::Expr(s) => s.span.clone(),
+            Stmt::PromptDef(s) => s.span.clone(),
+            Stmt::Declaration(s) => s.span.clone(),
+            Stmt::AgentParam(s) => s.span.clone(),
+            Stmt::ContextConfig(s) => s.span.clone().unwrap_or_else(SourceSpan::unknown),
+            Stmt::AgentDecl(s) => s.span.clone(),
+            Stmt::MainBlock(s) => s.span.clone(),
+            Stmt::FunctionDecl(s) => s.span.clone(),
+            Stmt::FnBlock(s) => s.span.clone(),
+            Stmt::ProtocolDecl(s) => s.span.clone(),
+            Stmt::ImplDecl(s) => s.span.clone(),
+            Stmt::Import(s) => s.span.clone(),
+            Stmt::Alias(s) => s.span.clone(),
+            Stmt::Case(s) => s.span.clone(),
+            Stmt::CatchClause(s) => s.span.clone(),
+            Stmt::CatchAll(s) => s.span.clone(),
+            Stmt::FinallyBlock(s) => s.span.clone(),
+            Stmt::Try(s) => s.span.clone(),
+            Stmt::Throw(s) => s.span.clone(),
+            Stmt::Assert(s) => s.span.clone(),
+            Stmt::LlmBranch(s) => s.span.clone(),
+            Stmt::LlmIf(s) => s.span.clone(),
+            Stmt::Match(s) => s.span.clone(),
+        }
+    }
+}

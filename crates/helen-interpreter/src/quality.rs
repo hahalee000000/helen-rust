@@ -54,11 +54,217 @@ pub fn quality_analyze_code(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
-/// Check code security — returns list of issues (empty for now).
-/// Python: `check_security(source: str) -> list[dict]`.
-pub fn quality_check_security(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    // Simplified: return empty list (no security issues detected)
-    Ok(Value::List(Rc::new(RefCell::new(vec![]))))
+/// Check code security — returns list of issues.
+/// Python: `check_security(source: str) -> list[dict]` via SecurityAnalyzer.
+/// Port of helen/stdlib/quality.py SecurityAnalyzer (v1.44.0).
+pub fn quality_check_security(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let source = arg_str_or(args, 0, "");
+    let issues = analyze_security(&source);
+    Ok(Value::List(Rc::new(RefCell::new(issues))))
+}
+
+// ── SecurityAnalyzer port (helen/stdlib/quality.py) ──────────────────────
+
+struct SecurityIssue {
+    line: usize,
+    severity: &'static str,
+    pattern: &'static str,
+    message: String,
+}
+
+/// Dangerous patterns: (regex, severity, name, message).
+/// Mirrors `SecurityAnalyzer.DANGEROUS_PATTERNS`.
+const DANGEROUS_PATTERNS: &[(&str, &str, &str, &str)] = &[
+    // High severity
+    (r"\beval\s*\(", "high", "eval()", "eval() can execute arbitrary code"),
+    (r"\bexec\s*\(", "high", "exec()", "exec() can execute arbitrary code"),
+    (r"shell\s*=\s*true", "high", "shell=true", "shell=true enables command injection"),
+    (r#"\bimport\s+["']os["']"#, "high", "FFI os import", "FFI import of os module enables system access"),
+    (r#"\bimport\s+["']subprocess["']"#, "high", "FFI subprocess import", "FFI import of subprocess enables command execution"),
+    // Medium severity
+    (r"shell_exec\s*\([^)]*\+", "medium", "shell_exec concat", "shell_exec with concatenated input — validate arguments to prevent command injection"),
+    (r"shell_exec\s*\(", "medium", "shell_exec()", "shell_exec can execute system commands"),
+    (r#"\bopen\s*\([^)]*["']w"#, "medium", "file write", "file write without path validation"),
+    (r"http_get\s*\([^)]*\+", "medium", "URL concatenation", "URL built from user input may allow SSRF"),
+    (r"http_post\s*\([^)]*\+", "medium", "URL concatenation", "URL built from user input may allow SSRF"),
+    (r"read_file\s*\([^)]*\+", "medium", "path concatenation", "file path from user input may allow traversal"),
+    (r"write_file\s*\([^)]*\+", "medium", "path concatenation", "file path from user input may allow traversal"),
+    // Low severity
+    (r"\binput\s*\(", "low", "user input", "user input should be validated before use"),
+    (r"llm\s+act\b", "low", "LLM act", "LLM output should be validated before use in critical operations"),
+];
+
+/// Patterns whose severity is downgraded when safety measures are nearby.
+const DOWNGRADABLE: &[&str] = &[
+    "shell_exec concat",
+    "shell_exec()",
+    "file write",
+    "URL concatenation",
+    "path concatenation",
+];
+
+/// Safety-measure detection regexes (surrounding context).
+const SAFETY_PATTERNS: &[&str] = &[
+    r"\b(is_file|is_dir|exists|file_exists|dir_exists)\s*\(",
+    r"\b(validate_path|path_validate|safe_path|allowed_path|check_path)\s*\(",
+    r"\b(resolve|realpath|normalize|canonicalize)\s*\(",
+    r"\b(allowed_dir|base_dir|sandbox|chroot|allowed_root)\b",
+    r"\b(starts_with|startswith|endswith|contains)\s*\([^)]*(dir|path|root|base)",
+    r"\b(sanitize|escape|shlex\.quote|shlex_quote|shell_quote)\s*\(",
+    r"\b(validate|check|verify|assert_safe)\s*\([^)]*(input|arg|param|cmd|command|path)",
+    r"\b(whitelist|allowlist|allowed_commands|safe_commands|permitted)\b",
+    r"\btry\s*\{",
+];
+
+/// Strip a trailing `// ...` comment (aware of quotes). Simplified port.
+fn strip_inline_comment(line: &str) -> String {
+    let mut in_str = false;
+    let mut prev = '\0';
+    for (i, ch) in line.char_indices() {
+        if ch == '"' && prev != '\\' {
+            in_str = !in_str;
+        }
+        if ch == '/' && prev == '/' && !in_str {
+            return line[..i - 1].to_string();
+        }
+        prev = ch;
+    }
+    line.to_string()
+}
+
+/// Find the enclosing block start line for `line_idx` (fn/agent) — simplified
+/// heuristic: scan upward for a line whose stripped form starts with `fn `,
+/// `agent `, or is a block opener.
+fn find_enclosing_block_start(lines: &[&str], line_idx: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for i in (0..line_idx).rev() {
+        let s = lines[i].trim();
+        if s.starts_with("fn ") || s.starts_with("agent ") {
+            return Some(i);
+        }
+        if s.ends_with('}') {
+            depth += 1;
+        }
+        if s.ends_with('{') {
+            if depth > 0 {
+                depth -= 1;
+            } else {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
+fn has_safety_context(lines: &[&str], line_idx: usize) -> bool {
+    // Scan enclosing block + up to 15 lines before (simplified: just the
+    // preceding 15 lines within the same block).
+    let block_start = find_enclosing_block_start(lines, line_idx);
+    let start = match block_start {
+        Some(b) => b,
+        None => line_idx.saturating_sub(15),
+    };
+    for (_, line) in lines.iter().enumerate().take(line_idx).skip(start) {
+        for pat in SAFETY_PATTERNS {
+            if let Ok(re) = regex::Regex::new(pat) {
+                if re.is_match(line) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn analyze_security(source: &str) -> Vec<Value> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut issues: Vec<SecurityIssue> = Vec::new();
+    let mut in_multiline_string = false;
+    let mut in_block_comment = false;
+
+    for (i, raw_line) in lines.iter().enumerate() {
+        let mut line = raw_line.to_string();
+        let stripped = line.trim().to_string();
+
+        // Block comments /* ... */
+        if in_block_comment {
+            if line.contains("*/") {
+                in_block_comment = false;
+            }
+            continue;
+        }
+        if stripped.starts_with("/*") {
+            if !line[2..].contains("*/") {
+                in_block_comment = true;
+            }
+            continue;
+        }
+
+        // Multi-line strings """ ... """
+        if in_multiline_string {
+            if let Some(close_idx) = line.find("\"\"\"") {
+                in_multiline_string = false;
+                line = line[close_idx + 3..].to_string();
+            } else {
+                continue;
+            }
+        }
+        let triple_count = line.matches("\"\"\"").count();
+        if triple_count % 2 == 1 {
+            if let Some(open_idx) = line.find("\"\"\"") {
+                if let Some(close_idx) = line[open_idx + 3..].find("\"\"\"") {
+                    // open+close on same line — strip the quoted region
+                    line = format!(
+                        "{}{}",
+                        &line[..open_idx],
+                        &line[open_idx + 3 + close_idx + 3..]
+                    );
+                } else {
+                    in_multiline_string = true;
+                    line = line[..open_idx].to_string();
+                }
+            }
+        }
+
+        if line.trim().starts_with("//") {
+            continue;
+        }
+        let code_part = strip_inline_comment(&line);
+
+        for &(pattern, severity, name, message) in DANGEROUS_PATTERNS {
+            if let Ok(re) = regex::Regex::new(pattern) {
+                if re.is_match(&code_part) {
+                    let mut effective_severity = severity;
+                    let mut effective_message = message.to_string();
+                    if severity == "medium"
+                        && DOWNGRADABLE.contains(&name)
+                        && has_safety_context(&lines, i)
+                    {
+                        effective_severity = "low";
+                        effective_message.push_str(" (downgraded: safety measures detected nearby)");
+                    }
+                    issues.push(SecurityIssue {
+                        line: i + 1,
+                        severity: effective_severity,
+                        pattern: name,
+                        message: effective_message,
+                    });
+                }
+            }
+        }
+    }
+
+    issues
+        .into_iter()
+        .map(|iss| {
+            let mut m = indexmap::IndexMap::new();
+            m.insert(Value::Str(Rc::from("line")), Value::Int(BigInt::from(iss.line as i64)));
+            m.insert(Value::Str(Rc::from("severity")), Value::Str(Rc::from(iss.severity)));
+            m.insert(Value::Str(Rc::from("pattern")), Value::Str(Rc::from(iss.pattern)));
+            m.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(iss.message)));
+            Value::Map(Rc::new(RefCell::new(m)))
+        })
+        .collect()
 }
 
 /// Get quality score — returns 0-10 score based on basic heuristics.

@@ -359,13 +359,23 @@ fn read_media_as_base64(part: &MediaPart) -> Result<String, ExceptionValue> {
             Ok(base64::encode(&buffer))
         }
         "url" => {
-            // For URLs, we'd need to download the content
-            // For now, return an error as this requires async HTTP
-            Err(ExceptionValue::new(
-                "NotImplementedError",
-                "URL downloading not yet implemented in Rust runtime".to_string(),
-                None,
-            ))
+            // Download the URL content (synchronous — mirrors Python's
+            // urllib.request.urlopen in helen/stdlib/media.py).
+            let resp = ureq::get(&part.content)
+                .call()
+                .map_err(|e| {
+                    ExceptionValue::new(
+                        "IOError",
+                        format!("Failed to download URL {}: {}", part.content, e),
+                        None,
+                    )
+                })?;
+            let mut reader = resp.into_reader();
+            let mut buffer = Vec::new();
+            reader
+                .read_to_end(&mut buffer)
+                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to read URL response: {}", e), None))?;
+            Ok(base64::encode(&buffer))
         }
         _ => Err(ExceptionValue::new(
             "ValueError",

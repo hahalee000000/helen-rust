@@ -13,6 +13,7 @@ use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
 use crate::stdlib::{json_to_value, value_to_json};
 use crate::value::Value;
+use serde_json::json;
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -407,32 +408,55 @@ fn make_validation_result(valid: bool, violation: String, parsed: Value) -> Valu
 }
 
 // ---------------------------------------------------------------------------
-// Coverage tracking — not yet ported (Python uses coverage.py integration)
+// Coverage tracking — wired to observability.coverage (port of coverage.py)
 // ---------------------------------------------------------------------------
 
 /// Enable coverage tracking.
-pub fn debug_coverage_on(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    // Coverage tracking requires coverage.py integration — not yet ported.
-    Ok(Value::Null)
+/// Python: `_coverage_on()` → "✓ Coverage tracking enabled".
+pub fn debug_coverage_on(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    i.observability.coverage.set_enabled(true);
+    Ok(Value::Str(Rc::from("✓ Coverage tracking enabled")))
 }
 
 /// Disable coverage tracking.
-pub fn debug_coverage_off(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    Ok(Value::Null)
+/// Python: `_coverage_off()` → "✓ Coverage tracking disabled".
+pub fn debug_coverage_off(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    i.observability.coverage.set_enabled(false);
+    Ok(Value::Str(Rc::from("✓ Coverage tracking disabled")))
 }
 
 /// Get coverage summary.
-pub fn debug_coverage_summary(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("not_available")));
-    result.insert(
-        Value::Str(Rc::from("message")),
-        Value::Str(Rc::from("Coverage tracking requires coverage.py integration (not yet ported)")),
+/// Python: `_coverage_summary()` → one-line "Coverage: Lines x% (a/b) | ...".
+pub fn debug_coverage_summary(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+    let summary = i.observability.coverage.get_summary();
+    let lines = summary.get("lines").cloned().unwrap_or_else(|| json!({}));
+    let funcs = summary.get("functions").cloned().unwrap_or_else(|| json!({}));
+    let branches = summary.get("branches").cloned().unwrap_or_else(|| json!({}));
+
+    let line_pct = lines.get("percent").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let line_cov = lines.get("covered").and_then(|v| v.as_u64()).unwrap_or(0);
+    let line_tot = lines.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
+    let func_pct = funcs.get("percent").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let func_cov = funcs.get("covered").and_then(|v| v.as_u64()).unwrap_or(0);
+    let func_tot = funcs.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
+    let br_pct = branches.get("percent").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let br_cov = branches.get("covered").and_then(|v| v.as_u64()).unwrap_or(0);
+    let br_tot = branches.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
+
+    let msg = format!(
+        "Coverage: Lines {}% ({}/{}) | Functions {}% ({}/{}) | Branches {}% ({}/{})",
+        line_pct, line_cov, line_tot, func_pct, func_cov, func_tot, br_pct, br_cov, br_tot
     );
-    Ok(Value::Map(Rc::new(RefCell::new(result))))
+    Ok(Value::Str(Rc::from(msg.as_str())))
 }
 
 /// Get coverage report.
-pub fn debug_coverage_report(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    Ok(Value::Str(Rc::from("Coverage tracking not yet implemented in Rust port")))
+/// Python: `_coverage_report(format="text")` → formatted report string.
+pub fn debug_coverage_report(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let format = match args.first() {
+        Some(Value::Str(s)) => s.to_string(),
+        _ => "text".to_string(),
+    };
+    let report = i.observability.coverage.generate_report(&format);
+    Ok(Value::Str(Rc::from(report.as_str())))
 }

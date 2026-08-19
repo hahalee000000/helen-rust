@@ -468,6 +468,8 @@ pub struct ObservabilityManager {
     pub tracer: ExecutionTracer,
     pub llm_audit: LLMAuditLog,
     pub last_error: Option<ErrorSnapshot>,
+    /// Test coverage tracker (v1.44 — port of helen/runtime/coverage.py).
+    pub coverage: helen_runtime::coverage::CoverageTracker,
 }
 
 impl ObservabilityManager {
@@ -477,6 +479,7 @@ impl ObservabilityManager {
             tracer: ExecutionTracer::new(10000),
             llm_audit: LLMAuditLog::new(1000),
             last_error: None,
+            coverage: helen_runtime::coverage::CoverageTracker::default(),
         }
     }
 

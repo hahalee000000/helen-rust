@@ -40,6 +40,17 @@ impl SourceSpan {
         }
     }
 
+    /// An empty/unknown span (used where a span may be absent).
+    pub fn unknown() -> Self {
+        SourceSpan {
+            file: String::new(),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
+        }
+    }
+
     /// Whether the (line, col) position falls within this span
     /// (inclusive start, exclusive end) — mirrors `SourceSpan.contains`.
     pub fn contains(&self, line: u32, col: u32) -> bool {
