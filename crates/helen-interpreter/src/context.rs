@@ -417,11 +417,7 @@ pub fn context_compress_context(interp: &mut Interpreter, args: &[Value]) -> Res
                 "summarize" | "auto" => {
                     // For now, treat as truncate (real implementation would use LLM)
                     let keep_recent = 10;
-                    if original_count > keep_recent {
-                        original_count - keep_recent
-                    } else {
-                        0
-                    }
+                    original_count.saturating_sub(keep_recent)
                 }
                 _ => {
                     let mut result_map = indexmap::IndexMap::new();
@@ -540,7 +536,7 @@ pub fn context_export_context(interp: &mut Interpreter, _args: &[Value]) -> Resu
 /// Python: `_import_context(data)`.
 /// Imports messages from a previously exported context.
 pub fn context_import_context(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let data = match args.get(0) {
+    let data = match args.first() {
         Some(Value::Map(m)) => m.clone(),
         _ => return Ok(make_error_map("Expected map argument for import_context")),
     };
@@ -626,7 +622,7 @@ pub fn context_fork_context(interp: &mut Interpreter, _args: &[Value]) -> Result
 /// Python: `_restore_context(fork_data)`.
 /// Restores context from a previously forked snapshot.
 pub fn context_restore_context(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let fork_data = match args.get(0) {
+    let fork_data = match args.first() {
         Some(Value::Map(m)) => m.clone(),
         _ => return Ok(make_error_map("Expected map argument for restore_context")),
     };

@@ -311,7 +311,7 @@ pub fn watch_command(file: &str) -> i32 {
     loop {
         let current_mtime = std::fs::metadata(source_path)
             .and_then(|m| m.modified())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).map_err(std::io::Error::other))
             .map(|d| d.as_secs_f64())
             .unwrap_or(0.0);
         if current_mtime != last_mtime {

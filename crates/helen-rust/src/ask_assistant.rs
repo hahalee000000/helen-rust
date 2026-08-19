@@ -133,9 +133,7 @@ pub fn format_repl_context_block(
 /// Build the combined system prompt for the REPL assistant.
 /// Combines framework instructions + Helen conventions + REPL context.
 pub fn build_assistant_system_prompt(repl_context: &str) -> String {
-    let mut parts: Vec<&str> = Vec::new();
-
-    parts.push(FRAMEWORK_INSTRUCTIONS);
+    let mut parts: Vec<&str> = vec![FRAMEWORK_INSTRUCTIONS];
     parts.push(HELEN_CONVENTIONS);
 
     let mut result = parts.join("\n\n");
@@ -246,7 +244,7 @@ pub fn dispatch_repl_tool(
                 .get("n")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(10) as usize;
-            let n = n.max(1).min(50);
+            let n = n.clamp(1, 50);
             let lines: Vec<&str> = repl_state
                 .output_buffer
                 .iter()

@@ -527,7 +527,7 @@ pub fn transcript_export_transcript(interp: &mut Interpreter, args: &[Value]) ->
                 let messages = store.read_view();
                 let items: Vec<serde_json::Value> = messages
                     .iter()
-                    .map(|m| helen_runtime::transcript::message_to_dict(m))
+                    .map(helen_runtime::transcript::message_to_dict)
                     .collect();
                 serde_json::json!({ "messages": items })
             };
@@ -688,7 +688,7 @@ pub fn transcript_get_compression_audit(interp: &mut Interpreter, args: &[Value]
     match load_store(interp, sid) {
         Some((store, _)) => {
             let audit = store.get_compression_audit();
-            let items: Vec<Value> = audit.iter().map(|v| json_to_value(v)).collect();
+            let items: Vec<Value> = audit.iter().map(json_to_value).collect();
             Ok(Value::List(Rc::new(RefCell::new(items))))
         }
         None => Ok(Value::List(Rc::new(RefCell::new(vec![])))),

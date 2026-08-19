@@ -421,7 +421,7 @@ fn replace_regex(input: &str, pattern: &str, replacement: &str) -> String {
                 continue;
             }
             if let Some(cm) = c {
-                rep = rep.replace(&format!("${idx}"), &cm.as_str().to_string());
+                rep = rep.replace(&format!("${idx}"), cm.as_str());
             }
         }
         out.push_str(&rep);
@@ -488,6 +488,8 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
     let heading_re = regex::Regex::new(r"^(#{1,6})\s+").unwrap();
     let ul_re = regex::Regex::new(r"^[-*+]\s+").unwrap();
     let ol_re = regex::Regex::new(r"^\d+\.\s+").unwrap();
+    let item_ul_re = regex::Regex::new(r"^\s*[-*+]\s+").unwrap();
+    let item_ol_re = regex::Regex::new(r"^\s*\d+\.\s+").unwrap();
     let mut i = 0;
     while i < n {
         let line = lines[i];
@@ -566,7 +568,6 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         // Unordered list.
         if ul_re.is_match(stripped) {
             let mut items = Vec::new();
-            let item_ul_re = regex::Regex::new(r"^\s*[-*+]\s+").unwrap();
             while i < n && item_ul_re.is_match(lines[i]) {
                 let item_text = item_ul_re.replace(lines[i], "").to_string();
                 items.push(Value::Str(Rc::from(item_text.as_str())));
@@ -582,7 +583,6 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         // Ordered list.
         if ol_re.is_match(stripped) {
             let mut items = Vec::new();
-            let item_ol_re = regex::Regex::new(r"^\s*\d+\.\s+").unwrap();
             while i < n && item_ol_re.is_match(lines[i]) {
                 let item_text = item_ol_re.replace(lines[i], "").to_string();
                 items.push(Value::Str(Rc::from(item_text.as_str())));
@@ -961,8 +961,8 @@ fn dict_to_xml(data: &Value, out: &mut String, tag: &str, is_root: bool) {
                     Value::Str(s) => s.to_string(),
                     other => other.python_str(),
                 };
-                if key.starts_with('@') {
-                    attrs.push((key[1..].to_string(), v.python_str()));
+                if let Some(stripped) = key.strip_prefix('@') {
+                    attrs.push((stripped.to_string(), v.python_str()));
                 } else if key == "#text" {
                     text = Some(v.python_str());
                 } else if let Value::List(l) = v {

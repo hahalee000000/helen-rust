@@ -9,7 +9,6 @@ use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
 use helen_runtime::transcript::{JsonlBackend, TranscriptStore};
 use helen_semantic::SemanticAnalyzer;
-use chrono;
 use std::io::Write;
 
 use crate::ask_assistant::{self, ReplState};

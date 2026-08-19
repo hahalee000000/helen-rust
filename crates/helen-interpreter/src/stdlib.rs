@@ -3881,8 +3881,8 @@ fn network_http_download(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 
 
 
-/// `context_stats()` — port of `stdlib/context.py:_context_stats`.
-/// In batch mode (no transcript store / history wired) Python returns the
+// `context_stats()` — port of `stdlib/context.py:_context_stats`.
+// In batch mode (no transcript store / history wired) Python returns the
 // ---------------------------------------------------------------------------
 // M8: session management — all session functions live in transcript.rs
 // and are exposed via TRANSCRIPT_EXPORTS.

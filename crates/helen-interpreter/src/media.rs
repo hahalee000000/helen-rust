@@ -14,13 +14,13 @@ use helen_runtime::media::MediaPart;
 
 /// Check if a value is a MediaPart.
 pub fn media_is_media(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let value = args.get(0).cloned().unwrap_or(Value::Null);
+    let value = args.first().cloned().unwrap_or(Value::Null);
     Ok(Value::Bool(matches!(value, Value::MediaPart(_))))
 }
 
 /// Get the media type of a MediaPart.
 pub fn media_media_type(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let value = args.get(0).cloned().unwrap_or(Value::Null);
+    let value = args.first().cloned().unwrap_or(Value::Null);
     match value {
         Value::MediaPart(mp) => Ok(Value::Str(Rc::from(mp.media_type.as_str()))),
         _ => Ok(Value::Null),
@@ -29,7 +29,7 @@ pub fn media_media_type(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
 
 /// Check if a value is an image MediaPart.
 pub fn media_is_image(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let value = args.get(0).cloned().unwrap_or(Value::Null);
+    let value = args.first().cloned().unwrap_or(Value::Null);
     match value {
         Value::MediaPart(mp) => Ok(Value::Bool(mp.is_image())),
         _ => Ok(Value::Bool(false)),
@@ -38,7 +38,7 @@ pub fn media_is_image(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exc
 
 /// Check if a value is a video MediaPart.
 pub fn media_is_video(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let value = args.get(0).cloned().unwrap_or(Value::Null);
+    let value = args.first().cloned().unwrap_or(Value::Null);
     match value {
         Value::MediaPart(mp) => Ok(Value::Bool(mp.is_video())),
         _ => Ok(Value::Bool(false)),
@@ -47,7 +47,7 @@ pub fn media_is_video(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exc
 
 /// Check if a value is an audio MediaPart.
 pub fn media_is_audio(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let value = args.get(0).cloned().unwrap_or(Value::Null);
+    let value = args.first().cloned().unwrap_or(Value::Null);
     match value {
         Value::MediaPart(mp) => Ok(Value::Bool(mp.is_audio())),
         _ => Ok(Value::Bool(false)),
@@ -64,7 +64,7 @@ pub fn media_media(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Except
         ));
     }
 
-    let source = match args.get(0) {
+    let source = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         Some(Value::MediaPart(mp)) => {
             // Passthrough existing MediaPart
@@ -103,7 +103,7 @@ pub fn media_media_base64(
     _i: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let data = match args.get(0) {
+    let data = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => {
             return Err(ExceptionValue::new(
@@ -143,7 +143,7 @@ pub fn media_to_openai_parts(
     _i: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let parts = match args.get(0) {
+    let parts = match args.first() {
         Some(Value::List(l)) => l.borrow().clone(),
         _ => {
             return Err(ExceptionValue::new(
@@ -172,7 +172,7 @@ pub fn media_to_claude_parts(
     _i: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let parts = match args.get(0) {
+    let parts = match args.first() {
         Some(Value::List(l)) => l.borrow().clone(),
         _ => {
             return Err(ExceptionValue::new(
@@ -201,7 +201,7 @@ pub fn media_to_gemini_parts(
     _i: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let parts = match args.get(0) {
+    let parts = match args.first() {
         Some(Value::List(l)) => l.borrow().clone(),
         _ => {
             return Err(ExceptionValue::new(
@@ -230,7 +230,7 @@ pub fn media_media_to_base64(
     _i: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let part = match args.get(0) {
+    let part = match args.first() {
         Some(Value::MediaPart(mp)) => mp.clone(),
         _ => {
             return Err(ExceptionValue::new(
@@ -250,7 +250,7 @@ pub fn media_save_media(
     _i: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let part = match args.get(0) {
+    let part = match args.first() {
         Some(Value::MediaPart(mp)) => mp.clone(),
         _ => {
             return Err(ExceptionValue::new(

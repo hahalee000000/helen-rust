@@ -370,7 +370,7 @@ pub fn quality_dimension_scores(_i: &mut Interpreter, args: &[Value]) -> Result<
     let mut scores = indexmap::IndexMap::new();
     scores.insert(Value::Str(Rc::from("architecture")), Value::Float(architecture.min(10.0)));
     scores.insert(Value::Str(Rc::from("code_quality")), Value::Float(code_quality.min(10.0)));
-    scores.insert(Value::Str(Rc::from("security")), Value::Float(security.max(0.0).min(10.0)));
+    scores.insert(Value::Str(Rc::from("security")), Value::Float(security.clamp(0.0, 10.0)));
     scores.insert(Value::Str(Rc::from("test_coverage")), Value::Float(test_coverage.min(10.0)));
     scores.insert(Value::Str(Rc::from("documentation")), Value::Float(documentation.min(10.0)));
     scores.insert(Value::Str(Rc::from("maintainability")), Value::Float(maintainability.min(10.0)));
@@ -413,7 +413,7 @@ pub fn quality_quality_report(_i: &mut Interpreter, args: &[Value]) -> Result<Va
                 else { "F" };
 
     let mut report = String::new();
-    report.push_str("\n");
+    report.push('\n');
     report.push_str("============================================================\n");
     report.push_str("  HELEN QUALITY REPORT\n");
     report.push_str("============================================================\n");
@@ -425,15 +425,15 @@ pub fn quality_quality_report(_i: &mut Interpreter, args: &[Value]) -> Result<Va
     report.push_str(&format!("    Comment lines: {} ({:.0}%)\n", comment_lines, comment_ratio * 100.0));
     report.push_str(&format!("    Functions: {}\n", function_count));
     report.push_str(&format!("    Agents: {}\n", agent_count));
-    report.push_str("\n");
+    report.push('\n');
 
     report.push_str("  Quality Score (0-10):\n");
     report.push_str(&format!("    TOTAL: {:.2}\n", score));
     report.push_str(&format!("    GRADE: {}\n", grade));
-    report.push_str("\n");
+    report.push('\n');
 
     report.push_str("============================================================\n");
-    report.push_str("\n");
+    report.push('\n');
 
     Ok(Value::Str(Rc::from(report.as_str())))
 }

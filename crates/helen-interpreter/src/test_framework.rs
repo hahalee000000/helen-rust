@@ -74,6 +74,19 @@ pub struct TestRegistry {
     pub test_timeout: f64,
 }
 
+impl Default for TestRegistry {
+    fn default() -> Self {
+        Self {
+            suites: Vec::new(),
+            current_suite: None,
+            results: Vec::new(),
+            running: false,
+            warnings: Vec::new(),
+            test_timeout: 30.0,
+        }
+    }
+}
+
 fn dummy_span() -> SourceSpan {
     SourceSpan::new("", 0, 0, 0, 0)
 }
@@ -291,7 +304,7 @@ pub fn test_it_skip(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Excep
 }
 
 pub fn test_assert_true(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let condition = args.get(0).cloned().unwrap_or(Value::Null);
+    let condition = args.first().cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 1)?.unwrap_or("");
     
     if !condition.truthy() {
@@ -307,7 +320,7 @@ pub fn test_assert_true(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
 }
 
 pub fn test_assert_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let actual = args.get(0).cloned().unwrap_or(Value::Null);
+    let actual = args.first().cloned().unwrap_or(Value::Null);
     let expected = args.get(1).cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 2)?.unwrap_or("");
     
@@ -324,7 +337,7 @@ pub fn test_assert_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 }
 
 pub fn test_assert_not_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let actual = args.get(0).cloned().unwrap_or(Value::Null);
+    let actual = args.first().cloned().unwrap_or(Value::Null);
     let expected = args.get(1).cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 2)?.unwrap_or("");
     
@@ -341,7 +354,7 @@ pub fn test_assert_not_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Val
 }
 
 pub fn test_assert_contains(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let container = args.get(0).cloned().unwrap_or(Value::Null);
+    let container = args.first().cloned().unwrap_or(Value::Null);
     let item = args.get(1).cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 2)?.unwrap_or("");
     
@@ -354,7 +367,7 @@ pub fn test_assert_contains(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
             }
         }
         Value::List(list) => {
-            list.borrow().iter().any(|v| *v == item)
+            list.borrow().contains(&item)
         }
         Value::Map(map) => {
             map.borrow().contains_key(&item)
@@ -544,10 +557,7 @@ pub fn test_end_suite(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, Ex
 // ---------------------------------------------------------------------------
 
 fn format_report(report: &TestReport) -> String {
-    let mut lines = Vec::new();
-    lines.push(String::new());
-    lines.push("=".repeat(60));
-    lines.push("TEST RESULTS".to_string());
+    let mut lines = vec![String::new(), "=".repeat(60), "TEST RESULTS".to_string()];
     lines.push("=".repeat(60));
     lines.push(String::new());
     
@@ -594,7 +604,7 @@ fn arg_str(args: &[Value], i: usize) -> Result<&str, ExceptionValue> {
     }
 }
 
-fn arg_opt_str<'a>(args: &'a [Value], i: usize) -> Result<Option<&'a str>, ExceptionValue> {
+fn arg_opt_str(args: &[Value], i: usize) -> Result<Option<&str>, ExceptionValue> {
     match args.get(i) {
         Some(Value::Str(s)) => Ok(Some(s.as_ref())),
         Some(Value::Null) | None => Ok(None),
@@ -644,7 +654,7 @@ fn arg_closure(args: &[Value], i: usize) -> Result<Rc<crate::closure::Closure>, 
 /// Returns the value wrapped in a map with metadata. This is a basic implementation
 /// that provides a foundation for future chainable assertion methods.
 pub fn test_expect(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let value = args.get(0).cloned().unwrap_or(Value::Null);
+    let value = args.first().cloned().unwrap_or(Value::Null);
     // Returns the value wrapped in a map for now
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("value")), value);

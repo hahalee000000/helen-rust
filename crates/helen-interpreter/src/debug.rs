@@ -31,8 +31,8 @@ fn make_error_map(msg: &str) -> Value {
 // ---------------------------------------------------------------------------
 
 thread_local! {
-    static TRACE_ENABLED: RefCell<bool> = RefCell::new(false);
-    static TRACE_LOG: RefCell<Vec<String>> = RefCell::new(Vec::new());
+    static TRACE_ENABLED: RefCell<bool> = const { RefCell::new(false) };
+    static TRACE_LOG: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Enable tracing.
@@ -188,7 +188,7 @@ pub fn debug_error_data_flow(_i: &mut Interpreter, args: &[Value]) -> Result<Val
 /// Record data flow (manual).
 /// Python: delegates to `interp._data_lineage_tracker.record_flow(...)`.
 pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let producer_uuid = match args.get(0) {
+    let producer_uuid = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => return Ok(make_error_map("producer_uuid (string) required")),
     };
@@ -202,10 +202,7 @@ pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Val
     };
     let metadata = match args.get(3) {
         Some(Value::Map(m)) => {
-            match value_to_json(&Value::Map(m.clone())) {
-                Ok(json_val) => Some(json_val),
-                Err(_) => None,
-            }
+            value_to_json(&Value::Map(m.clone())).ok()
         }
         _ => None,
     };
@@ -225,7 +222,7 @@ pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Val
 /// Trace value origin.
 /// Python: returns `tracker.get_origin(uuid)` or [] if no tracker.
 pub fn debug_trace_value_origin(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let message_uuid = match args.get(0) {
+    let message_uuid = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
     };
@@ -243,7 +240,7 @@ pub fn debug_trace_value_origin(i: &mut Interpreter, args: &[Value]) -> Result<V
 /// Trace value consumers.
 /// Python: returns `tracker.get_consumers(uuid)` or [] if no tracker.
 pub fn debug_trace_value_consumers(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let message_uuid = match args.get(0) {
+    let message_uuid = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
     };
