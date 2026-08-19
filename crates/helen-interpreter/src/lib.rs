@@ -9,6 +9,8 @@
 pub mod closure;
 pub mod stdlib_math;
 pub mod stdlib_io;
+pub mod stdlib_system;
+pub mod stdlib_network;
 pub mod data_formats;
 pub mod environment;
 pub mod exceptions;
