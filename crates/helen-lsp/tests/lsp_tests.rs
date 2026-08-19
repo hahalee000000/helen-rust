@@ -646,3 +646,295 @@ fn symbols_decorated_agent() {
         .iter()
         .any(|n| n.contains("@sandbox") && n.contains("SafeBot")));
 }
+
+// ── Additional LSP tests for coverage ───────────────────────────────
+
+#[test]
+fn position_new() {
+    let pos = Position::new(10, 20);
+    assert_eq!(pos.line, 10);
+    assert_eq!(pos.character, 20);
+}
+
+#[test]
+fn range_start_end() {
+    let r = Range {
+        start: Position::new(0, 0),
+        end: Position::new(5, 10),
+    };
+    assert_eq!(r.start.line, 0);
+    assert_eq!(r.start.character, 0);
+    assert_eq!(r.end.line, 5);
+    assert_eq!(r.end.character, 10);
+}
+
+#[test]
+fn document_state_new() {
+    let state = DocumentState::new("file:///test.helen", "let x = 1", 1);
+    assert_eq!(state.uri, "file:///test.helen");
+    assert_eq!(state.content, "let x = 1");
+    assert_eq!(state.version, 1);
+}
+
+#[test]
+fn server_new_creates_empty_state() {
+    let server = HelenLanguageServer::new();
+    assert!(server.documents.is_empty());
+    assert!(server.capabilities.is_object());
+}
+
+#[test]
+fn did_open_multiple_documents() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///a.helen", "text": "let a = 1", "version": 1}
+    }));
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///b.helen", "text": "let b = 2", "version": 1}
+    }));
+    assert_eq!(server.documents.len(), 2);
+    assert!(server.documents.contains_key("file:///a.helen"));
+    assert!(server.documents.contains_key("file:///b.helen"));
+}
+
+#[test]
+fn did_change_incremental() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///test.helen", "text": "let x = 1", "version": 1}
+    }));
+    server.did_change(&json!({
+        "textDocument": {"uri": "file:///test.helen", "version": 2},
+        "contentChanges": [{"text": "let x = 2"}]
+    }));
+    server.did_change(&json!({
+        "textDocument": {"uri": "file:///test.helen", "version": 3},
+        "contentChanges": [{"text": "let x = 3"}]
+    }));
+    let d = server.documents.get("file:///test.helen").unwrap();
+    assert_eq!(d.content, "let x = 3");
+    assert_eq!(d.version, 3);
+}
+
+#[test]
+fn completion_empty_document() {
+    let mut server = HelenLanguageServer::new();
+    let uri = doc(&mut server, "");
+    let result = server.completion(&json!({
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 0}
+    }));
+    let items = result["items"].as_array().unwrap();
+    assert!(!items.is_empty());
+}
+
+#[test]
+fn definition_multiple_variables() {
+    let content = "let x = 1\nlet y = x\nlet z = x + y";
+    let result = find_definition_at(content, "file:///test.helen", 3, 9);
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn definition_nested_function() {
+    let content = "fn outer() {\n    fn inner() { return 1 }\n    return inner()\n}";
+    let result = find_definition_at(content, "file:///test.helen", 3, 12);
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn hover_on_constant() {
+    let mut server = HelenLanguageServer::new();
+    let uri = doc(&mut server, "const PI = 3.14159\nlet x = PI");
+    let result = server.hover(&json!({
+        "textDocument": {"uri": uri},
+        "position": {"line": 1, "character": 9}
+    }));
+    assert!(result.is_some());
+}
+
+#[test]
+fn symbols_multiple_functions() {
+    let mut server = HelenLanguageServer::new();
+    let uri = doc(
+        &mut server,
+        "fn foo() { return 1 }\nfn bar() { return 2 }\nfn baz() { return 3 }",
+    );
+    let result = server.document_symbol(&json!({"textDocument": {"uri": uri}}));
+    let names: Vec<String> = result
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|s| s["name"].as_str().map(|n| n.to_string()))
+        .collect();
+    assert!(names.iter().any(|n| n.contains("foo")));
+    assert!(names.iter().any(|n| n.contains("bar")));
+    assert!(names.iter().any(|n| n.contains("baz")));
+}
+
+#[test]
+fn symbols_nested_agent_functions() {
+    let mut server = HelenLanguageServer::new();
+    let uri = doc(
+        &mut server,
+        "agent MyBot {\n  fn helper() { return 1 }\n  main { return helper() }\n}",
+    );
+    let result = server.document_symbol(&json!({"textDocument": {"uri": uri}}));
+    let names: Vec<String> = result
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|s| s["name"].as_str().map(|n| n.to_string()))
+        .collect();
+    assert!(names.iter().any(|n| n.contains("MyBot")));
+    // Note: nested fn inside agent may or may not appear as separate symbol
+    // depending on LSP implementation — just verify the agent is found
+}
+
+#[test]
+fn references_finds_all_uses() {
+    let content = "let x = 1\nlet y = x + 1\nlet z = x * 2";
+    let result = find_references_in(content, "file:///test.helen", "x", true);
+    assert!(result.len() >= 2);
+}
+
+#[test]
+fn handle_initialize_with_params() {
+    let mut server = HelenLanguageServer::new();
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"rootUri": "file:///project", "capabilities": {}}
+    }));
+    assert!(response.is_some());
+    let r = response.unwrap();
+    assert!(r["result"]["capabilities"].is_object());
+}
+
+#[test]
+fn handle_text_document_did_open() {
+    let mut server = HelenLanguageServer::new();
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": "file:///test.helen", "text": "let x = 1", "version": 1}}
+    }));
+    assert!(response.is_none());
+    assert!(server.documents.contains_key("file:///test.helen"));
+}
+
+#[test]
+fn handle_completion_request() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///test.helen", "text": "", "version": 1}
+    }));
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "id": 2, "method": "textDocument/completion",
+        "params": {"textDocument": {"uri": "file:///test.helen"}, "position": {"line": 0, "character": 0}}
+    }));
+    assert!(response.is_some());
+    let r = response.unwrap();
+    assert!(r["result"]["items"].is_array());
+}
+
+#[test]
+fn handle_hover_request() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///test.helen", "text": "agent Test { main {} }", "version": 1}
+    }));
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "id": 3, "method": "textDocument/hover",
+        "params": {"textDocument": {"uri": "file:///test.helen"}, "position": {"line": 0, "character": 0}}
+    }));
+    assert!(response.is_some());
+}
+
+#[test]
+fn handle_definition_request() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///test.helen", "text": "let x = 1\nlet y = x", "version": 1}
+    }));
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "id": 4, "method": "textDocument/definition",
+        "params": {"textDocument": {"uri": "file:///test.helen"}, "position": {"line": 1, "character": 8}}
+    }));
+    assert!(response.is_some());
+}
+
+#[test]
+fn handle_document_symbol_request() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///test.helen", "text": "fn test() { return 1 }", "version": 1}
+    }));
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "id": 5, "method": "textDocument/documentSymbol",
+        "params": {"textDocument": {"uri": "file:///test.helen"}}
+    }));
+    assert!(response.is_some());
+    let r = response.unwrap();
+    assert!(r["result"].is_array());
+}
+
+#[test]
+fn handle_references_request() {
+    let mut server = HelenLanguageServer::new();
+    server.did_open(&json!({
+        "textDocument": {"uri": "file:///test.helen", "text": "let x = 1\nlet y = x", "version": 1}
+    }));
+    let response = server.handle_message(&json!({
+        "jsonrpc": "2.0", "id": 6, "method": "textDocument/references",
+        "params": {
+            "textDocument": {"uri": "file:///test.helen"},
+            "position": {"line": 0, "character": 4},
+            "context": {"includeDeclaration": true}
+        }
+    }));
+    assert!(response.is_some());
+}
+
+#[test]
+fn keyword_description_returns_some_for_known() {
+    assert!(keyword_description("agent").is_some());
+    assert!(keyword_description("fn").is_some());
+    assert!(keyword_description("let").is_some());
+    assert!(keyword_description("const").is_some());
+}
+
+#[test]
+fn keyword_description_returns_none_for_unknown() {
+    assert!(keyword_description("unknown_keyword").is_none());
+    assert!(keyword_description("xyz").is_none());
+}
+
+#[test]
+fn snippet_has_insert_text() {
+    let snippet = CompletionItem::snippet("agent", "Define an agent", "agent ${1:Name} {\n  $0\n}");
+    let dict = snippet.to_dict();
+    assert!(dict.get("insertText").is_some());
+    assert!(dict.get("insertTextFormat").is_some());
+}
+
+#[test]
+fn completion_item_with_detail() {
+    let mut item = CompletionItem::keyword("agent");
+    item.detail = Some("Define an agent".to_string());
+    let dict = item.to_dict();
+    assert_eq!(dict["detail"], "Define an agent");
+}
+
+#[test]
+fn location_range_properties() {
+    let loc = Location {
+        uri: "file:///test.helen".to_string(),
+        range: Range {
+            start: Position::new(1, 0),
+            end: Position::new(5, 10),
+        },
+    };
+    let dict = loc.to_dict();
+    assert_eq!(dict["uri"], "file:///test.helen");
+    assert_eq!(dict["range"]["start"]["line"], 1);
+    assert_eq!(dict["range"]["end"]["character"], 10);
+}

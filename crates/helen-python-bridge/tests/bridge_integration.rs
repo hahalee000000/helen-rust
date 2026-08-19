@@ -302,3 +302,215 @@ agent ThrowAgent() {
         assert!(err.to_string().contains("boom"), "got: {err}");
     });
 }
+
+// ── Additional bridge tests for coverage ────────────────────────────
+
+#[test]
+fn load_nonexistent_agent_raises() {
+    let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
+    Python::with_gil(|_py| {
+        let result = helen_python_bridge::load_agent(&file, "NonExistentAgent");
+        match result {
+            Err(e) => {
+                let err = e.to_string();
+                assert!(
+                    err.contains("NonExistentAgent") || err.contains("not found"),
+                    "got: {err}"
+                );
+            }
+            Ok(_) => panic!("Expected error for nonexistent agent"),
+        }
+    });
+}
+
+#[test]
+fn load_nonexistent_function_raises() {
+    let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
+    Python::with_gil(|_py| {
+        let result = helen_python_bridge::load_function(&file, "nonexistent_fn");
+        match result {
+            Err(e) => {
+                let err = e.to_string();
+                assert!(
+                    err.contains("nonexistent_fn") || err.contains("not found"),
+                    "got: {err}"
+                );
+            }
+            Ok(_) => panic!("Expected error for nonexistent function"),
+        }
+    });
+}
+
+#[test]
+fn load_from_nonexistent_file_raises() {
+    Python::with_gil(|_py| {
+        let result = helen_python_bridge::load_agent("/nonexistent/path.helen", "Test");
+        match result {
+            Err(e) => {
+                let err = e.to_string();
+                assert!(
+                    err.contains("No such file") || err.contains("not found") || err.contains("cannot"),
+                    "got: {err}"
+                );
+            }
+            Ok(_) => panic!("Expected error for nonexistent file"),
+        }
+    });
+}
+
+#[test]
+fn eval_helen_with_empty_globals() {
+    Python::with_gil(|py| {
+        let globals = PyDict::new(py);
+        let out: i64 = helen_python_bridge::eval_helen(py, "1 + 2", &globals)
+            .unwrap()
+            .extract(py)
+            .unwrap();
+        assert_eq!(out, 3);
+    });
+}
+
+#[test]
+fn eval_helen_with_string_operations() {
+    Python::with_gil(|py| {
+        let globals = PyDict::new(py);
+        let out: String = helen_python_bridge::eval_helen(py, "\"hello\" + \" world\"", &globals)
+            .unwrap()
+            .extract(py)
+            .unwrap();
+        assert_eq!(out, "hello world");
+    });
+}
+
+#[test]
+fn parse_check_valid_program_returns_empty() {
+    let codes = helen_python_bridge::parse_check("fn test(): int { return 42 }").unwrap();
+    assert!(codes.is_empty(), "expected no errors, got: {codes:?}");
+}
+
+#[test]
+fn parse_check_syntax_error_raises() {
+    let err = helen_python_bridge::parse_check("fn { }").unwrap_err();
+    assert!(err.to_string().contains("Failed to parse"), "got: {err}");
+}
+
+#[test]
+fn describe_file_empty_file() {
+    let file = write_temp_helen("empty.helen", "");
+    Python::with_gil(|_py| {
+        let decls = helen_python_bridge::describe_file(&file).unwrap();
+        assert!(decls.is_empty(), "expected no declarations, got: {decls:?}");
+    });
+}
+
+#[test]
+fn describe_file_multiple_agents() {
+    let file = write_temp_helen(
+        "multi.helen",
+        r#"
+agent Agent1() { main { return 1 } }
+agent Agent2() { main { return 2 } }
+agent Agent3() { main { return 3 } }
+"#,
+    );
+    Python::with_gil(|_py| {
+        let decls = helen_python_bridge::describe_file(&file).unwrap();
+        assert_eq!(decls.len(), 3);
+        assert_eq!(decls[0].1, "Agent1");
+        assert_eq!(decls[1].1, "Agent2");
+        assert_eq!(decls[2].1, "Agent3");
+    });
+}
+
+#[test]
+fn agent_with_string_return() {
+    let file = write_temp_helen(
+        "string_agent.helen",
+        r#"
+agent StringAgent(msg: str) {
+    main {
+        return msg
+    }
+}
+"#,
+    );
+    Python::with_gil(|py| {
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "StringAgent").unwrap()).unwrap();
+        let out: String = a
+            .bind(py)
+            .as_any()
+            .call1(("hello world",))
+            .unwrap()
+            .extract()
+            .unwrap();
+        assert_eq!(out, "hello world");
+    });
+}
+
+#[test]
+fn agent_with_boolean_return() {
+    let file = write_temp_helen(
+        "bool_agent.helen",
+        r#"
+agent BoolAgent(flag: bool) {
+    main {
+        return flag
+    }
+}
+"#,
+    );
+    Python::with_gil(|py| {
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "BoolAgent").unwrap()).unwrap();
+        let out: bool = a
+            .bind(py)
+            .as_any()
+            .call1((true,))
+            .unwrap()
+            .extract()
+            .unwrap();
+        assert!(out);
+    });
+}
+
+#[test]
+fn function_with_multiple_parameters() {
+    let file = write_temp_helen(
+        "multi_param.helen",
+        r#"
+fn add_three(a: int, b: int, c: int): int {
+    return a + b + c
+}
+"#,
+    );
+    Python::with_gil(|py| {
+        let f = Py::new(py, helen_python_bridge::load_function(&file, "add_three").unwrap()).unwrap();
+        let out: i64 = f
+            .bind(py)
+            .as_any()
+            .call1((10i32, 20i32, 30i32))
+            .unwrap()
+            .extract()
+            .unwrap();
+        assert_eq!(out, 60);
+    });
+}
+
+#[test]
+fn agent_with_description() {
+    let file = write_temp_helen(
+        "desc_agent.helen",
+        r#"
+agent DescribedAgent() {
+    description "This is a test agent"
+    main {
+        return 42
+    }
+}
+"#,
+    );
+    Python::with_gil(|_py| {
+        let decls = helen_python_bridge::describe_file(&file).unwrap();
+        assert_eq!(decls.len(), 1);
+        assert_eq!(decls[0].2, "This is a test agent");
+    });
+}
