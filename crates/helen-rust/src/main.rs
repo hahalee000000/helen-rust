@@ -111,63 +111,6 @@ fn run_mode(path: &str, mock_llm: bool) {
 // M12: real CLI (run / check / test / repl / doc / coverage / provider)
 // ---------------------------------------------------------------------------
 
-/// `helen <file> [args...]` — run a program (port of `cli.__main__.run_command`).
-/// Exit codes: 0 success, 1 file-not-found/syntax, 2 semantic, 3 runtime.
-fn run_command(file: &str) -> i32 {
-    let source_path = std::path::Path::new(file);
-    if !source_path.exists() {
-        eprintln!("Error: file not found: {file}");
-        return 1;
-    }
-    let Ok(source_text) = std::fs::read_to_string(source_path) else {
-        eprintln!("Error: cannot read {file}");
-        return 1;
-    };
-    let source_lines: Vec<String> = source_text.lines().map(|s| s.to_string()).collect();
-
-    // Lex
-    let mut scanner = Scanner::new(&source_text, file);
-    let tokens = scanner.scan_all();
-
-    // Parse
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse();
-    let parse_errors = parser.errors();
-    if !parse_errors.is_empty() {
-        for e in parse_errors {
-            let diag =
-                helen_semantic::Diagnostic::new(e.code(), e.message().to_string(), Some(e.span()));
-            eprintln!("{}", formatter::format_error(&diag, Some(&source_lines)));
-        }
-        return 1;
-    }
-
-    // Analyze
-    let mut analyzer =
-        helen_semantic::SemanticAnalyzer::new(helen_semantic::ErrorReporter::new(), ".");
-    analyzer.analyze(&program);
-    if analyzer.errors.has_errors() {
-        for d in analyzer.errors.errors() {
-            eprintln!("{}", formatter::format_error(d, Some(&source_lines)));
-        }
-        return 2;
-    }
-
-    // Interpret
-    let mut interp = Interpreter::new();
-    interp.set_source_file(file);
-    let result = interp.interpret(&program);
-    let stdout = interp.stdout.lock().unwrap().clone();
-    print!("{stdout}");
-    match result {
-        Ok(_) => 0,
-        Err(e) => {
-            eprintln!("RuntimeError: {}", e.to_display_string());
-            3
-        }
-    }
-}
-
 /// `helen check <file>` — frontend validation only (port of `check_command`).
 /// Exit codes: 0 clean, 1 file-not-found/syntax, 2 semantic.
 fn check_command(file: &str) -> i32 {
@@ -705,6 +648,30 @@ fn main() {
             server.run();
             std::process::exit(0);
         }
+        "init" => {
+            let code = helen_rust::cli_commands::init_command();
+            std::process::exit(code);
+        }
+        "quality" => {
+            let code = helen_rust::cli_commands::quality_command(&argv[1..]);
+            std::process::exit(code);
+        }
+        "watch" => {
+            if argv.len() < 2 {
+                eprintln!("Error: 'watch' requires a file argument");
+                std::process::exit(1);
+            }
+            let code = helen_rust::cli_commands::watch_command(&argv[1]);
+            std::process::exit(code);
+        }
+        "template" => {
+            let code = helen_rust::cli_commands::template_command(&argv[1..]);
+            std::process::exit(code);
+        }
+        "replay" => {
+            let code = helen_rust::cli_commands::replay_command(&argv[1..]);
+            std::process::exit(code);
+        }
         "agent" => {
             let code = agent_command();
             std::process::exit(code);
@@ -714,7 +681,7 @@ fn main() {
             if preflight_config_check().is_err() {
                 std::process::exit(1);
             }
-            let code = run_command(first);
+            let code = helen_rust::cli_commands::run_command(first);
             std::process::exit(code);
         }
     }

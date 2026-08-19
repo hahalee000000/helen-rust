@@ -1,0 +1,38 @@
+// ═════════════════════════════════════════════════════════════════════
+// Template: simple_agent
+// Description: 最简单的 agent 调用模式
+// Use case: 单个 agent 处理单个任务
+// Key principle: 通过参数显式传递上下文
+// ═════════════════════════════════════════════════════════════════════
+
+// ── Agent 定义 ───────────────────────────────────────────────────────
+import std.core.*
+agent Worker(task: str) {
+    description "Process a single task"
+    // model "gpt-4"           // 可选：指定模型
+    // temperature 0.7         // 可选：控制随机性
+    // max-turns 1             // 可选：多轮对话次数
+
+    main {
+        // 所有需要的信息都通过参数传入
+        let result = llm act "Process this input: " + task
+        return result
+    }
+}
+
+// ── 调用 ─────────────────────────────────────────────────────────────
+main {
+    let task_data = "Hello, Helen!"
+
+    // 显式传递参数
+    let result = Worker(task_data)
+
+    print("Result: " + result)
+}
+
+// ── 💡 关键点 ────────────────────────────────────────────────────────
+// 1. agent 参数是唯一的上下文传递方式
+// 2. 模块级 let 在 agent main 中不可见（隔离设计）
+// 3. 如需多个参数：agent Worker(task: str, config: dict, user: User)
+// 4. 如需只读共享：用 const（自动可见）
+// 5. 如需跨 agent 共享：用 shared let 或 shared store

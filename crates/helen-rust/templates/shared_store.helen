@@ -1,0 +1,70 @@
+// ═════════════════════════════════════════════════════════════════════
+// Template: shared_store
+// Description: SharedStore 跨 agent 数据交换模式
+// Use case: 多个 agent 需要共享和修改同一份数据
+// Key principle: 显式共享 > 隐式继承
+// ═════════════════════════════════════════════════════════════════════
+
+// ── 共享数据存储 ─────────────────────────────────────────────────────
+import std.core.*
+import std.str.*
+shared store DataStore {
+    let results: dict = {}
+    let counter: int = 0
+
+    fn produce(key: str, value: str) {
+        results[key] = value
+        counter = counter + 1
+    }
+
+    fn consume(key: str): str { return results[key] }
+    fn count(): int { return counter }
+    fn all(): dict { return results }
+}
+
+// ── Producer Agent ───────────────────────────────────────────────────
+agent Producer(key: str, value: str) {
+    description "Write data to shared store"
+
+    main {
+        // 通过方法访问 SharedStore
+        DataStore.produce(key, value)
+        print("Produced: " + key + " = " + value)
+    }
+}
+
+// ── Consumer Agent ───────────────────────────────────────────────────
+agent Consumer(key: str, ch: Channel) {
+    description "Read data from shared store"
+
+    main {
+        // 读取 SharedStore
+        let value = DataStore.consume(key)
+        ch.send("Consumed: " + key + " = " + value)
+    }
+}
+
+// ── 调用 ─────────────────────────────────────────────────────────────
+main {
+    // Producer 写入数据
+    Producer("user", "Alice")
+    Producer("task", "Analyze logs")
+
+    print("Counter: " + str(DataStore.count()))
+
+    // Consumer 读取数据
+    let mailbox = spawn Consumer("user")
+    let result = mailbox.receive()
+    print(result)
+
+    // 查看所有数据
+    print("All results: " + str(DataStore.all()))
+}
+
+// ── 💡 关键点 ────────────────────────────────────────────────────────
+// 1. SharedStore 是显式的跨 agent 共享机制
+// 2. 用 shared store 声明（不是 shared let）
+// 3. 支持任意类型（dict、list、自定义类型）
+// 4. 线程安全（内部用 RLock 保护）
+// 5. 下划线前缀字段是私有的：_internal 不能从 agent 访问
+// 6. 适用于：多 agent 协作、数据聚合、状态管理

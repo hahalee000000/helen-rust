@@ -1,0 +1,51 @@
+// ═════════════════════════════════════════════════════════════════════
+// Template: context_object
+// Description: Context 字典聚合参数模式
+// Use case: agent 需要多个相关参数时，用 dict 聚合简化
+// Key principle: 减少参数列表长度，保持显式传递
+// ═════════════════════════════════════════════════════════════════════
+
+// ── Agent 接收 Context 字典 ──────────────────────────────────────────
+import std.core.*
+import std.transcript.*
+agent Processor(ctx: dict) {
+    description "Process with aggregated context"
+
+    main {
+        // 通过 ctx["key"] 访问各个字段
+        let user_name = ctx["user_name"]
+        let user_id = ctx["user_id"]
+        let timeout = ctx["timeout"]
+
+        let user_info = "User: " + user_name + " (ID: " + str(user_id) + ")"
+        let config_info = "Timeout: " + str(timeout) + "s"
+
+        let result = llm act "Process for " + user_info + ", " + config_info
+
+        return result
+    }
+}
+
+// ── 调用 ─────────────────────────────────────────────────────────────
+main {
+    // 构建 Context 字典
+    let ctx = {
+        "user_name": "Alice",
+        "user_id": 42,
+        "timeout": 30,
+        "session_id": get_session_id()
+    }
+
+    // 一个参数传递所有上下文
+    let result = Processor(ctx)
+
+    print("Result: " + result)
+}
+
+// ── 💡 关键点 ────────────────────────────────────────────────────────
+// 1. dict 聚合相关参数，减少参数列表长度
+// 2. 仍然是显式传递（不违反隔离原则）
+// 3. 适用于：参数超过 3-4 个的场景
+// 4. dict 可序列化，便于跨 agent/跨进程传递
+// 5. 如需强类型，定义 struct（详见 helen-syntax skill）
+// 6. 与 shared store 的区别：dict 是只读快照，shared store 是可变的

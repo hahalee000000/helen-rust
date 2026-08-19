@@ -1,0 +1,67 @@
+// ═════════════════════════════════════════════════════════════════════
+// Template: pipeline
+// Description: Agent 管道模式（顺序处理）
+// Use case: 多个 agent 顺序处理，前一个的输出是后一个的输入
+// Key principle: 显式数据流，每一步都清晰可见
+// ═════════════════════════════════════════════════════════════════════
+
+// ── 管道中的 Agent ───────────────────────────────────────────────────
+agent Step1_Fetch(url: str) {
+    description "Fetch data from URL"
+    main {
+        let data = llm act "Fetch data from: " + url
+        return data
+    }
+}
+
+agent Step2_Parse(data: str) {
+    description "Parse raw data"
+    main {
+        let parsed = llm act "Parse this data: " + data
+        return parsed
+    }
+}
+
+agent Step3_Analyze(parsed: str) {
+    description "Analyze parsed data"
+    main {
+        let analysis = llm act "Analyze: " + parsed
+        return analysis
+    }
+}
+
+agent Step4_Report(analysis: str) {
+    description "Generate report"
+    main {
+        let report = llm act "Generate report from: " + analysis
+        return report
+    }
+}
+
+// ── 管道执行 ─────────────────────────────────────────────────────────
+main {
+    let url = "https://api.example.com/data"
+
+    // 顺序执行，每一步的输出作为下一步的输入
+    let data = Step1_Fetch(url)
+    let parsed = Step2_Parse(data)
+    let analysis = Step3_Analyze(parsed)
+    let report = Step4_Report(analysis)
+
+    print("Final report: " + report)
+}
+
+// ── 💡 关键点 ────────────────────────────────────────────────────────
+// 1. 每一步都是显式的，数据流清晰可见
+// 2. 每一步都可以独立测试和调试
+// 3. 可以插入条件分支：
+//      if need_more_processing {
+//          analysis = Step3_Extra(analysis)
+//      }
+// 4. 可以插入错误处理：
+//      try {
+//          data = Step1_Fetch(url)
+//      } catch (e) {
+//          data = fallback_data
+//      }
+// 5. 如需并行，用 spawn + Channel（见 spawn_channel 模板）

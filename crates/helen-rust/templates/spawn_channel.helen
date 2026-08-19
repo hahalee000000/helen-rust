@@ -1,0 +1,45 @@
+// ═════════════════════════════════════════════════════════════════════
+// Template: spawn_channel
+// Description: spawn + Channel 基础并发模式
+// Use case: 后台执行 agent，通过 Channel 接收结果
+// Key principle: spawn 创建独立运行时，必须显式传递所有上下文
+// ═════════════════════════════════════════════════════════════════════
+
+// ── Worker Agent ─────────────────────────────────────────────────────
+// 注意：最后一个参数必须是 Channel（spawn 自动注入）
+import std.core.*
+agent Worker(task: str, ch: Channel) {
+    description "Background worker that reports results via Channel"
+
+    main {
+        // 模拟耗时工作
+        let result = llm act "Analyze: " + task
+
+        // 通过 Channel 发送结果
+        ch.send(result)
+    }
+}
+
+// ── 调用 ─────────────────────────────────────────────────────────────
+main {
+    // spawn 立即返回 Channel，不阻塞
+    let mailbox = spawn Worker("task-1")
+
+    print("Worker started, doing other work...")
+
+    // 阻塞等待结果
+    let result = mailbox.receive()
+
+    print("Worker result: " + result)
+}
+
+// ── 💡 关键点 ────────────────────────────────────────────────────────
+// 1. spawn 创建的 agent 运行在独立的 Interpreter 实例中
+// 2. 独立 transcript、独立 working memory、独立 session_id
+// 3. 所有上下文必须通过参数传递
+// 4. 结果通过 Channel 返回（双向通信）
+// 5. 多个 spawn 可以并行：
+//      let m1 = spawn Worker("task-1")
+//      let m2 = spawn Worker("task-2")
+//      let r1 = m1.receive()
+//      let r2 = m2.receive()
