@@ -347,6 +347,19 @@ fn guess_mime_from_url(url: &str) -> Option<String> {
     mime_guess::from_path(path).first().map(|m| m.to_string())
 }
 
+/// Short deterministic hash (Python `hashlib.md5(prompt.encode()).hexdigest()[:8]`).
+fn simple_hash(s: &str) -> String {
+    let mut ctx = md5::Md5::new();
+    use md5::Digest;
+    ctx.update(s.as_bytes());
+    let out = ctx.finalize();
+    let mut hex = String::with_capacity(8);
+    for b in out.iter().take(4) {
+        hex.push_str(&format!("{:02x}", b));
+    }
+    hex
+}
+
 fn read_media_as_base64(part: &MediaPart) -> Result<String, ExceptionValue> {
     match part.source.as_str() {
         "base64" => Ok(part.content.clone()),
@@ -416,11 +429,30 @@ fn convert_to_openai(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
             )))))
         }
         "video" => {
-            // Video falls back to text placeholder
-            let text = format!("[视频: {}]", if part.source == "url" { &part.content } else { &part.media_type });
+            // Python mirrors: save video to ~/.helen/generated_media/ and
+            // return the saved path as a text part (OpenAI API has no video input).
+            let b64 = read_media_as_base64(part)?;
+            let bytes = base64::decode(&b64).map_err(|e| {
+                ExceptionValue::new("ValueError", format!("Invalid base64 video data: {}", e), None)
+            })?;
+            let output_dir = std::env::var("HOME")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|_| std::env::temp_dir())
+                .join(".helen")
+                .join("generated_media");
+            std::fs::create_dir_all(&output_dir)
+                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to create media dir: {}", e), None))?;
+            let ext = match part.mime.as_str() {
+                "video/mp4" => "mp4",
+                _ => "mp4",
+            };
+            let filename = format!("video_{}.{}", simple_hash(&part.content), ext);
+            let output_path = output_dir.join(&filename);
+            std::fs::write(&output_path, bytes)
+                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to save video: {}", e), None))?;
             let mut map = HashMap::new();
             map.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("text")));
-            map.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(text.as_str())));
+            map.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(output_path.to_string_lossy().as_ref())));
             Ok(Some(Value::Map(Rc::new(std::cell::RefCell::new(
                 map.into_iter().collect(),
             )))))
