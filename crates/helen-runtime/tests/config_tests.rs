@@ -2,7 +2,6 @@
 
 use helen_runtime::config::*;
 use std::fs;
-use std::path::PathBuf;
 
 // ── default_llm_config tests ────────────────────────────────────────────
 

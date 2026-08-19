@@ -93,8 +93,10 @@ fn mock_runtime_route_none() {
 
 #[test]
 fn mock_runtime_route_fail() {
-    let mut m = MockLlmRuntime::default();
-    m.route_fail = Some(ExceptionValue::new("Error", "route failed".into(), None));
+    let m = MockLlmRuntime {
+        route_fail: Some(ExceptionValue::new("Error", "route failed".into(), None)),
+        ..Default::default()
+    };
     let result = m.route("test", &["a".into()], None);
     assert!(result.is_err());
 }
@@ -129,8 +131,10 @@ fn mock_runtime_act_none_returns_empty() {
 
 #[test]
 fn mock_runtime_act_fail() {
-    let mut m = MockLlmRuntime::default();
-    m.act_fail = Some(ExceptionValue::new("Error", "act failed".into(), None));
+    let m = MockLlmRuntime {
+        act_fail: Some(ExceptionValue::new("Error", "act failed".into(), None)),
+        ..Default::default()
+    };
     let result = m.act("prompt", &[], None, 0.7, 1, None, &[], None, None, false, None);
     assert!(result.is_err());
 }

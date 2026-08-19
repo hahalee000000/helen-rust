@@ -240,7 +240,7 @@ fn test_security_llm_act_low() {
 // Session recording / replay (v1.40) — record_session / replay_session
 // ---------------------------------------------------------------------------
 
-use helen_interpreter::llm_runtime::{LlmRuntime, MockLlmRuntime, LlmResponse};
+use helen_interpreter::llm_runtime::{LlmRuntime, MockLlmRuntime};
 
 #[test]
 fn test_record_replay_roundtrip() {

@@ -1214,8 +1214,8 @@ mod tests {
         let m = message_from_dict(&d);
         assert_eq!(m.role, "user");
         assert_eq!(m.priority, 50);
-        assert_eq!(m.compressed, false);
-        assert_eq!(m.pinned, false);
+        assert!(!m.compressed);
+        assert!(!m.pinned);
         assert_eq!(m.uuid, "");
     }
 

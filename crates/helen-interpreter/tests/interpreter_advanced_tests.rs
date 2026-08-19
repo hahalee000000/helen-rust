@@ -312,7 +312,7 @@ fn stdlib_len() {
 
 #[test]
 fn stdlib_range() {
-    let (r, out) = run_src("import std.core.*\nmain {\n print(range(3))\n}");
+    let (r, _out) = run_src("import std.core.*\nmain {\n print(range(3))\n}");
     assert!(r.is_ok());
 }
 
@@ -324,7 +324,7 @@ fn stdlib_abs() {
 
 #[test]
 fn stdlib_type() {
-    let (r, out) = run_src("import std.core.*\nmain {\n print(type(42))\n}");
+    let (r, _out) = run_src("import std.core.*\nmain {\n print(type(42))\n}");
     assert!(r.is_ok());
 }
 

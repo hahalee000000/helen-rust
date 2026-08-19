@@ -1,9 +1,7 @@
 //! Tests for tools module — tool dispatch and schemas.
 
 use helen_runtime::tools::*;
-use serde_json::{json, Value};
-use std::rc::Rc;
-use std::cell::RefCell;
+use serde_json::json;
 
 // ── all_tools ───────────────────────────────────────────────────────────
 
@@ -149,7 +147,7 @@ fn dispatch_tool_unknown() {
 fn tools_dispatch_read_file() {
     let args = json!({"path": "/nonexistent/file.txt"});
     let result = tools_dispatch("read_file", &args);
-    assert!(result.is_err() || result.as_ref().ok().map_or(false, |s| s.contains("error")));
+    assert!(result.is_err() || result.as_ref().is_ok_and(|s| s.contains("error")));
 }
 
 #[test]
@@ -166,9 +164,8 @@ fn tools_dispatch_unknown() {
     let args = json!({});
     let result = tools_dispatch("nonexistent", &args);
     // Unknown tools may return Ok with error message or Err
-    match result {
-        Ok(msg) => assert!(msg.contains("error") || msg.contains("Error") || msg.contains("Unknown") || msg.contains("unknown") || msg.contains("not found")),
-        Err(_) => {} // Expected
+    if let Ok(msg) = result {
+        assert!(msg.contains("error") || msg.contains("Error") || msg.contains("Unknown") || msg.contains("unknown") || msg.contains("not found"));
     }
 }
 
@@ -186,7 +183,7 @@ fn ensure_mcp_initialized_no_panic() {
 #[test]
 fn get_mcp_tool_schemas_no_panic() {
     let schemas = get_mcp_tool_schemas();
-    assert!(schemas.len() >= 0);
+    let _ = schemas.len();
 }
 
 // ── shutdown_mcp ────────────────────────────────────────────────────────

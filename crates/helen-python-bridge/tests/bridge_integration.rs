@@ -4,7 +4,6 @@
 //! Python interpreter. The full Python-level DoD suite lives in
 //! `tests/test_bridge_python.py` (run after `maturin develop`).
 
-use helen_python_bridge::{load_agent, load_function, describe_file, parse_check, eval_helen};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple};
 

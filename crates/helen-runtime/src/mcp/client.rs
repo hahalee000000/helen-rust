@@ -319,6 +319,7 @@ impl Drop for MCPClient {
 mod tests {
     use super::*;
 
+    #[allow(dead_code)]
     fn mock_cmd() -> String {
         // The fixture mock server is a Python script (same as Python's tests).
         let fixture = concat!(

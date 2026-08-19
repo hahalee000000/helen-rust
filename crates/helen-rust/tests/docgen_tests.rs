@@ -1,12 +1,6 @@
 //! Tests for docgen module — documentation generation.
 
 use helen_rust::docgen::*;
-use helen_core::ast::*;
-use helen_core::source::SourceSpan;
-
-fn dummy_span() -> SourceSpan {
-    SourceSpan::new("test.helen", 1, 1, 1, 10)
-}
 
 // ── AgentDoc tests ──────────────────────────────────────────────────────
 

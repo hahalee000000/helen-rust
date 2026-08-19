@@ -27,17 +27,6 @@ fn run_src(src: &str) -> (Result<Option<Value>, ExceptionValue>, String) {
     (r, out)
 }
 
-fn run_err(src: &str) -> ExceptionValue {
-    match run_src(src).0 {
-        Err(e) => e,
-        Ok(v) => panic!("expected error, got {:?}", v),
-    }
-}
-
-fn err_class(e: &ExceptionValue) -> String {
-    e.class_name.clone()
-}
-
 // ── Arithmetic ──────────────────────────────────────────────────────────
 
 #[test]

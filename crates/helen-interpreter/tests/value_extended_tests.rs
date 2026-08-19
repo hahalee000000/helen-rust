@@ -27,10 +27,10 @@ fn clone_deep_int() {
 
 #[test]
 fn clone_deep_float() {
-    let v = Value::Float(3.14);
+    let v = Value::Float(1.234);
     let cloned = v.clone_deep();
     match cloned {
-        Value::Float(f) => assert_eq!(f, 3.14),
+        Value::Float(f) => assert_eq!(f, 1.234),
         _ => panic!("expected Float"),
     }
 }
@@ -257,7 +257,7 @@ fn as_bigint_none_for_null() {
 
 #[test]
 fn as_bigint_none_for_float() {
-    let v = Value::Float(3.14);
+    let v = Value::Float(1.234);
     assert!(v.as_bigint().is_none());
 }
 

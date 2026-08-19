@@ -194,7 +194,7 @@ fn resolver_file_registry() {
     assert!(reg.is_some());
     let reg = reg.unwrap();
     assert_eq!(reg.functions.len(), 2);
-    assert!(reg.data.len() >= 1); // const X
+    assert!(!reg.data.is_empty()); // const X
 }
 
 #[test]

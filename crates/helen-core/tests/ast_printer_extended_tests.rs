@@ -56,9 +56,10 @@ fn test_print_literal_int() {
 #[test]
 fn test_print_literal_float() {
     let printer = AstPrinter::new();
-    let expr = make_lit(LiteralValue::Float(3.14));
+    // Use 2.718 instead of 3.14 to avoid clippy::approx_constant
+    let expr = make_lit(LiteralValue::Float(1.234));
     let result = printer.print_expr(&expr);
-    assert!(result.contains("3.14"));
+    assert!(result.contains("1.234"));
 }
 
 #[test]

@@ -3,7 +3,6 @@
 use helen_interpreter::interpreter::Interpreter;
 use helen_interpreter::transcript::*;
 use helen_interpreter::value::Value;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 fn make_interp() -> Interpreter {
@@ -317,7 +316,7 @@ fn test_invocation_path_empty_string() {
 
 #[test]
 fn test_format_context_stats_empty_history() {
-    let mut interp = make_interp();
+    let interp = make_interp();
     let s = interp.format_context_stats();
     // Python-parity box header + 0 tokens.
     assert!(s.contains("Context Usage Statistics"), "{s}");
@@ -329,7 +328,7 @@ fn test_format_context_stats_empty_history() {
 fn test_format_context_stats_after_llm_call() {
     // Seed history directly (llm calls recorded by visit_llm_act; here we
     // simulate the recorded entries).
-    let mut interp = make_interp();
+    let interp = make_interp();
     {
         let mut h = interp.history.borrow_mut();
         h.push(serde_json::json!({"role": "user", "content": "hello world"}));
@@ -344,7 +343,6 @@ fn test_format_context_stats_after_llm_call() {
 
 #[test]
 fn test_transcript_log_env_var() {
-    use std::io::Write;
     let dir = std::env::temp_dir().join(format!("helen_test_transcript_log_{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
     let log_path = dir.join("custom_transcript.jsonl");

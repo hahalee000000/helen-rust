@@ -69,6 +69,7 @@ fn drive_exports(module: &str) -> Vec<(String, bool, usize, usize)> {
             let mut err = 0usize;
             for args in generic_args() {
                 let mut interp = Interpreter::new();
+                #[allow(clippy::result_large_err)]
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     (e.func)(&mut interp, &args)
                 }));

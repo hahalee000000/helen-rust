@@ -5,6 +5,8 @@
 //! Python reference implementation; the Rust pipeline must reproduce them.
 //! Do not edit by hand — regenerate with: python3 scripts/gen-tier-c.py
 
+#![allow(non_snake_case)]
+
 use helen_core::ast_printer::AstPrinter;
 use helen_core::lexer::Scanner;
 use helen_parser::Parser;

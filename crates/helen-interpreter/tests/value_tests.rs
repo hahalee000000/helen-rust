@@ -28,7 +28,7 @@ fn test_truthy_int() {
 
 #[test]
 fn test_truthy_float() {
-    assert!(Value::Float(3.14).truthy());
+    assert!(Value::Float(1.234).truthy());
     assert!(Value::Float(-0.5).truthy());
     assert!(!Value::Float(0.0).truthy());
 }
@@ -84,7 +84,7 @@ fn test_type_name_int() {
 
 #[test]
 fn test_type_name_float() {
-    assert_eq!(Value::Float(3.14).type_name(), "float");
+    assert_eq!(Value::Float(1.234).type_name(), "float");
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn test_display_int() {
 
 #[test]
 fn test_display_float() {
-    assert_eq!(Value::Float(3.14).to_display(true), "3.14");
+    assert_eq!(Value::Float(1.234).to_display(true), "1.234");
     assert_eq!(Value::Float(0.0).to_display(true), "0.0");
 }
 

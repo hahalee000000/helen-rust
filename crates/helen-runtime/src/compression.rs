@@ -1196,14 +1196,14 @@ mod tests {
         // system + 8 recent conversation turns
         assert!(out.len() < history.len());
         assert_eq!(out[0].role, "system");
-        assert!(out.len() >= 1 + SNIP_KEEP_RECENT);
+        assert!(out.len() > SNIP_KEEP_RECENT);
     }
 
     #[test]
     fn microcompact_clears_old_tool_results() {
         let mut history = Vec::new();
         for i in 0..10 {
-            history.push(tool_msg(format!("result {i}"), &format!("t{i}"), false));
+            history.push(tool_msg(format!("result {i}"), format!("t{i}"), false));
         }
         let out = microcompact(&history, MICROCOMPACT_KEEP_RECENT);
         let cleared = out.iter().filter(|m| m.compressed).count();
@@ -1267,13 +1267,13 @@ mod tests {
     fn cache_aware_preserves_cache_zone() {
         let mut history = Vec::new();
         for i in 0..10 {
-            history.push(tool_msg(&format!("r{i}"), &format!("t{i}"), false));
+            history.push(tool_msg(format!("r{i}"), format!("t{i}"), false));
         }
         let c = CacheAwareCompressor::new(Some(0.3), None, None);
         let (out, stats) = c.compress(&history, 50, Some(0.99));
         assert!(stats.cache_zone_preserved);
         // First cache_zone messages unchanged (not compressed)
-        let cache_zone_size = ((10.0 * 0.3) as usize).max(5).min(8);
+        let cache_zone_size = ((10.0 * 0.3) as usize).clamp(5, 8);
         for m in out.iter().take(cache_zone_size) {
             assert!(!m.compressed);
         }

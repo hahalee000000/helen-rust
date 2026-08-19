@@ -103,8 +103,6 @@ fn parse_unary_minus() {
     parse_ok("main {\n -5\n}");
 }
 
-#[test]
-
 // ── Complex expressions ─────────────────────────────────────────────────
 
 #[test]
@@ -133,8 +131,6 @@ fn parse_list_literal() {
 fn parse_list_index() {
     parse_ok("main {\n let xs = [1, 2, 3]\n xs[0]\n}");
 }
-
-#[test]
 
 #[test]
 fn parse_list_negative_index() {
@@ -361,8 +357,6 @@ main { "done" }
 fn parse_import_star() {
     parse_ok("import std.core.*\nmain {\n 1\n}");
 }
-
-#[test]
 
 // ── Complex nested expressions ──────────────────────────────────────────
 

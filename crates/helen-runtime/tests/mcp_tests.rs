@@ -276,26 +276,23 @@ fn tools_ensure_mcp_auto_discovers_from_cwd() {
 
     let orig_cwd = std::env::current_dir().unwrap();
     std::env::set_current_dir(&dir).unwrap();
-    let result = (|| {
-        // `get_tool_schemas` triggers `ensure_mcp_initialized` which reads
-        // cwd/.mcp.json and lazily starts the mock server.
-        let schemas = helen_runtime::get_tool_schemas(&["echo".to_string()]);
-        let names: Vec<&str> = schemas
-            .iter()
-            .filter_map(|s| s["function"]["name"].as_str())
-            .collect();
-        assert!(
-            names.contains(&"echo"),
-            "MCP auto-discovery failed: {names:?}"
-        );
+    // `get_tool_schemas` triggers `ensure_mcp_initialized` which reads
+    // cwd/.mcp.json and lazily starts the mock server.
+    let schemas = helen_runtime::get_tool_schemas(&["echo".to_string()]);
+    let names: Vec<&str> = schemas
+        .iter()
+        .filter_map(|s| s["function"]["name"].as_str())
+        .collect();
+    assert!(
+        names.contains(&"echo"),
+        "MCP auto-discovery failed: {names:?}"
+    );
 
-        // Dispatch also auto-initializes (Python `dispatch_mcp_tool`).
-        let result_json = helen_runtime::dispatch_tool("add", &json!({"a": 2, "b": 3}));
-        let result: Value = serde_json::from_str(&result_json).unwrap();
-        assert_eq!(result["result"], 5);
-    })();
+    // Dispatch also auto-initializes (Python `dispatch_mcp_tool`).
+    let result_json = helen_runtime::dispatch_tool("add", &json!({"a": 2, "b": 3}));
+    let result: Value = serde_json::from_str(&result_json).unwrap();
+    assert_eq!(result["result"], 5);
     std::env::set_current_dir(&orig_cwd).unwrap();
     helen_runtime::shutdown_mcp();
-    result;
     let _ = &config_path;
 }

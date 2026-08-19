@@ -94,7 +94,7 @@ fn eval_sqrt() {
 fn eval_sqrt_non_perfect() {
     let result = eval_simple("sqrt(2)").unwrap();
     let v: f64 = result.parse().unwrap();
-    assert!((v - 1.41421356).abs() < 0.001);
+    assert!((v - std::f64::consts::SQRT_2).abs() < 0.001);
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn eval_exp_zero() {
 fn eval_exp_one() {
     let result = eval_simple("exp(1)").unwrap();
     let v: f64 = result.parse().unwrap();
-    assert!((v - 2.718281828).abs() < 0.01);
+    assert!((v - std::f64::consts::E).abs() < 0.01);
 }
 
 #[test]

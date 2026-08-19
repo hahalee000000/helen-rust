@@ -787,6 +787,7 @@ mod m3_tests {
     /// Like `run_src_with_runtime` but returns the mock afterwards so tests
     /// can inspect its route/act history. The mock's history lives in `Rc`,
     /// so the caller's clone sees the recorded calls.
+    #[allow(clippy::arc_with_non_send_sync)]
     fn run_src_with_mock(
         src: &str,
         mock: MockLlmRuntime,
@@ -1023,6 +1024,7 @@ mod m3_tests {
     fn llm_if_routes_to_correct_branch() {
         // Python `test_route_to_correct_branch`: MockLLMRuntime(route_return="query").
         let mock = MockLlmRuntime::new(Some("query".to_string()), None);
+        #[allow(clippy::arc_with_non_send_sync)]
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify input\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
             std::sync::Arc::new(mock),
@@ -1035,6 +1037,7 @@ mod m3_tests {
     fn llm_if_defaults_on_unknown_branch() {
         // Python `test_route_to_default_on_unknown`: route_return="unknown_branch".
         let mock = MockLlmRuntime::new(Some("unknown_branch".to_string()), None);
+        #[allow(clippy::arc_with_non_send_sync)]
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
             std::sync::Arc::new(mock),
@@ -1047,6 +1050,7 @@ mod m3_tests {
     fn llm_if_defaults_on_none() {
         // Python `test_route_to_default_on_parse_failure`: route returns None.
         let mock = MockLlmRuntime::new(None, None);
+        #[allow(clippy::arc_with_non_send_sync)]
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(\"Q\") } default { print(\"D\") } }\n",
             std::sync::Arc::new(mock),
@@ -1075,6 +1079,7 @@ mod m3_tests {
     fn llm_act_returns_canned_text() {
         // Python `act_return` string -> LLMResponse(text=...).
         let mock = MockLlmRuntime::with_act_text("ok");
+        #[allow(clippy::arc_with_non_send_sync)]
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nprint(llm act \"hello\")\n",
             std::sync::Arc::new(mock),
@@ -1135,9 +1140,11 @@ print(A())
         let mut mock = MockLlmRuntime::new(None, None);
         mock.route_fail = Some(ExceptionValue::new(
             "RuntimeError",
+    #[allow(clippy::arc_with_non_send_sync)]
             "timeout".to_string(),
             None,
         ));
+        #[allow(clippy::arc_with_non_send_sync)]
         let (r, out) = run_src_with_runtime(
             "import std.core.*\nllm if \"classify\" { branch \"query\" { print(1) } default { print(42) } }\n",
             std::sync::Arc::new(mock),
@@ -1146,6 +1153,7 @@ print(A())
         assert_eq!(out, "42\n");
     }
 
+    #[allow(clippy::arc_with_non_send_sync)]
     #[test]
     fn llm_if_routes_to_middle_branch() {
         // Python `test_multiple_branches`: any branch can be selected.
@@ -1255,6 +1263,7 @@ print(A())
     // ------------------------------------------------------------------
 
     #[test]
+    #[allow(clippy::arc_with_non_send_sync)]
     fn llm_act_streaming_dispatches_chunk_and_complete() {
         // on_chunk receives the full text (one content event from the
         // default act_stream); on_complete() fires with no args; the
@@ -1267,6 +1276,7 @@ print(A())
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "C:story\nDONE\nRET:story\n");
     }
+    #[allow(clippy::arc_with_non_send_sync)]
 
     #[test]
     fn llm_act_streaming_chunk_false_interrupts() {
@@ -1280,6 +1290,7 @@ print(A())
         assert!(r.is_ok(), "{r:?}");
         assert_eq!(out, "C:story\nRET:story\n");
     }
+    #[allow(clippy::arc_with_non_send_sync)]
 
     #[test]
     fn llm_act_streaming_empty_text_returns_empty_string() {

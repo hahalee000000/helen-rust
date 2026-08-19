@@ -151,11 +151,11 @@ fn test_media_base64_creation() {
     assert!(matches!(value, Value::MediaPart(_)));
     
     // Check is_media
-    let is_media = media_is_media(&mut interp, &[value.clone()]);
+    let is_media = media_is_media(&mut interp, std::slice::from_ref(&value));
     assert_eq!(is_media.unwrap(), Value::Bool(true));
     
     // Check media_type
-    let media_type = media_media_type(&mut interp, &[value.clone()]);
+    let media_type = media_media_type(&mut interp, std::slice::from_ref(&value));
     assert_eq!(media_type.unwrap(), Value::Str(Rc::from("image")));
     
     // Check is_image

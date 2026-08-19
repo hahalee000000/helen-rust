@@ -1,7 +1,6 @@
 //! Tests for coverage module — CoverageTracker.
 
 use helen_runtime::coverage::CoverageTracker;
-use serde_json::Value;
 
 // ── Basic construction ──────────────────────────────────────────────────
 

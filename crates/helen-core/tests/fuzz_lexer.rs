@@ -7,7 +7,6 @@
 //!
 //! Run: cargo test -p helen-core --test fuzz_lexer
 
-use helen_core::errors::ErrorCode;
 use helen_core::lexer::Scanner;
 use proptest::prelude::*;
 

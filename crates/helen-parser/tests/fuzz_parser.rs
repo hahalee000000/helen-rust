@@ -10,7 +10,6 @@
 //! Run: cargo test -p helen-parser --test fuzz_parser
 
 use helen_core::ast_printer::AstPrinter;
-use helen_core::errors::ErrorCode;
 use helen_core::lexer::Scanner;
 use helen_parser::pratt::Parser;
 use proptest::prelude::*;
