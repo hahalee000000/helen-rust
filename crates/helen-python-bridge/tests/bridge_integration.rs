@@ -4,6 +4,7 @@
 //! Python interpreter. The full Python-level DoD suite lives in
 //! `tests/test_bridge_python.py` (run after `maturin develop`).
 
+use helen_python_bridge::{load_agent, load_function, describe_file, parse_check, eval_helen};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple};
 
@@ -46,7 +47,7 @@ fn add(a: int, b: int): int {
 fn load_agent_call_positional_and_kwargs() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_rust::load_agent(&file, "SumAgent").unwrap()).unwrap();
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "SumAgent").unwrap()).unwrap();
         // Positional.
         let out: i64 = a
             .bind(py)
@@ -86,7 +87,7 @@ fn load_agent_call_positional_and_kwargs() {
 fn load_agent_type_error_messages() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_rust::load_agent(&file, "SumAgent").unwrap()).unwrap();
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "SumAgent").unwrap()).unwrap();
         // Too many positional.
         let err = a
             .bind(py)
@@ -121,7 +122,7 @@ fn load_agent_type_error_messages() {
 fn agent_default_parameter_is_optional() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_rust::load_agent(&file, "DefaultAgent").unwrap()).unwrap();
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "DefaultAgent").unwrap()).unwrap();
         // `b` has a default — no TypeError.
         let out: i64 = a
             .bind(py)
@@ -140,7 +141,7 @@ fn agent_default_parameter_is_optional() {
 fn load_function_positional_and_kwargs() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let f = Py::new(py, helen_rust::load_function(&file, "add").unwrap()).unwrap();
+        let f = Py::new(py, helen_python_bridge::load_function(&file, "add").unwrap()).unwrap();
         let out: i64 = f
             .bind(py)
             .as_any()
@@ -189,7 +190,7 @@ fn load_function_positional_and_kwargs() {
 fn describe_file_lists_declarations_in_order() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|_py| {
-        let decls = helen_rust::describe_file(&file).unwrap();
+        let decls = helen_python_bridge::describe_file(&file).unwrap();
         let kinds: Vec<(&str, &str)> = decls
             .iter()
             .map(|(k, n, _d)| (k.as_str(), n.as_str()))
@@ -211,21 +212,21 @@ fn parse_check_returns_semantic_codes() {
     Python::with_gil(|_py| {
         // Valid main-block program → no codes.
         assert_eq!(
-            helen_rust::parse_check("import std.core.*\nmain {\n    let x = 1\n    print(x)\n}\n")
+            helen_python_bridge::parse_check("import std.core.*\nmain {\n    let x = 1\n    print(x)\n}\n")
                 .unwrap(),
             Vec::<String>::new()
         );
         // Undefined variable → a semantic error code.
-        let codes = helen_rust::parse_check("main {\n    print(y)\n}\n").unwrap();
+        let codes = helen_python_bridge::parse_check("main {\n    print(y)\n}\n").unwrap();
         assert!(
             !codes.is_empty(),
             "expected at least one E-code for undefined variable"
         );
         // Top-level statement in a real file → E0355 (TOP_LEVEL_STATEMENT).
-        let codes = helen_rust::parse_check("let x = 1").unwrap();
+        let codes = helen_python_bridge::parse_check("let x = 1").unwrap();
         assert!(codes.contains(&"E0355".to_string()), "codes: {codes:?}");
         // Parse failure raises RuntimeError.
-        let err = helen_rust::parse_check("let = =").unwrap_err();
+        let err = helen_python_bridge::parse_check("let = =").unwrap_err();
         assert!(err.to_string().contains("Failed to parse"), "got: {err}");
     });
 }
@@ -235,14 +236,14 @@ fn eval_helen_with_globals() {
     Python::with_gil(|py| {
         let globals = PyDict::new(py);
         globals.set_item("x", 21).unwrap();
-        let out: i64 = helen_rust::eval_helen(py, "x * 2", &globals)
+        let out: i64 = helen_python_bridge::eval_helen(py, "x * 2", &globals)
             .unwrap()
             .extract(py)
             .unwrap();
         assert_eq!(out, 42);
         // String result.
         let globals = PyDict::new(py);
-        let out: String = helen_rust::eval_helen(py, "\"hello\" + \" world\"", &globals)
+        let out: String = helen_python_bridge::eval_helen(py, "\"hello\" + \" world\"", &globals)
             .unwrap()
             .extract(py)
             .unwrap();
@@ -265,7 +266,7 @@ agent LenAgent(items: list) {
 "#,
     );
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_rust::load_agent(&file, "LenAgent").unwrap()).unwrap();
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "LenAgent").unwrap()).unwrap();
         let items = PyTuple::new(py, [1i32, 2i32, 3i32]).unwrap();
         let out: i64 = a
             .bind(py)
@@ -291,7 +292,7 @@ agent ThrowAgent() {
 "#,
     );
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_rust::load_agent(&file, "ThrowAgent").unwrap()).unwrap();
+        let a = Py::new(py, helen_python_bridge::load_agent(&file, "ThrowAgent").unwrap()).unwrap();
         let err = a.bind(py).as_any().call0().unwrap_err();
         // RuntimeError maps to Python RuntimeError with the message.
         assert!(
