@@ -16,6 +16,7 @@ pub mod environment;
 pub mod exceptions;
 pub mod import_resolver;
 pub mod interpreter;
+pub mod interpreter_builtins;
 pub mod llm_runtime;
 pub mod native;
 pub mod shared_store;

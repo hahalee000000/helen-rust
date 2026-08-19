@@ -44,7 +44,7 @@ fn list_sort(interp: &mut Interpreter, args: &[Value]) -> Result<Value, Exceptio
         });
     } else {
         items.sort_by(|a, b| {
-            crate::interpreter::cmp_values(a, b).unwrap_or(std::cmp::Ordering::Equal)
+            crate::interpreter_builtins::cmp_values(a, b).unwrap_or(std::cmp::Ordering::Equal)
         });
     }
     Ok(Value::List(Rc::new(RefCell::new(items))))

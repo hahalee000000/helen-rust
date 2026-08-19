@@ -106,9 +106,9 @@ pub enum Value {
     /// A `start..end` range pattern (internal match marker).
     Range(Box<Value>, Box<Value>),
     /// A bound dict method (`m.get`, `m.keys`, ...).
-    MapMethod(Box<crate::interpreter::MapMethodValue>),
+    MapMethod(Box<crate::interpreter_builtins::MapMethodValue>),
     /// A bound list method (`l.append`, `l.pop`, ...).
-    ListMethod(Box<crate::interpreter::ListMethodValue>),
+    ListMethod(Box<crate::interpreter_builtins::ListMethodValue>),
     /// A channel endpoint (v1.18 spawn) — shared across threads via Arc.
     Channel(std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>),
     /// A MediaPart for multimodal content (images, video, audio).
@@ -388,14 +388,14 @@ impl Value {
                     .iter()
                     .map(|(k, v)| (k.clone_owned(), v.clone_owned()))
                     .collect();
-                Value::MapMethod(Box::new(crate::interpreter::MapMethodValue {
+                Value::MapMethod(Box::new(crate::interpreter_builtins::MapMethodValue {
                     kind: mm.kind.clone(),
                     map: Rc::new(RefCell::new(inner)),
                 }))
             }
             Value::ListMethod(lm) => {
                 let inner: Vec<Value> = lm.list.borrow().iter().map(Value::clone_owned).collect();
-                Value::ListMethod(Box::new(crate::interpreter::ListMethodValue {
+                Value::ListMethod(Box::new(crate::interpreter_builtins::ListMethodValue {
                     kind: lm.kind.clone(),
                     list: Rc::new(RefCell::new(inner)),
                 }))

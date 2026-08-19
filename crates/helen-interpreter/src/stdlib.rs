@@ -16,7 +16,8 @@ use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
 use crate::exceptions::ExceptionValue;
-use crate::interpreter::{BuiltinImpl, Interpreter};
+use crate::interpreter::Interpreter;
+use crate::interpreter_builtins::BuiltinImpl;
 use crate::value::Value;
 
 /// A single export: canonical name + implementation.
