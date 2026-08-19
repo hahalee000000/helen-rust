@@ -9,6 +9,7 @@
 
 use crate::llm::{LlmResponse, LlmRuntime};
 use crate::provider::{detect_protocol, PlatformKind, PlatformProtocol};
+use crate::recording::CassetteWriter;
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -209,6 +210,8 @@ pub struct HttpLLMRuntime {
     pub protocol_name: Option<String>,
     pub last_error: Option<String>,
     pub last_status_code: Option<u16>,
+    /// Optional cassette writer for recording LLM interactions.
+    pub cassette_writer: Option<CassetteWriter>,
 }
 
 impl HttpLLMRuntime {
@@ -257,6 +260,7 @@ impl HttpLLMRuntime {
             protocol_name: protocol_name.map(|s| s.to_string()),
             last_error: None,
             last_status_code: None,
+            cassette_writer: None,
         }
     }
 
@@ -867,6 +871,29 @@ impl LlmRuntime for HttpLLMRuntime {
             }
             let _ = finish_reason;
             return Ok(());
+        }
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Recording / replay support
+    // -----------------------------------------------------------------------
+
+    fn supports_recording(&self) -> bool {
+        true
+    }
+
+    fn enable_recording(&mut self, cassette_path: &str) -> Result<(), String> {
+        let path = std::path::Path::new(cassette_path);
+        let writer = CassetteWriter::new(path)
+            .map_err(|e| format!("Failed to create cassette writer: {e}"))?;
+        self.cassette_writer = Some(writer);
+        Ok(())
+    }
+
+    fn disable_recording(&mut self) -> Result<(), String> {
+        if let Some(mut writer) = self.cassette_writer.take() {
+            writer.close();
         }
         Ok(())
     }

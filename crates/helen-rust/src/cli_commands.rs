@@ -190,6 +190,13 @@ pub fn quality_command(argv: &[String]) -> i32 {
                 return 2;
             }
         };
+        let dim_scores_val = match helen_interpreter::quality::quality_dimension_scores(&mut interp, &[source_val.clone()]) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Error computing dimension scores for {file}: {}", e.message);
+                return 2;
+            }
+        };
         let report_val = helen_interpreter::quality::quality_quality_report(&mut interp, &[source_val, name_val]);
 
         let total_score = match score_val {
@@ -215,11 +222,21 @@ pub fn quality_command(argv: &[String]) -> i32 {
                 "grade": grade,
             });
             if let Some(dim) = &dimension {
-                // Only the requested dimension (Python reports total+grade
-                // alongside the single dimension; per-dimension scoring is
-                // not yet implemented in the Rust quality module, so each
-                // dimension falls back to the aggregate score).
-                scores[dim] = serde_json::json!(total_score);
+                // Extract the specific dimension score from the dimension_scores map
+                let dim_score = match &dim_scores_val {
+                    helen_interpreter::value::Value::Map(m) => {
+                        let map = m.borrow();
+                        map.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from(dim.as_str())))
+                            .and_then(|v| match v {
+                                helen_interpreter::value::Value::Float(f) => Some(*f),
+                                helen_interpreter::value::Value::Int(b) => b.to_string().parse::<f64>().ok(),
+                                _ => None,
+                            })
+                            .unwrap_or(total_score)
+                    }
+                    _ => total_score,
+                };
+                scores[dim] = serde_json::json!(dim_score);
             }
 
             all_results.push(serde_json::json!({

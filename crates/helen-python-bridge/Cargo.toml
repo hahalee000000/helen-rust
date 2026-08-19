@@ -12,7 +12,7 @@ description = "Helen language Rust reimplementation — helen-python-bridge (M11
 # pure-Python shim package lives in `python/helen_rust/` and is bundled into
 # the wheel (import hook, wrappers, decorators).
 [lib]
-name = "helen_rust"
+name = "helen_python_bridge"
 crate-type = ["cdylib", "rlib"]
 
 [features]

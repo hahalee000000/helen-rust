@@ -5128,6 +5128,10 @@ pub static QUALITY_EXPORTS: &[StdlibExport] = &[
         func: crate::quality::quality_quality_score,
     },
     StdlibExport {
+        name: "dimension_scores",
+        func: crate::quality::quality_dimension_scores,
+    },
+    StdlibExport {
         name: "quality_report",
         func: crate::quality::quality_quality_report,
     },

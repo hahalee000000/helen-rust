@@ -301,6 +301,84 @@ pub fn quality_quality_score(_i: &mut Interpreter, args: &[Value]) -> Result<Val
     Ok(Value::Float(score.min(10.0)))
 }
 
+/// Compute per-dimension quality scores.
+/// Returns a map of dimension name -> score (0.0-10.0).
+/// Dimensions: architecture, code_quality, security, test_coverage, documentation, maintainability, engineering.
+pub fn quality_dimension_scores(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let source = arg_str_or(args, 0, "");
+    let lines: Vec<&str> = source.lines().collect();
+    let total_lines = lines.len();
+
+    if total_lines == 0 {
+        let mut scores = indexmap::IndexMap::new();
+        for dim in &["architecture", "code_quality", "security", "test_coverage", "documentation", "maintainability", "engineering"] {
+            scores.insert(Value::Str(Rc::from(*dim)), Value::Float(0.0));
+        }
+        return Ok(Value::Map(Rc::new(RefCell::new(scores))));
+    }
+
+    let comment_lines = lines.iter().filter(|l| l.trim().starts_with("//")).count();
+    let comment_ratio = comment_lines as f64 / total_lines as f64;
+    let function_count = lines.iter().filter(|l| l.trim().starts_with("fn ")).count();
+    let agent_count = lines.iter().filter(|l| l.trim().starts_with("agent ")).count();
+    let test_count = lines.iter().filter(|l| l.trim().starts_with("fn test_")).count();
+
+    // Architecture: based on agent usage and function organization
+    let mut architecture: f64 = 5.0;
+    if agent_count > 0 { architecture += 2.0; }
+    if function_count > 2 { architecture += 1.5; }
+    if total_lines > 20 { architecture += 1.5; }
+
+    // Code quality: based on function structure and size
+    let mut code_quality: f64 = 5.0;
+    if function_count > 0 { code_quality += 2.0; }
+    let avg_fn_len = if function_count > 0 { total_lines as f64 / function_count as f64 } else { 0.0 };
+    if avg_fn_len > 5.0 && avg_fn_len < 50.0 { code_quality += 2.0; }
+    if total_lines > 10 { code_quality += 1.0; }
+
+    // Security: basic heuristic (no sensitive patterns)
+    let mut security: f64 = 7.0; // Start high, deduct for risks
+    let has_hardcoded_keys = lines.iter().any(|l| l.contains("api_key") && l.contains("=") && !l.contains("config"));
+    if has_hardcoded_keys { security -= 3.0; }
+    if lines.iter().any(|l| l.contains("eval(") || l.contains("exec(")) { security -= 2.0; }
+
+    // Test coverage: based on test function presence
+    let mut test_coverage: f64 = 3.0;
+    if test_count > 0 { test_coverage += 3.0; }
+    if test_count >= function_count / 2 { test_coverage += 2.0; }
+    if test_count >= function_count && function_count > 0 { test_coverage += 2.0; }
+
+    // Documentation: based on comment ratio
+    let mut documentation: f64 = 4.0;
+    if comment_ratio > 0.05 { documentation += 2.0; }
+    if comment_ratio > 0.1 { documentation += 2.0; }
+    if comment_ratio > 0.2 { documentation += 2.0; }
+
+    // Maintainability: based on function size and modularity
+    let mut maintainability: f64 = 5.0;
+    if function_count > 3 { maintainability += 2.0; }
+    if avg_fn_len < 30.0 { maintainability += 2.0; }
+    if agent_count > 0 { maintainability += 1.0; }
+
+    // Engineering: overall code organization
+    let mut engineering: f64 = 5.0;
+    if function_count > 0 { engineering += 1.5; }
+    if agent_count > 0 { engineering += 1.5; }
+    if comment_ratio > 0.1 { engineering += 1.0; }
+    if total_lines > 15 { engineering += 1.0; }
+
+    let mut scores = indexmap::IndexMap::new();
+    scores.insert(Value::Str(Rc::from("architecture")), Value::Float(architecture.min(10.0)));
+    scores.insert(Value::Str(Rc::from("code_quality")), Value::Float(code_quality.min(10.0)));
+    scores.insert(Value::Str(Rc::from("security")), Value::Float(security.max(0.0).min(10.0)));
+    scores.insert(Value::Str(Rc::from("test_coverage")), Value::Float(test_coverage.min(10.0)));
+    scores.insert(Value::Str(Rc::from("documentation")), Value::Float(documentation.min(10.0)));
+    scores.insert(Value::Str(Rc::from("maintainability")), Value::Float(maintainability.min(10.0)));
+    scores.insert(Value::Str(Rc::from("engineering")), Value::Float(engineering.min(10.0)));
+
+    Ok(Value::Map(Rc::new(RefCell::new(scores))))
+}
+
 /// Get quality report — returns formatted text report.
 /// Python: `quality_report(source: str, filename: str = "<unknown>") -> str`.
 pub fn quality_quality_report(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {

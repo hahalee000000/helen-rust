@@ -155,7 +155,7 @@ fn set_working_memory(interp: &Interpreter, wm: HashMap<String, Vec<Value>>) {
 
 /// Clear the current conversation context.
 /// Python: `_clear_context()` → clears history and transcript.
-pub fn context_clear_context(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_clear_context(_interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
     // We can't truly clear a transcript (append-only), but we can
     // record a boundary marker to indicate a fresh start.
     let mut result = make_ok_map();
@@ -528,7 +528,7 @@ pub fn context_context_slice(interp: &mut Interpreter, args: &[Value]) -> Result
 /// Export the current context.
 pub fn context_export_context(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
     match load_store(interp) {
-        Some(mut store) => {
+        Some(store) => {
             let data = store.to_dict();
             Ok(json_to_value(&data))
         }

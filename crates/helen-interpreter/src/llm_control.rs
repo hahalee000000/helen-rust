@@ -13,7 +13,7 @@ use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
 use crate::value::Value;
 
-/// Thread-local LLM runtime overrides.
+// Thread-local LLM runtime overrides.
 thread_local! {
     static LLM_OVERRIDES: RefCell<LlmOverrides> = RefCell::new(LlmOverrides::new());
 }

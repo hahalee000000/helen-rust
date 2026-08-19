@@ -58,7 +58,7 @@ pub struct TestReport {
     pub warnings: Vec<String>,
 }
 
-/// Global test registry (thread-local for safety).
+// Global test registry (thread-local for safety).
 thread_local! {
     static TEST_REGISTRY: RefCell<TestRegistry> = RefCell::new(TestRegistry::new());
 }
