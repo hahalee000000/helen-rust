@@ -731,14 +731,14 @@ mod m3_tests {
             std::process::id(),
             COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         for (name, content) in files {
             std::fs::write(dir.join(name), content).unwrap();
         }
         let main_path = dir.join("main.helen");
-        std::fs::write(&main_path, main_src).unwrap();
+        std::fs::write(&main_path, main_src).expect("write file");
 
-        let mut scanner = Scanner::new(main_src, main_path.to_str().unwrap());
+        let mut scanner = Scanner::new(main_src, main_path.to_str().expect("to_str"));
         let tokens = scanner.scan_all();
         let mut parser = helen_parser::Parser::new(tokens);
         let program = parser.parse();
@@ -748,7 +748,7 @@ mod m3_tests {
             parser.errors()
         );
         let mut interp = Interpreter::new();
-        interp.set_source_file(main_path.to_str().unwrap());
+        interp.set_source_file(main_path.to_str().expect("to_str"));
         let r = interp.interpret(&program);
         let out = interp.stdout.lock().expect("stdout mutex poisoned").clone();
         (r, out)
@@ -1326,7 +1326,7 @@ main {
             // Built-in registry dispatch works.
             let calc =
                 interp.dispatch_agent_tool("calculate", &serde_json::json!({"expression": "6*7"}));
-            let v: serde_json::Value = serde_json::from_str(&calc).unwrap();
+            let v: serde_json::Value = serde_json::from_str(&calc).expect("from_str");
             assert_eq!(v["result"], 42);
             // Unknown tool falls through to the registry error.
             let unknown = interp.dispatch_agent_tool("nope", &serde_json::json!({}));
@@ -1640,9 +1640,9 @@ print(len(remaining))
                 }
             });
             let dir = std::env::temp_dir().join(format!("mcp_agent_{}", std::process::id()));
-            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::create_dir_all(&dir).expect("create dir");
             let config_path = dir.join(".mcp.json");
-            std::fs::write(&config_path, serde_json::to_string(&config).unwrap()).unwrap();
+            std::fs::write(&config_path, serde_json::to_string(&config).expect("write file")).unwrap();
 
             // Initialize MCP.
             helen_runtime::initialize_mcp(&config_path);
@@ -1692,7 +1692,7 @@ main {
             assert!(r.is_ok(), "{r:?}");
             let echo =
                 interp.dispatch_agent_tool("echo", &serde_json::json!({"message": "from helen"}));
-            let v: serde_json::Value = serde_json::from_str(&echo).unwrap();
+            let v: serde_json::Value = serde_json::from_str(&echo).expect("from_str");
             assert_eq!(v["output"], "Echo: from helen");
         });
     }

@@ -444,8 +444,8 @@ mod tests {
     #[test]
     fn test_generate_docs_nonexistent_file() {
         let docs = generate_docs(&["/nonexistent/file.helen".to_string()], false);
-        assert_eq!(docs["agents"].as_array().unwrap().len(), 0);
-        assert_eq!(docs["functions"].as_array().unwrap().len(), 0);
+        assert_eq!(docs["agents"].as_array().expect("array exists").len(), 0);
+        assert_eq!(docs["functions"].as_array().expect("array exists").len(), 0);
     }
 
     #[test]
@@ -464,10 +464,10 @@ agent Greeter {
 "#;
         let dir = std::env::temp_dir();
         let path = dir.join("m12_docgen_agent.helen");
-        std::fs::write(&path, code).unwrap();
-        let docs = generate_docs(&[path.to_str().unwrap().to_string()], false);
+        std::fs::write(&path, code).expect("write file");
+        let docs = generate_docs(&[path.to_str().expect("to_str").to_string()], false);
         std::fs::remove_file(&path).ok();
-        let agents = docs["agents"].as_array().unwrap();
+        let agents = docs["agents"].as_array().expect("array exists");
         assert_eq!(agents.len(), 1);
         assert_eq!(agents[0]["name"], "Greeter");
         assert_eq!(agents[0]["description"], "A friendly greeter");
@@ -483,13 +483,13 @@ fn greet(name: string) {
 "#;
         let dir = std::env::temp_dir();
         let path = dir.join("m12_docgen_fn.helen");
-        std::fs::write(&path, code).unwrap();
-        let docs = generate_docs(&[path.to_str().unwrap().to_string()], false);
+        std::fs::write(&path, code).expect("write file");
+        let docs = generate_docs(&[path.to_str().expect("to_str").to_string()], false);
         std::fs::remove_file(&path).ok();
-        let functions = docs["functions"].as_array().unwrap();
+        let functions = docs["functions"].as_array().expect("array exists");
         assert_eq!(functions.len(), 1);
         assert_eq!(functions[0]["name"], "greet");
-        assert!(!functions[0]["params"].as_array().unwrap().is_empty());
+        assert!(!functions[0]["params"].as_array().expect("array exists").is_empty());
     }
 
     #[test]
@@ -501,7 +501,7 @@ fn greet(name: string) {
     #[test]
     fn test_generate_docs_with_builtins() {
         let docs = generate_docs(&[], true);
-        let builtins = docs["builtins"].as_array().unwrap();
+        let builtins = docs["builtins"].as_array().expect("array exists");
         assert!(!builtins.is_empty());
         let names: Vec<&str> = builtins
             .iter()
@@ -533,8 +533,8 @@ agent TestAgent {
 "#;
         let dir = std::env::temp_dir();
         let path = dir.join("m12_docgen_md.helen");
-        std::fs::write(&path, code).unwrap();
-        let docs = generate_docs(&[path.to_str().unwrap().to_string()], false);
+        std::fs::write(&path, code).expect("write file");
+        let docs = generate_docs(&[path.to_str().expect("to_str").to_string()], false);
         std::fs::remove_file(&path).ok();
         let md = format_markdown(&docs);
         assert!(md.contains("## Agents"));

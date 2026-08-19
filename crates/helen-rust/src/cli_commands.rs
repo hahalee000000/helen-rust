@@ -708,7 +708,7 @@ pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
     }
     interp.set_source_file(file);
     let result = interp.interpret(&program);
-    let stdout = interp.stdout.lock().unwrap().clone();
+    let stdout = interp.stdout.lock().expect("mutex poisoned").clone();
     print!("{stdout}");
     match result {
         Ok(_) => 0,

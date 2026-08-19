@@ -342,8 +342,8 @@ fn debug_debug(interp: &mut Interpreter, args: &[Value]) -> Result<Value, Except
     } else {
         format!("[debug] {msg} {data}")
     };
-    interp.stdout.lock().unwrap().push_str(&out);
-    interp.stdout.lock().unwrap().push('\n');
+    interp.stdout.lock().expect("mutex poisoned").push_str(&out);
+    interp.stdout.lock().expect("mutex poisoned").push('\n');
     Ok(Value::Str(Rc::from(out.as_str())))
 }
 
@@ -848,7 +848,7 @@ fn parse_date_like(s: &str) -> Result<chrono::NaiveDateTime, ExceptionValue> {
             })
     } else {
         chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+            .map(|d| d.and_hms_opt(0, 0, 0).expect("map"))
             .map_err(|e| {
                 ExceptionValue::new(
                     "RuntimeError",
@@ -941,7 +941,7 @@ fn time_date_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Except
     let dt = chrono::NaiveDateTime::parse_from_str(date_str, format_str)
         .or_else(|_| {
             chrono::NaiveDate::parse_from_str(date_str, format_str)
-                .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+                .map(|d| d.and_hms_opt(0, 0, 0).expect("map"))
         })
         .map_err(|e| {
             ExceptionValue::new(

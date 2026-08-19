@@ -165,7 +165,7 @@ impl MCPClient {
                 Ok(message) => {
                     let msg_id = message.get("id").and_then(|v| v.as_u64());
                     if let Some(id) = msg_id {
-                        let guard = pending.lock().unwrap();
+                        let guard = pending.lock().expect("mutex poisoned");
                         if let Some(tx) = guard.get(&id) {
                             let _ = tx.send(message.clone());
                         }
@@ -203,13 +203,13 @@ impl MCPClient {
 
         // Create response channel.
         let (tx, rx): (Sender<Value>, Receiver<Value>) = channel();
-        self.pending.lock().unwrap().insert(request_id, tx);
+        self.pending.lock().expect("mutex poisoned").insert(request_id, tx);
 
         // Send request.
-        let request_json = serde_json::to_string(&request).unwrap() + "\n";
+        let request_json = serde_json::to_string(&request).expect("serialize request") + "\n";
         let write_result = {
             let stdin = self.stdin.as_mut().ok_or_else(|| {
-                self.pending.lock().unwrap().remove(&request_id);
+                self.pending.lock().expect("mutex poisoned").remove(&request_id);
                 MCPError::Server(format!("MCP server '{}' is not running", self.name))
             })?;
             stdin
@@ -217,7 +217,7 @@ impl MCPClient {
                 .and_then(|_| stdin.flush())
         };
         if let Err(e) = write_result {
-            self.pending.lock().unwrap().remove(&request_id);
+            self.pending.lock().expect("mutex poisoned").remove(&request_id);
             return Err(MCPError::Server(format!(
                 "Failed to send request to MCP server '{}': {}",
                 self.name, e
@@ -228,14 +228,14 @@ impl MCPClient {
         let response = match rx.recv_timeout(Duration::from_secs(self.timeout)) {
             Ok(r) => r,
             Err(_) => {
-                self.pending.lock().unwrap().remove(&request_id);
+                self.pending.lock().expect("mutex poisoned").remove(&request_id);
                 return Err(MCPError::Timeout(format!(
                     "Timeout waiting for response from MCP server '{}'",
                     self.name
                 )));
             }
         };
-        self.pending.lock().unwrap().remove(&request_id);
+        self.pending.lock().expect("mutex poisoned").remove(&request_id);
 
         // Check for error.
         if let Some(error) = response.get("error") {
@@ -305,7 +305,7 @@ impl MCPClient {
         if let Some(handle) = self.reader_thread.take() {
             let _ = handle.join();
         }
-        self.pending.lock().unwrap().clear();
+        self.pending.lock().expect("mutex poisoned").clear();
     }
 }
 
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn start_and_shutdown() {
         let mut c = client();
-        c.start().unwrap();
+        c.start().expect("start");
         assert!(c.is_running());
         c.shutdown();
         assert!(!c.is_running());
@@ -349,8 +349,8 @@ mod tests {
     #[test]
     fn list_tools() {
         let mut c = client();
-        c.start().unwrap();
-        let tools = c.list_tools().unwrap();
+        c.start().expect("start");
+        let tools = c.list_tools().expect("list tools");
         assert_eq!(tools.len(), 2);
         let names: Vec<&str> = tools
             .iter()
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn call_tool_echo() {
         let mut c = client();
-        c.start().unwrap();
+        c.start().expect("start");
         let result = c
             .call_tool("echo", json!({"message": "Hello, MCP!"}))
             .unwrap();
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn call_tool_add() {
         let mut c = client();
-        c.start().unwrap();
+        c.start().expect("start");
         let result = c.call_tool("add", json!({"a": 5, "b": 3})).unwrap();
         assert_eq!(result["result"], 8);
         c.shutdown();
@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn call_unknown_tool() {
         let mut c = client();
-        c.start().unwrap();
+        c.start().expect("start");
         // Mock server returns error in result, not as JSON-RPC error.
         let result = c.call_tool("unknown_tool", json!({})).unwrap();
         assert!(result.get("error").is_some());

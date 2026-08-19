@@ -412,7 +412,7 @@ fn replace_regex(input: &str, pattern: &str, replacement: &str) -> String {
     let mut out = String::with_capacity(input.len());
     let mut last = 0;
     for caps in re.captures_iter(input) {
-        let m = caps.get(0).unwrap();
+        let m = caps.get(0).expect("capture exists");
         out.push_str(&input[last..m.start()]);
         // Expand $1 / $2 / $0.
         let mut rep = replacement.to_string();
@@ -486,10 +486,10 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
     let mut blocks: Vec<Value> = Vec::new();
     let fence_re = regex::Regex::new(r"^(`{3,}|~{3,})(\w*)").unwrap();
     let heading_re = regex::Regex::new(r"^(#{1,6})\s+").unwrap();
-    let ul_re = regex::Regex::new(r"^[-*+]\s+").unwrap();
-    let ol_re = regex::Regex::new(r"^\d+\.\s+").unwrap();
-    let item_ul_re = regex::Regex::new(r"^\s*[-*+]\s+").unwrap();
-    let item_ol_re = regex::Regex::new(r"^\s*\d+\.\s+").unwrap();
+    let ul_re = regex::Regex::new(r"^[-*+]\s+").expect("valid regex");
+    let ol_re = regex::Regex::new(r"^\d+\.\s+").expect("valid regex");
+    let item_ul_re = regex::Regex::new(r"^\s*[-*+]\s+").expect("valid regex");
+    let item_ol_re = regex::Regex::new(r"^\s*\d+\.\s+").expect("valid regex");
     let mut i = 0;
     while i < n {
         let line = lines[i];
@@ -501,8 +501,8 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         // Fenced code block.
         let fence_match = fence_re.captures(stripped);
         if let Some(fm) = fence_match {
-            let fence_char = fm.get(1).unwrap().as_str().chars().next().unwrap();
-            let fence_len = fm.get(1).unwrap().as_str().len();
+            let fence_char = fm.get(1).expect("fence match").as_str().chars().next().expect("non-empty");
+            let fence_len = fm.get(1).expect("fence match").as_str().len();
             let language = fm.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
             let mut code_lines = Vec::new();
             i += 1;
@@ -530,7 +530,7 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         // Horizontal rule: ---, ***, ___ (all same char).
         if stripped.len() >= 3
             && stripped.chars().all(|c| c == '-' || c == '*' || c == '_')
-            && stripped.chars().all(|c| c == stripped.chars().next().unwrap())
+            && stripped.chars().all(|c| c == stripped.chars().next().expect("non-empty string"))
         {
             let mut b = indexmap::IndexMap::new();
             b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("hr")));
@@ -611,7 +611,7 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
             }
             if ls.len() >= 3
                 && ls.chars().all(|c| c == '-' || c == '*' || c == '_')
-                && ls.chars().all(|c| c == ls.chars().next().unwrap())
+                && ls.chars().all(|c| c == ls.chars().next().expect("non-empty string"))
             {
                 break;
             }
@@ -907,7 +907,7 @@ fn xml_element_to_value(node: &XmlNode) -> Value {
         }
         for (tag, vals) in child_map {
             if vals.len() == 1 {
-                result.insert(Value::Str(Rc::from(tag.as_str())), vals.into_iter().next().unwrap());
+                result.insert(Value::Str(Rc::from(tag.as_str())), vals.into_iter().next().expect("non-empty iterator"));
             } else {
                 result.insert(
                     Value::Str(Rc::from(tag.as_str())),

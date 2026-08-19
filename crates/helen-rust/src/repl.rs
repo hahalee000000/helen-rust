@@ -351,7 +351,7 @@ fn handle_repl_command(
 
         // ── :sessions — list transcript sessions ────────────────────
         ":sessions" => {
-            let sessions = interp.session_manager.lock().unwrap().list_sessions();
+            let sessions = interp.session_manager.lock().expect("mutex poisoned").list_sessions();
             if sessions.is_empty() {
                 println!("(no sessions found)");
             } else {
@@ -385,7 +385,7 @@ fn handle_repl_command(
                 println!("Usage: :resume <session_id>");
             } else {
                 let session_id = arg.trim();
-                let manager = interp.session_manager.lock().unwrap();
+                let manager = interp.session_manager.lock().expect("mutex poisoned");
                 if manager.session_exists(session_id) {
                     // Load the session's transcript
                     let session_path = manager.get_session_path(session_id);
@@ -420,7 +420,7 @@ fn handle_transcript(interp: &mut Interpreter, arg: &str) {
     }
 
     // Try to load the transcript for the current session
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let session_path = manager.get_session_path(&interp.session_id);
     drop(manager);
 

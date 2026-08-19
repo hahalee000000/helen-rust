@@ -164,7 +164,7 @@ impl WorkingMemory {
             .sum();
 
         while total_tokens > effective_budget && included.len() > 1 {
-            let dropped = included.pop().unwrap();
+            let dropped = included.pop().expect("non-empty");
             total_tokens =
                 total_tokens.saturating_sub(estimate_tokens_simple(&section_text(dropped)));
         }
@@ -565,14 +565,14 @@ mod tests {
         ];
         let msgs = build_three_channel_context("sys", &m, &history, Some(10000));
         assert!(msgs.len() >= 3);
-        assert_eq!(msgs[0]["role"].as_str().unwrap(), "system");
+        assert_eq!(msgs[0]["role"].as_str().expect("as_str"), "system");
         // Working memory message contains [Working Memory]
         assert!(msgs[1]["content"]
             .as_str()
             .unwrap()
             .contains("[Working Memory]"));
         // Last message is the assistant history
-        assert_eq!(msgs.last().unwrap()["role"].as_str().unwrap(), "assistant");
+        assert_eq!(msgs.last().unwrap()["role"].as_str().expect("as_str"), "assistant");
     }
 
     #[test]

@@ -1568,7 +1568,7 @@ impl SemanticAnalyzer {
 
     fn visit_impl_decl(&mut self, node: &ImplDecl) {
         let protocol_sym = self.symbols.resolve(&node.protocol_name).cloned();
-        if protocol_sym.is_none() || protocol_sym.as_ref().unwrap().kind != "protocol" {
+        if protocol_sym.is_none() || protocol_sym.as_ref().expect("as_ref").kind != "protocol" {
             self.errors.error(
                 ErrorCode::UndeclaredVariable,
                 format!("undefined protocol '{}'", node.protocol_name),
@@ -1577,7 +1577,7 @@ impl SemanticAnalyzer {
         }
 
         let struct_sym = self.symbols.resolve(&node.struct_name).cloned();
-        if struct_sym.is_none() || struct_sym.as_ref().unwrap().kind != "struct" {
+        if struct_sym.is_none() || struct_sym.as_ref().expect("as_ref").kind != "struct" {
             self.errors.error(
                 ErrorCode::UndeclaredVariable,
                 format!("undefined struct '{}'", node.struct_name),

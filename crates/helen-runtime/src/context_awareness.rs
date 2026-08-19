@@ -156,7 +156,7 @@ mod tests {
         // Use max_tokens=208 so ratio=0.5 exactly.
         let a = ContextAwareness::new(Some(208));
         let msgs = vec![json!({"role": "user", "content": "a".repeat(400)})];
-        let w = a.build_usage_warning(&msgs).unwrap();
+        let w = a.build_usage_warning(&msgs).expect("build warning");
         assert!(
             w.contains(
                 "<system_warning>Token usage: 104/208; 50% used; 104 remaining</system_warning>"
@@ -170,7 +170,7 @@ mod tests {
         // 54 tokens content (200 EN chars /4 + 4) / 60 max = 0.9 -> emergency.
         let a = ContextAwareness::new(Some(60));
         let msgs = vec![json!({"role": "user", "content": "a".repeat(200)})];
-        let w = a.build_usage_warning(&msgs).unwrap();
+        let w = a.build_usage_warning(&msgs).expect("build warning");
         assert!(w.contains("CRITICAL: Token usage at 90%"), "{w}");
         assert!(w.contains("You MUST be concise"), "{w}");
     }

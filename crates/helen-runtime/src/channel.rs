@@ -117,18 +117,18 @@ impl<T: Queueable> ChannelEndpoint<T> {
         if self.channel.is_closed() {
             return;
         }
-        self.outbox().lock().unwrap().push_back(msg);
+        self.outbox().lock().expect("mutex poisoned").push_back(msg);
         self.channel.cv.notify_all();
     }
 
     /// `try_receive` — non-blocking; `None` when the inbox is empty.
     pub fn try_receive(&self) -> Option<T> {
-        self.inbox().lock().unwrap().pop_front()
+        self.inbox().lock().expect("mutex poisoned").pop_front()
     }
 
     /// `receive(timeout)` — blocking; `None` on timeout or when closed.
     pub fn receive(&self, timeout: Option<Duration>) -> Option<T> {
-        let mut q = self.inbox().lock().unwrap();
+        let mut q = self.inbox().lock().expect("mutex poisoned");
         loop {
             if let Some(v) = q.pop_front() {
                 return Some(v);
@@ -137,9 +137,9 @@ impl<T: Queueable> ChannelEndpoint<T> {
                 return None;
             }
             match timeout {
-                None => q = self.channel.cv.wait(q).unwrap(),
+                None => q = self.channel.cv.wait(q).expect("condvar wait"),
                 Some(d) => {
-                    let (guard, res) = self.channel.cv.wait_timeout(q, d).unwrap();
+                    let (guard, res) = self.channel.cv.wait_timeout(q, d).expect("condvar timeout");
                     q = guard;
                     if res.timed_out() {
                         return None;
@@ -162,7 +162,7 @@ impl<T: Queueable> ChannelEndpoint<T> {
     }
 
     fn push_sentinel(&self) {
-        let mut q = self.outbox().lock().unwrap();
+        let mut q = self.outbox().lock().expect("mutex poisoned");
         q.push_back(T::sentinel());
         self.channel.cv.notify_all();
     }

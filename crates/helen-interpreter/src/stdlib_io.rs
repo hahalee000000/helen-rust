@@ -111,8 +111,8 @@ fn io_mkdir_p(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionVa
 
 fn io_stream_print(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let text = arg_str(args, 0)?;
-    _i.stdout.lock().unwrap().push_str(text);
-    _i.stdout.lock().unwrap().push('\n');
+    _i.stdout.lock().expect("mutex poisoned").push_str(text);
+    _i.stdout.lock().expect("mutex poisoned").push('\n');
     Ok(Value::Str(Rc::from(text)))
 }
 

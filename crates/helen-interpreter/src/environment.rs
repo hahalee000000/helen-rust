@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(child.borrow().get("x"), Some(int(2)));
         // global x unchanged
         let child_borrow = child.borrow();
-        let g = child_borrow.parent.as_ref().unwrap().borrow();
+        let g = child_borrow.parent.as_ref().expect("as_ref").borrow();
         assert_eq!(g.get("x"), Some(int(1)));
     }
 
@@ -222,16 +222,16 @@ mod tests {
 
         let snap = child.borrow().snapshot();
         // deep copy: mutating the original list must not affect the snapshot
-        if let Value::List(l) = child.borrow().get("lst").unwrap() {
+        if let Value::List(l) = child.borrow().get("lst").expect("key exists") {
             l.borrow_mut().push(int(99));
         }
-        if let Value::List(l) = snap.get("lst").unwrap() {
+        if let Value::List(l) = snap.get("lst").expect("key exists") {
             assert_eq!(l.borrow().len(), 1);
         } else {
             panic!("expected list");
         }
         // consts copied
-        let snap_global = snap.parent.as_ref().unwrap().borrow();
+        let snap_global = snap.parent.as_ref().expect("as_ref").borrow();
         assert!(snap_global.is_const("a"));
         assert_eq!(snap_global.get("a"), Some(int(1)));
     }

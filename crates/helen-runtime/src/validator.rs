@@ -224,43 +224,43 @@ mod tests {
     #[test]
     fn none_contract_always_valid() {
         let r = validate_output("anything", None);
-        assert!(r["valid"].as_bool().unwrap());
+        assert!(r["valid"].as_bool().expect("bool value"));
         assert_eq!(r["parsed"], "anything");
     }
 
     #[test]
     fn text_contract_passes() {
         let r = validate_output("plain text", Some(&json!("text")));
-        assert!(r["valid"].as_bool().unwrap());
+        assert!(r["valid"].as_bool().expect("bool value"));
     }
 
     #[test]
     fn json_contract_valid() {
         let r = validate_output(r#"{"a": 1}"#, Some(&json!("json")));
-        assert!(r["valid"].as_bool().unwrap());
+        assert!(r["valid"].as_bool().expect("bool value"));
         assert_eq!(r["parsed"]["a"], 1);
     }
 
     #[test]
     fn json_contract_invalid() {
         let r = validate_output("{not json", Some(&json!("json")));
-        assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("not valid JSON"));
+        assert!(!r["valid"].as_bool().expect("bool value"));
+        assert!(r["violation"].as_str().expect("string value").contains("not valid JSON"));
     }
 
     #[test]
     fn schema_required_fields() {
         let schema = json!({"type": "object", "required": ["name"]});
         let r = validate_output(r#"{"age": 3}"#, Some(&schema));
-        assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("name"));
+        assert!(!r["valid"].as_bool().expect("bool value"));
+        assert!(r["violation"].as_str().expect("string value").contains("name"));
     }
 
     #[test]
     fn schema_type_mismatch() {
         let schema = json!({"type": "object"});
         let r = validate_output("[1,2]", Some(&schema));
-        assert!(!r["valid"].as_bool().unwrap());
+        assert!(!r["valid"].as_bool().expect("bool value"));
         assert!(r["violation"]
             .as_str()
             .unwrap()
@@ -274,8 +274,8 @@ mod tests {
             "properties": {"color": {"type": "string", "enum": ["red", "blue"]}}
         });
         let r = validate_output(r#"{"color": "green"}"#, Some(&schema));
-        assert!(!r["valid"].as_bool().unwrap());
-        assert!(r["violation"].as_str().unwrap().contains("green"));
+        assert!(!r["valid"].as_bool().expect("bool value"));
+        assert!(r["violation"].as_str().expect("string value").contains("green"));
     }
 
     #[test]
@@ -288,7 +288,7 @@ mod tests {
             .as_bool()
             .unwrap());
         let r = validate_output(r#"{"n": 20}"#, Some(&schema));
-        assert!(!r["valid"].as_bool().unwrap());
+        assert!(!r["valid"].as_bool().expect("bool value"));
         assert!(r["violation"]
             .as_str()
             .unwrap()
@@ -307,7 +307,7 @@ mod tests {
                 .unwrap()
         );
         let r = validate_output(r#"{"name": "x"}"#, Some(&schema));
-        assert!(!r["valid"].as_bool().unwrap());
+        assert!(!r["valid"].as_bool().expect("bool value"));
         assert!(r["violation"]
             .as_str()
             .unwrap()
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn unknown_contract_type() {
         let r = validate_output("x", Some(&json!("yaml")));
-        assert!(!r["valid"].as_bool().unwrap());
+        assert!(!r["valid"].as_bool().expect("bool value"));
         assert!(r["violation"]
             .as_str()
             .unwrap()
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn invalid_contract_value() {
         let r = validate_output("x", Some(&json!(42)));
-        assert!(!r["valid"].as_bool().unwrap());
+        assert!(!r["valid"].as_bool().expect("bool value"));
         assert!(r["violation"]
             .as_str()
             .unwrap()

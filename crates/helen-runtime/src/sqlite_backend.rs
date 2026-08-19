@@ -346,7 +346,7 @@ mod tests {
         let fixture =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/python_session.db");
         assert!(fixture.exists(), "fixture missing: {}", fixture.display());
-        let b = SqliteBackend::open(&fixture).unwrap();
+        let b = SqliteBackend::open(&fixture).expect("open db");
         let items = b.load_all();
         assert_eq!(items.len(), 3);
         let Item::Message(m1) = &items[0] else {
@@ -379,11 +379,11 @@ mod tests {
     #[test]
     fn append_write_read_roundtrip() {
         let dir = std::env::temp_dir().join(format!("helen_sqlite_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join("t.db");
         let _ = std::fs::remove_file(&path);
 
-        let b = SqliteBackend::open(&path).unwrap();
+        let b = SqliteBackend::open(&path).expect("open db");
         let m = crate::transcript::Message::new(
             "user",
             serde_json::json!("content here"),
@@ -414,10 +414,10 @@ mod tests {
     #[test]
     fn query_filters() {
         let dir = std::env::temp_dir().join(format!("helen_sqlite_q_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join("q.db");
         let _ = std::fs::remove_file(&path);
-        let b = SqliteBackend::open(&path).unwrap();
+        let b = SqliteBackend::open(&path).expect("open db");
         for (i, role) in ["user", "assistant", "user"].iter().enumerate() {
             let m = crate::transcript::Message::new(
                 role,
@@ -471,10 +471,10 @@ mod tests {
     #[test]
     fn no_meta_returns_none() {
         let dir = std::env::temp_dir().join(format!("helen_sqlite_m_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join("m.db");
         let _ = std::fs::remove_file(&path);
-        let b = SqliteBackend::open(&path).unwrap();
+        let b = SqliteBackend::open(&path).expect("open db");
         assert!(b.read_meta().is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }

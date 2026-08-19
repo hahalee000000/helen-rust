@@ -630,12 +630,12 @@ fn parse_shortest(s: &str) -> (String, i32) {
         None => (s, ""),
     };
     if int_part.chars().any(|c| c != '0') {
-        let first = int_part.find(|c| c != '0').unwrap();
+        let first = int_part.find(|c| c != '0').expect("find");
         let digits: String = int_part[first..].to_string() + frac_part;
         let kk = (int_part.len() - first) as i32;
         (digits, kk)
     } else {
-        let first = frac_part.find(|c| c != '0').unwrap();
+        let first = frac_part.find(|c| c != '0').expect("find");
         let digits = frac_part[first..].to_string();
         // value = digits × 10^-(first+n) → 0.digits × 10^kk with kk = -first.
         let kk = -(first as i32);

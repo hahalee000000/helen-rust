@@ -1083,9 +1083,9 @@ impl TranscriptStore {
                 Item::Message(m) => {
                     let mut d = message_to_dict(m);
                     // to_dict omits agent_name/invocation fields (Python parity).
-                    d.as_object_mut().unwrap().remove("agent_name");
-                    d.as_object_mut().unwrap().remove("invocation_id");
-                    d.as_object_mut().unwrap().remove("parent_invocation_id");
+                    d.as_object_mut().expect("object exists").remove("agent_name");
+                    d.as_object_mut().expect("object exists").remove("invocation_id");
+                    d.as_object_mut().expect("object exists").remove("parent_invocation_id");
                     d.as_object_mut()
                         .unwrap()
                         .remove("visible_to_invocation_ids");
@@ -1190,7 +1190,7 @@ mod tests {
         m.parent_invocation_id = "pinv".to_string();
         m.visible_to_invocation_ids = vec!["x".to_string()];
         let d = message_to_dict(&m);
-        let obj = d.as_object().unwrap();
+        let obj = d.as_object().expect("object exists");
         assert_eq!(obj["type"], "message");
         assert_eq!(obj["role"], "user");
         assert_eq!(obj["content"], "hello 世界");
@@ -1240,7 +1240,7 @@ mod tests {
         assert!(!m.uuid.is_empty(), "uuid assigned on append");
         assert_eq!(store.get_message_count(), 1);
         assert_eq!(store.get_transcript_size(), 1);
-        assert_eq!(store.get(&m.uuid).unwrap().uuid(), m.uuid);
+        assert_eq!(store.get(&m.uuid).expect("key exists").uuid(), m.uuid);
     }
 
     #[test]
@@ -1286,7 +1286,7 @@ mod tests {
         meta.cwd = "/tmp".to_string();
         meta.argv = vec!["helen".to_string(), "main.helen".to_string()];
         backend.write_meta(&meta);
-        let read = backend.read_meta().unwrap();
+        let read = backend.read_meta().expect("read meta");
         assert_eq!(read.session_id, "session_1_x_y");
         assert_eq!(read.session_scope, "project");
         assert_eq!(read.helen_version, "1.45.0");
@@ -1305,7 +1305,7 @@ mod tests {
         // Reload: pinned survives restart.
         let backend2 = JsonlBackend::new(&p);
         let store2 = TranscriptStore::load_from_backend(backend2, 1000);
-        match store2.get("pin1").unwrap() {
+        match store2.get("pin1").expect("key exists") {
             Item::Message(m) => assert!(m.pinned),
             _ => panic!("expected message"),
         }
@@ -1376,7 +1376,7 @@ mod tests {
         assert!(store.transcript.len() <= 5);
         assert!(store.offloaded_count >= 1);
         // Eviction keeps the most recent messages.
-        let last = store.get(&uuids[5]).unwrap().uuid();
+        let last = store.get(&uuids[5]).expect("key exists").uuid();
         assert_eq!(last, "e5");
     }
 

@@ -1136,7 +1136,7 @@ impl Interpreter {
         })?;
 
         // Snapshot current fields (serialized under the store lock).
-        let fields = store.fields.lock().unwrap().clone();
+        let fields = store.fields.lock().expect("mutex poisoned").clone();
 
         // Execution environment: a child of the CALLING interpreter's env so
         // stdlib/consts resolve in the caller (Python v1.39.3).
@@ -1165,7 +1165,7 @@ impl Interpreter {
         // Write back any field modifications (Python `method_env.lookup`).
         {
             let cb = call_env.borrow();
-            let mut fl = store.fields.lock().unwrap();
+            let mut fl = store.fields.lock().expect("mutex poisoned");
             for fname in &store.field_order {
                 if let Some(v) = cb.get(fname) {
                     fl.insert(fname.clone(), v);

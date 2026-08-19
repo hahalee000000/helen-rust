@@ -89,7 +89,7 @@ fn run_mode(path: &str, mock_llm: bool) {
         interp.set_llm_runtime(std::sync::Arc::new(mock));
     }
     let result = interp.interpret(&program);
-    let stdout = interp.stdout.lock().unwrap().clone();
+    let stdout = interp.stdout.lock().expect("mutex poisoned").clone();
     match result {
         Ok(_) => {
             println!("{}", run_json(&stdout, "", 0, &[]));
@@ -326,7 +326,7 @@ fn agent_command() -> i32 {
     let node_check = Command::new("node")
         .arg("--version")
         .output();
-    if node_check.is_err() || !node_check.as_ref().unwrap().status.success() {
+    if node_check.is_err() || !node_check.as_ref().expect("as_ref").status.success() {
         eprintln!("❌ Error: Node.js is not installed.");
         eprintln!();
         eprintln!("Helen agent requires Node.js 18+ for the frontend.");

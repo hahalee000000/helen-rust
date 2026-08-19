@@ -39,7 +39,7 @@ impl PythonRuntime {
     /// Python parity: `ImportError` on failure with message
     /// `Cannot import module '{name}': {e}`.
     pub fn import_module(&self, module_name: &str) -> Result<Value, String> {
-        if let Some(cached) = self.modules.lock().unwrap().get(module_name) {
+        if let Some(cached) = self.modules.lock().expect("mutex poisoned").get(module_name) {
             let obj = pyo3::Python::with_gil(|py| cached.clone_ref(py));
             let module = PythonModule::new(module_name.to_string(), obj);
             return Ok(Value::Native(NativeHandle(std::sync::Arc::new(module))));
@@ -75,7 +75,7 @@ impl PythonRuntime {
     /// Evaluate a Python expression (Python `eval_expression`).
     pub fn eval_expression(&self, expression: &str) -> Result<Value, String> {
         pyo3::Python::with_gil(|py| {
-            let guard = self.context.lock().unwrap();
+            let guard = self.context.lock().expect("mutex poisoned");
             let dict = guard.bind(py);
             match py.eval(
                 &std::ffi::CString::new(expression).unwrap(),
@@ -91,7 +91,7 @@ impl PythonRuntime {
     /// Execute a Python statement (Python `exec_statement`).
     pub fn exec_statement(&self, statement: &str) -> Result<(), String> {
         pyo3::Python::with_gil(|py| {
-            let guard = self.context.lock().unwrap();
+            let guard = self.context.lock().expect("mutex poisoned");
             let dict = guard.bind(py);
             match py.run(
                 &std::ffi::CString::new(statement).unwrap(),
@@ -106,7 +106,7 @@ impl PythonRuntime {
 
     /// Get the underlying module object for a previously-imported module.
     pub fn get_module_object(&self, module_name: &str) -> Option<pyo3::Py<pyo3::PyAny>> {
-        let guard = self.modules.lock().unwrap();
+        let guard = self.modules.lock().expect("mutex poisoned");
         pyo3::Python::with_gil(|py| guard.get(module_name).map(|c| c.clone_ref(py)))
     }
 }

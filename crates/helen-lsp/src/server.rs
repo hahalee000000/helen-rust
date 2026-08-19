@@ -773,7 +773,7 @@ pub fn get_symbol_at(content: &str, line: i64, col: i64) -> Option<String> {
         return None;
     }
     let current_line = lines[(line - 1) as usize];
-    let re = regex::Regex::new(r"[\w\u4e00-\u9fff]+").unwrap();
+    let re = regex::Regex::new(r"[\w\u4e00-\u9fff]+").expect("valid regex");
     for m in re.find_iter(current_line) {
         let start = m.start() as i64;
         let end = m.end() as i64;
@@ -840,7 +840,7 @@ pub fn find_definition_at(content: &str, uri: &str, line: i64, col: i64) -> Vec<
         return Vec::new();
     }
     let current_line = lines[(line - 1) as usize];
-    let word_re = regex::Regex::new(r"\b\w+\b").unwrap();
+    let word_re = regex::Regex::new(r"\b\w+\b").expect("valid regex");
     let words: Vec<String> = word_re
         .find_iter(current_line)
         .map(|m| m.as_str().to_string())

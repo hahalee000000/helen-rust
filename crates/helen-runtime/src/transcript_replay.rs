@@ -201,7 +201,7 @@ mod tests {
 
     fn make_session(dir: &Path, id: &str) {
         let sp = dir.join(id);
-        std::fs::create_dir_all(&sp).unwrap();
+        std::fs::create_dir_all(&sp).expect("create dir");
         let backend = crate::transcript::JsonlBackend::new(sp.join("transcript.jsonl"));
         let mut store = crate::transcript::TranscriptStore::new(Some(backend), 1000);
         for (i, role) in ["user", "assistant", "user"].iter().enumerate() {
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn navigation_and_search() {
         let dir = std::env::temp_dir().join(format!("helen_replay_nav_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         make_session(&dir, "s1");
         let mut r = TranscriptReplay::load("s1", &dir).unwrap();
         assert_eq!(r.len(), 3);
@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn summary_and_format() {
         let dir = std::env::temp_dir().join(format!("helen_replay_sum_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         make_session(&dir, "s2");
         let r = TranscriptReplay::load("s2", &dir).unwrap();
         let s = r.get_summary();

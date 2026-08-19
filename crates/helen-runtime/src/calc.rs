@@ -325,12 +325,12 @@ mod tests {
 
     #[test]
     fn test_basic_arith() {
-        assert_eq!(eval_simple("1 + 2 * 3").unwrap(), "7");
+        assert_eq!(eval_simple("1 + 2 * 3").expect("eval"), "7");
         assert_eq!(eval_simple("(1 + 2) * 3").unwrap(), "9");
-        assert_eq!(eval_simple("10 / 4").unwrap(), "2.5");
-        assert_eq!(eval_simple("7 % 3").unwrap(), "1");
-        assert_eq!(eval_simple("2 ^ 10").unwrap(), "1024");
-        assert_eq!(eval_simple("-5 + 3").unwrap(), "-2");
+        assert_eq!(eval_simple("10 / 4").expect("eval"), "2.5");
+        assert_eq!(eval_simple("7 % 3").expect("eval"), "1");
+        assert_eq!(eval_simple("2 ^ 10").expect("eval"), "1024");
+        assert_eq!(eval_simple("-5 + 3").expect("eval"), "-2");
     }
 
     #[test]

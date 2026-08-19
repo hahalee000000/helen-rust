@@ -702,7 +702,7 @@ impl HistoryManager {
         ));
 
         let by_role = &stats["by_role"];
-        if by_role.is_object() && !by_role.as_object().unwrap().is_empty() {
+        if by_role.is_object() && !by_role.as_object().expect("object exists").is_empty() {
             lines.push("╠──────────────────────────────────────╣".to_string());
             let mut pairs: Vec<(String, u64)> = by_role
                 .as_object()
@@ -914,7 +914,7 @@ mod tests {
         let loaded = h.load_from_file(&path_s);
         assert_eq!(loaded.len(), 2);
         assert_eq!(loaded[0].role, "user");
-        assert_eq!(loaded[0].content.as_str().unwrap(), "hello world");
+        assert_eq!(loaded[0].content.as_str().expect("string value"), "hello world");
         std::fs::remove_file(&path).ok();
     }
 
@@ -938,9 +938,9 @@ mod tests {
         let h = HistoryManager::new(Some("gpt-4".to_string()), None, None);
         let history = vec![msg("user", "hello"), msg("assistant", "world")];
         let stats = h.get_usage_stats(&history, Some("sys prompt"));
-        assert_eq!(stats["message_count"].as_u64().unwrap(), 2);
-        assert_eq!(stats["model"].as_str().unwrap(), "gpt-4");
-        assert!(!stats["compressed"].as_bool().unwrap());
+        assert_eq!(stats["message_count"].as_u64().expect("u64 value"), 2);
+        assert_eq!(stats["model"].as_str().expect("string value"), "gpt-4");
+        assert!(!stats["compressed"].as_bool().expect("bool value"));
         let rendered = h.format_usage_stats(&stats);
         assert!(rendered.contains("Context Usage Statistics"));
     }
@@ -982,7 +982,7 @@ mod parity_tests {
         }
         let out = h.enforce_limit(&history, 0.2);
         let sm: Vec<_> = out.iter().filter(|m| m.role == "system").collect();
-        let content = sm[0].content.as_str().unwrap();
+        let content = sm[0].content.as_str().expect("string value");
         assert!(content.starts_with("[Previous conversation summary]\n[user] message number 3"));
         assert!(content.contains("... [truncated]"));
         // Python: LEN 6 for this corpus.
@@ -1027,13 +1027,13 @@ mod exact_parity {
         }
         let out = h.enforce_limit(&history, 0.2);
         let sm: Vec<_> = out.iter().filter(|m| m.role == "system").collect();
-        let content = sm[0].content.as_str().unwrap();
-        let py = std::fs::read_to_string("/tmp/py_summary.json").unwrap();
+        let content = sm[0].content.as_str().expect("string value");
+        let py = std::fs::read_to_string("/tmp/py_summary.json").expect("read file");
         // File contains JSON + a LEN line; extract just the JSON string.
         let json_end = py.find('\n').unwrap_or(py.len());
         let py_line = &py[..json_end];
-        let py: serde_json::Value = serde_json::from_str(py_line).unwrap();
-        let py = py.as_str().unwrap();
+        let py: serde_json::Value = serde_json::from_str(py_line).expect("parse JSON");
+        let py = py.as_str().expect("string value");
         assert_eq!(content, py, "byte-exact summary parity required");
     }
 }

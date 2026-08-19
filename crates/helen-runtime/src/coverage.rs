@@ -568,7 +568,7 @@ mod tests {
         t.set_enabled(true);
         t.register_source("/tmp/e.helen", vec!["let x = 1".into()]);
         t.record_line(Some("/tmp/e.helen"), 1);
-        let rep = t.get_file_report("/tmp/e.helen").unwrap();
+        let rep = t.get_file_report("/tmp/e.helen").expect("get report");
         assert_eq!(rep["lines"][0]["line"], 1);
         assert_eq!(rep["lines"][0]["count"], 1);
         assert_eq!(t.get_file_report("/nonexistent.helen"), None);

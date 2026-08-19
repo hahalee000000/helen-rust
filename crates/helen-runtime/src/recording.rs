@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn write_read_roundtrip() {
         let dir = std::env::temp_dir().join(format!("helen_cassette_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join("cassette.jsonl");
         let _ = std::fs::remove_file(&path);
 
@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn replay_returns_recorded() {
         let dir = std::env::temp_dir().join(format!("helen_replay_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join("c.jsonl");
         let mut w = CassetteWriter::new(&path).unwrap();
         w.write_entry(
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn corrupted_lines_skipped() {
         let dir = std::env::temp_dir().join(format!("helen_corrupt_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join("c.jsonl");
         std::fs::write(
             &path,

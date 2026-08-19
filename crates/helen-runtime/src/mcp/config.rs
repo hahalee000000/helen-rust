@@ -72,12 +72,12 @@ impl MCPConfig {
             if !config.is_object() {
                 continue;
             }
-            let cfg = config.as_object().unwrap();
+            let cfg = config.as_object().expect("object exists");
             let Some(command) = cfg.get("command").and_then(|c| c.as_str()) else {
                 continue;
             };
             // 'command' must be a string.
-            if !cfg.get("command").unwrap().is_string() {
+            if !cfg.get("command").expect("key exists").is_string() {
                 continue;
             }
 
@@ -168,9 +168,9 @@ mod tests {
         // each other's .mcp.json (shared PID-based name → flaky reads).
         let n = TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let dir = std::env::temp_dir().join(format!("mcp_cfg_{}_{n}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let path = dir.join(".mcp.json");
-        std::fs::write(&path, data).unwrap();
+        std::fs::write(&path, data).expect("write file");
         (dir, path)
     }
 
@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(config.servers.len(), 1);
         let server = &config.servers[0];
         // Resolved to absolute path relative to config file dir
-        let resolved = server.cwd.as_deref().unwrap();
+        let resolved = server.cwd.as_deref().expect("deref");
         assert!(std::path::Path::new(resolved).is_absolute());
         assert_eq!(resolved, dir.join("subdir").to_string_lossy());
     }

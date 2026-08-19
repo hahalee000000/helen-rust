@@ -108,7 +108,7 @@ class PlatformProtocol:
         return any(m in error_msg.lower() for m in markers)
 "#;
         if let Err(e) = py.run(
-            &std::ffi::CString::new(base_code).unwrap(),
+            &std::ffi::CString::new(base_code).expect("valid CString"),
             Some(&dict),
             None,
         ) {
@@ -125,7 +125,7 @@ class PlatformProtocol:
             .unwrap();
 
         if let Err(e) = py.run(
-            &std::ffi::CString::new(code.as_str()).unwrap(),
+            &std::ffi::CString::new(code.as_str()).expect("valid CString"),
             Some(&dict),
             None,
         ) {
@@ -215,12 +215,12 @@ impl helen_runtime::provider::PlatformProtocol for PythonProtocolAdapter {
             let obj = self.obj.bind(py);
             let py_payload = json_to_python(py, &base_payload);
             let kwargs = PyDict::new(py);
-            kwargs.set_item("model_id", model_id).unwrap();
+            kwargs.set_item("model_id", model_id).expect("set kwargs");
             kwargs
                 .set_item("thinking_enabled", thinking_enabled)
                 .unwrap();
             match reasoning_effort {
-                Some(r) => kwargs.set_item("reasoning_effort", r).unwrap(),
+                Some(r) => kwargs.set_item("reasoning_effort", r).expect("set kwargs"),
                 None => kwargs.set_item("reasoning_effort", py.None()).unwrap(),
             }
             let result = {

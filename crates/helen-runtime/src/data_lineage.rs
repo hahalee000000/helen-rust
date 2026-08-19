@@ -220,7 +220,7 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         (DataLineageTracker::new(&dir, "sess-1"), dir)
     }
 
@@ -255,8 +255,8 @@ mod tests {
         t.record_flow("a", "b", "channel", None);
         t.record_flow("b", "c", "agent_call", None);
         let g = t.get_full_lineage();
-        assert_eq!(g["nodes"].as_array().unwrap().len(), 3);
-        assert_eq!(g["edges"].as_array().unwrap().len(), 2);
+        assert_eq!(g["nodes"].as_array().expect("array exists").len(), 3);
+        assert_eq!(g["edges"].as_array().expect("array exists").len(), 2);
         assert_eq!(g["edges"][0]["source"], "a");
         assert_eq!(g["edges"][1]["target"], "c");
         let _ = std::fs::remove_dir_all(&dir);
@@ -266,7 +266,7 @@ mod tests {
     fn persists_across_reload() {
         let dir =
             std::env::temp_dir().join(format!("helen_lineage_persist_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         {
             let mut t = DataLineageTracker::new(&dir, "sess-2");
             t.record_flow("a", "b", "channel", None);
@@ -280,9 +280,9 @@ mod tests {
     #[test]
     fn missing_db_empty() {
         let dir = std::env::temp_dir().join(format!("helen_lineage_empty_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let t = DataLineageTracker::new(&dir, "sess-3");
-        assert!(t.get_full_lineage()["edges"].as_array().unwrap().is_empty());
+        assert!(t.get_full_lineage()["edges"].as_array().expect("array exists").is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

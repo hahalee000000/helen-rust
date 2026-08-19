@@ -111,7 +111,7 @@ pub fn dispatch_tool(name: &str, args: &Value) -> String {
 /// Python `_ensure_mcp_initialized()` — lazily initialize MCP from
 /// `Path.cwd() / ".mcp.json"` if it exists. Safe to call multiple times.
 pub fn ensure_mcp_initialized() {
-    let mut guard = mcp_registry().lock().unwrap();
+    let mut guard = mcp_registry().lock().expect("mutex poisoned");
     if guard.is_none() {
         let config_path = std::env::current_dir()
             .unwrap_or_else(|_| PathBuf::from("."))
@@ -127,7 +127,7 @@ pub fn ensure_mcp_initialized() {
 /// Python `initialize_mcp(config_path)` — initialize MCP servers.
 /// Idempotent (no-op if already initialized).
 pub fn initialize_mcp(config_path: &Path) {
-    let mut guard = mcp_registry().lock().unwrap();
+    let mut guard = mcp_registry().lock().expect("mutex poisoned");
     if guard.is_some() {
         return;
     }
@@ -139,7 +139,7 @@ pub fn initialize_mcp(config_path: &Path) {
 /// Python `get_mcp_tool_schemas()` — MCP tool schemas (OpenAI format).
 pub fn get_mcp_tool_schemas() -> Vec<Value> {
     ensure_mcp_initialized();
-    let mut guard = mcp_registry().lock().unwrap();
+    let mut guard = mcp_registry().lock().expect("mutex poisoned");
     match guard.as_mut() {
         Some(registry) => registry.get_tool_schemas(),
         None => Vec::new(),
@@ -150,7 +150,7 @@ pub fn get_mcp_tool_schemas() -> Vec<Value> {
 /// Returns an error JSON string if MCP is not available.
 pub fn dispatch_mcp_tool(name: &str, args: &Value) -> String {
     ensure_mcp_initialized();
-    let mut guard = mcp_registry().lock().unwrap();
+    let mut guard = mcp_registry().lock().expect("mutex poisoned");
     match guard.as_mut() {
         Some(registry) => registry.dispatch(name, args.clone()),
         None => json!({"error": format!("Unknown tool: {name}")}).to_string(),
@@ -159,7 +159,7 @@ pub fn dispatch_mcp_tool(name: &str, args: &Value) -> String {
 
 /// Python `shutdown_mcp()` — shut down all MCP servers and reset.
 pub fn shutdown_mcp() {
-    let mut guard = mcp_registry().lock().unwrap();
+    let mut guard = mcp_registry().lock().expect("mutex poisoned");
     if let Some(mut registry) = guard.take() {
         registry.shutdown();
     }
@@ -918,7 +918,7 @@ fn glob_to_regex(pattern: &str) -> regex::Regex {
         i += 1;
     }
     re.push('$');
-    regex::Regex::new(&re).unwrap_or_else(|_| regex::Regex::new("$^").unwrap())
+    regex::Regex::new(&re).unwrap_or_else(|_| regex::Regex::new("$^").expect("fallback regex"))
 }
 
 fn glob_match(pattern: &str, rel_path: &str) -> bool {
@@ -1091,35 +1091,35 @@ mod tests {
     #[test]
     fn unknown_tool_error() {
         let v: Value = serde_json::from_str(&dispatch_tool("nope", &json!({}))).unwrap();
-        assert!(v["error"].as_str().unwrap().contains("Unknown tool"));
+        assert!(v["error"].as_str().expect("string value").contains("Unknown tool"));
     }
 
     #[test]
     fn calculate_tool_returns_json() {
         let r = dispatch_tool("calculate", &json!({"expression": "2 + 3 * 4"}));
-        let v: Value = serde_json::from_str(&r).unwrap();
+        let v: Value = serde_json::from_str(&r).expect("from_str");
         assert_eq!(v["result"], json!(14));
     }
 
     #[test]
     fn read_file_missing_error() {
         let r = dispatch_tool("read_file", &json!({"path": "/no/such/file/xyz"}));
-        let v: Value = serde_json::from_str(&r).unwrap();
-        assert!(v["error"].as_str().unwrap().starts_with("Read failed"));
+        let v: Value = serde_json::from_str(&r).expect("from_str");
+        assert!(v["error"].as_str().expect("string value").starts_with("Read failed"));
     }
 
     #[test]
     fn write_then_read_roundtrip() {
         let dir = std::env::temp_dir().join(format!("helen_tool_test_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let p = dir.join("sub").join("test.txt");
         let ps = p.to_string_lossy().to_string();
         let r = dispatch_tool("write_file", &json!({"path": ps, "content": "hello"}));
-        let v: Value = serde_json::from_str(&r).unwrap();
+        let v: Value = serde_json::from_str(&r).expect("from_str");
         assert_eq!(v["status"], json!("ok"));
         assert_eq!(v["bytes_written"], json!(5));
         let r2 = dispatch_tool("read_file", &json!({"path": ps}));
-        let v2: Value = serde_json::from_str(&r2).unwrap();
+        let v2: Value = serde_json::from_str(&r2).expect("from_str");
         assert_eq!(v2["content"], json!("hello"));
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -1127,7 +1127,7 @@ mod tests {
     #[test]
     fn patch_file_exact_roundtrip() {
         let dir = std::env::temp_dir().join(format!("helen_patch_test_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let p = dir.join("a.txt");
         std::fs::write(&p, "def foo():\n    pass\n").unwrap();
         let ps = p.to_string_lossy().to_string();
@@ -1135,7 +1135,7 @@ mod tests {
             "patch_file",
             &json!({"path": ps, "old_string": "def foo():", "new_string": "def bar():"}),
         );
-        let v: Value = serde_json::from_str(&r).unwrap();
+        let v: Value = serde_json::from_str(&r).expect("from_str");
         assert_eq!(v["status"], json!("patched"));
         assert_eq!(v["strategy"], json!("exact"));
         let content = std::fs::read_to_string(&p).unwrap();
@@ -1146,7 +1146,7 @@ mod tests {
     #[test]
     fn patch_file_fuzzy_whitespace() {
         let dir = std::env::temp_dir().join(format!("helen_patch_fz_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let p = dir.join("b.txt");
         std::fs::write(&p, "    if x:\n        y()\n").unwrap();
         let ps = p.to_string_lossy().to_string();
@@ -1155,7 +1155,7 @@ mod tests {
             "patch_file",
             &json!({"path": ps, "old_string": "if x:\n    y()", "new_string": "if z:\n    y()"}),
         );
-        let v: Value = serde_json::from_str(&r).unwrap();
+        let v: Value = serde_json::from_str(&r).expect("from_str");
         assert_eq!(v["status"], json!("patched"));
         assert!(v["strategy"].as_str().is_some());
         let content = std::fs::read_to_string(&p).unwrap();
@@ -1166,16 +1166,16 @@ mod tests {
     #[test]
     fn patch_file_no_match_hint() {
         let dir = std::env::temp_dir().join(format!("helen_patch_nm_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         let p = dir.join("c.txt");
-        std::fs::write(&p, "alpha\nbeta\ngamma\n").unwrap();
+        std::fs::write(&p, "alpha\nbeta\ngamma\n").expect("write file");
         let ps = p.to_string_lossy().to_string();
         let r = dispatch_tool(
             "patch_file",
             &json!({"path": ps, "old_string": "zzz not here", "new_string": "x"}),
         );
-        let v: Value = serde_json::from_str(&r).unwrap();
-        assert!(v["error"].as_str().unwrap().contains("Could not find"));
+        let v: Value = serde_json::from_str(&r).expect("from_str");
+        assert!(v["error"].as_str().expect("string value").contains("Could not find"));
         assert!(v["hint"].as_str().is_some());
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -1189,10 +1189,10 @@ mod tests {
         std::fs::write(dir.join("top.txt"), "").unwrap();
         let ds = dir.to_string_lossy().to_string();
         let r = dispatch_tool("find_files", &json!({"path": ds, "pattern": "*.txt"}));
-        let v: Value = serde_json::from_str(&r).unwrap();
+        let v: Value = serde_json::from_str(&r).expect("from_str");
         assert_eq!(v["count"], json!(2));
         let r2 = dispatch_tool("find_files", &json!({"path": ds, "pattern": "**/*.rs"}));
-        let v2: Value = serde_json::from_str(&r2).unwrap();
+        let v2: Value = serde_json::from_str(&r2).expect("from_str");
         assert_eq!(v2["count"], json!(1));
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -1200,18 +1200,18 @@ mod tests {
     #[test]
     fn search_files_literal_and_regex() {
         let dir = std::env::temp_dir().join(format!("helen_grep_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).expect("create dir");
         std::fs::write(dir.join("f.txt"), "hello world\nTODO fix\n").unwrap();
         let ds = dir.to_string_lossy().to_string();
         let r = dispatch_tool("search_files", &json!({"path": ds, "pattern": "TODO"}));
-        let v: Value = serde_json::from_str(&r).unwrap();
+        let v: Value = serde_json::from_str(&r).expect("from_str");
         assert_eq!(v["count"], json!(1));
         assert_eq!(v["matches"][0]["line"], json!(2));
         let r2 = dispatch_tool(
             "search_files",
             &json!({"path": ds, "pattern": "h.llo", "regex": true}),
         );
-        let v2: Value = serde_json::from_str(&r2).unwrap();
+        let v2: Value = serde_json::from_str(&r2).expect("from_str");
         assert_eq!(v2["count"], json!(1));
         std::fs::remove_dir_all(&dir).ok();
     }
