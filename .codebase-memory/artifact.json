@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "47faca0da9b389c1c1861eef6d1555c240a4ebf0",
-    "indexed_at": "2026-08-16T06:18:27Z",
-    "project": "helen-rust",
-    "nodes": 10912,
-    "edges": 37410,
-    "original_size": 22020096,
-    "compressed_size": 4118845,
-    "compression_level": 9
+    "commit": "fe3b2147a9e711f47e9d138c17dd79d7630be674",
+    "indexed_at": "2026-08-19T02:47:46Z",
+    "project": "home-rxx-helen-rust",
+    "nodes": 12757,
+    "edges": 47971,
+    "original_size": 39518208,
+    "compressed_size": 7065434,
+    "compression_level": 3
 }

@@ -3893,41 +3893,9 @@ fn network_http_download(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 /// `context_stats()` — port of `stdlib/context.py:_context_stats`.
 /// In batch mode (no transcript store / history wired) Python returns the
 // ---------------------------------------------------------------------------
-// M8: session management (port of `helen/stdlib/transcript.py` core)
+// M8: session management — set_session_dir is the only impl_* kept here;
+// all other session functions live in transcript.rs (TRANSCRIPT_EXPORTS).
 // ---------------------------------------------------------------------------
-
-/// `get_session_id() -> str` — current transcript session ID.
-/// Python parity: triggers lazy transcript-store init, creating a session
-/// when none exists yet (v1.29.14).
-fn impl_get_session_id(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    if i.session_id.is_empty() {
-        // Lazy init: create a new session via the manager (Python
-        // `_init_transcript_store(None)` -> `SessionManager.create_session`).
-        let mgr = i.session_manager.lock().unwrap();
-        let new_id = mgr.create_session(None);
-        drop(mgr);
-        i.session_id = new_id.clone();
-        Ok(Value::Str(Rc::from(new_id.as_str())))
-    } else {
-        Ok(Value::Str(Rc::from(i.session_id.as_str())))
-    }
-}
-
-/// `get_session_dir() -> dict` — current session directory.
-fn impl_get_session_dir(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    if i.session_id.is_empty() {
-        // Lazy init (Python parity): ensure a session exists before resolving.
-        let mgr = i.session_manager.lock().unwrap();
-        let new_id = mgr.create_session(None);
-        drop(mgr);
-        i.session_id = new_id;
-    }
-    let session_id = i.session_id.clone();
-    let mgr = i.session_manager.lock().unwrap();
-    let dir = mgr.get_session_dir(&session_id);
-    let dir_str = dir.to_string_lossy().to_string();
-    Ok(make_str_map(&[("session_dir", &dir_str)]))
-}
 
 /// `set_session_dir(path: str) -> dict` — override the session directory
 /// (port of transcript.py::set_session_dir; returns status dict).
@@ -3945,83 +3913,6 @@ fn impl_set_session_dir(i: &mut Interpreter, args: &[Value]) -> Result<Value, Ex
     let new_mgr = helen_runtime::SessionManager::new(Some(std::path::Path::new(&path)));
     *i.session_manager.lock().unwrap() = new_mgr;
     Ok(make_str_map(&[("status", "ok"), ("session_dir", &path)]))
-}
-
-/// `list_sessions(scope="") -> list[dict]` — list sessions with metadata.
-fn impl_list_sessions(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let mgr = i.session_manager.lock().unwrap();
-    let sessions = mgr.list_sessions();
-    let mut items = Vec::new();
-    for s in sessions {
-        let mut m = indexmap::IndexMap::new();
-        m.insert(
-            Value::Str(Rc::from("session_id")),
-            Value::Str(Rc::from(s.session_id.as_str())),
-        );
-        m.insert(
-            Value::Str(Rc::from("modified_at")),
-            Value::Float(s.modified_at),
-        );
-        m.insert(
-            Value::Str(Rc::from("size_bytes")),
-            Value::Int(s.size_bytes.into()),
-        );
-        m.insert(
-            Value::Str(Rc::from("message_count")),
-            Value::Int(s.message_count.into()),
-        );
-        items.push(Value::Map(Rc::new(RefCell::new(m.into_iter().collect()))));
-    }
-    let _ = args; // scope filter: both dirs merged in Python; we use the configured one.
-    Ok(Value::List(Rc::new(RefCell::new(items))))
-}
-
-/// `delete_session(session_id: str) -> bool` — delete a session.
-fn impl_delete_session(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let session_id = match args.first() {
-        Some(Value::Str(s)) => s.to_string(),
-        _ => {
-            return Err(ExceptionValue::new(
-                "TypeError",
-                "delete_session() expected a string session_id".to_string(),
-                None,
-            ))
-        }
-    };
-    let mgr = i.session_manager.lock().unwrap();
-    Ok(Value::Bool(mgr.delete_session(&session_id)))
-}
-
-/// `cleanup_sessions(keep_count=100) -> int` — delete old sessions.
-fn impl_cleanup_sessions(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let keep = match args.first() {
-        Some(Value::Int(n)) => n.to_string().parse::<usize>().unwrap_or(100),
-        Some(_) => 100,
-        None => 100,
-    };
-    let mgr = i.session_manager.lock().unwrap();
-    Ok(Value::Int(mgr.cleanup_old_sessions(keep).into()))
-}
-
-/// `get_session_meta(session_id="") -> dict` — session metadata dict.
-fn impl_get_session_meta(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let session_id = match args.first() {
-        Some(Value::Str(s)) if !s.is_empty() => s.to_string(),
-        _ => i.session_id.clone(),
-    };
-    let mgr = i.session_manager.lock().unwrap();
-    if session_id.is_empty() || !mgr.session_exists(&session_id) {
-        return Ok(make_str_map(&[
-            ("status", "error"),
-            ("error", "Session not found"),
-        ]));
-    }
-    // Metadata lives in the transcript's first line; without a transcript
-    // store we return a minimal stub (M8 transcript integration fills this).
-    Ok(make_str_map(&[
-        ("status", "ok"),
-        ("session_id", &session_id),
-    ]))
 }
 
 /// `mailbox_select(channels, timeout=None)` (Task 7.5) — port of

@@ -852,6 +852,9 @@ pub struct ReactiveCompactor {
     pub structural_threshold: f64,
     pub semantic_threshold: f64,
     pub preserve_recent: usize,
+    /// Whether an LLM client is available for semantic compression.
+    /// Python parity: `llm_client is not None` gates the semantic path.
+    pub has_llm_client: bool,
     structural_triggered: bool,
     semantic_triggered: bool,
 }
@@ -866,6 +869,7 @@ impl ReactiveCompactor {
             structural_threshold: structural_threshold.unwrap_or(STRUCTURAL_THRESHOLD),
             semantic_threshold: semantic_threshold.unwrap_or(SEMANTIC_THRESHOLD),
             preserve_recent: preserve_recent.unwrap_or(PRESERVE_RECENT),
+            has_llm_client: false,
             structural_triggered: false,
             semantic_triggered: false,
         }
@@ -890,12 +894,10 @@ impl ReactiveCompactor {
         let usage_ratio = self.calculate_usage_ratio(messages, max_tokens);
 
         // Semantic threshold first (higher priority). Python requires
-        // `llm_client is not None` — the base port has no LLM client, so
-        // this path is never armed (parity: falls through to structural).
-        let has_llm_client = false;
+        // `llm_client is not None` — gated by `self.has_llm_client`.
         if usage_ratio >= self.semantic_threshold
             && !self.semantic_triggered
-            && has_llm_client
+            && self.has_llm_client
             && messages.len() > self.preserve_recent + 2
         {
             self.semantic_triggered = true;

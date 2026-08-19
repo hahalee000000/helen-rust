@@ -271,8 +271,11 @@ pub fn media_save_media(
     };
 
     let base64_data = read_media_as_base64(&part)?;
-    let bytes = base64::decode(&base64_data)
-        .map_err(|e| ExceptionValue::new("ValueError", format!("Failed to decode base64: {}", e), None))?;
+    let bytes = {
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.decode(base64_data.as_bytes())
+            .map_err(|e| ExceptionValue::new("ValueError", format!("Failed to decode base64: {}", e), None))?
+    };
 
     std::fs::write(&path, &bytes)
         .map_err(|e| ExceptionValue::new("IOError", format!("Failed to write file: {}", e), None))?;
@@ -369,7 +372,8 @@ fn read_media_as_base64(part: &MediaPart) -> Result<String, ExceptionValue> {
             let mut buffer = Vec::new();
             file.read_to_end(&mut buffer)
                 .map_err(|e| ExceptionValue::new("IOError", format!("Failed to read file: {}", e), None))?;
-            Ok(base64::encode(&buffer))
+            use base64::Engine;
+            Ok(base64::engine::general_purpose::STANDARD.encode(&buffer))
         }
         "url" => {
             // Download the URL content (synchronous — mirrors Python's
@@ -388,7 +392,8 @@ fn read_media_as_base64(part: &MediaPart) -> Result<String, ExceptionValue> {
             reader
                 .read_to_end(&mut buffer)
                 .map_err(|e| ExceptionValue::new("IOError", format!("Failed to read URL response: {}", e), None))?;
-            Ok(base64::encode(&buffer))
+            use base64::Engine;
+            Ok(base64::engine::general_purpose::STANDARD.encode(&buffer))
         }
         _ => Err(ExceptionValue::new(
             "ValueError",
@@ -432,9 +437,11 @@ fn convert_to_openai(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
             // Python mirrors: save video to ~/.helen/generated_media/ and
             // return the saved path as a text part (OpenAI API has no video input).
             let b64 = read_media_as_base64(part)?;
-            let bytes = base64::decode(&b64).map_err(|e| {
-                ExceptionValue::new("ValueError", format!("Invalid base64 video data: {}", e), None)
-            })?;
+            let bytes = {
+                use base64::Engine;
+                base64::engine::general_purpose::STANDARD.decode(b64.as_bytes())
+                    .map_err(|e| ExceptionValue::new("ValueError", format!("Invalid base64 video data: {}", e), None))?
+            };
             let output_dir = std::env::var("HOME")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|_| std::env::temp_dir())
