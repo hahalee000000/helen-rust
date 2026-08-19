@@ -20,4 +20,8 @@ venv/
 
 # Local state
 *.local
-# .helen/ — now tracked
+
+# .helen/ — durable config tracked (MEMORY.md, skills/), runtime state ignored
+.helen/sessions/
+.helen/webui_token
+.helen/current_session_id
