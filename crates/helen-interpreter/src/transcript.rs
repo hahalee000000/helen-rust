@@ -65,7 +65,7 @@ fn load_store(interp: &Interpreter, session_id: &str) -> Option<(TranscriptStore
     if sid.is_empty() {
         return None;
     }
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let path = manager.get_session_path(sid);
     drop(manager);
     if !path.exists() {
@@ -115,7 +115,7 @@ pub fn transcript_get_session_id(interp: &mut Interpreter, _args: &[Value]) -> R
     if interp.session_id.is_empty() {
         // Lazy init: create a new session via the manager (Python
         // `_init_transcript_store(None)` -> `SessionManager.create_session`).
-        let mgr = interp.session_manager.lock().unwrap();
+        let mgr = interp.session_manager.lock().expect("mutex poisoned");
         let new_id = mgr.create_session(None);
         drop(mgr);
         interp.session_id = new_id.clone();
@@ -167,7 +167,7 @@ pub fn transcript_get_session_meta(interp: &mut Interpreter, args: &[Value]) -> 
 /// Python: `list_sessions(scope="")` → uses SessionManager.list_sessions().
 pub fn transcript_list_sessions(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let _scope = arg_str_or(args, 0, "");
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let sessions = manager.list_sessions();
     let items: Vec<Value> = sessions
         .iter()
@@ -197,7 +197,7 @@ pub fn transcript_get_spawned_sessions(interp: &mut Interpreter, args: &[Value])
         return Ok(Value::List(Rc::new(RefCell::new(vec![]))));
     }
 
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let all_sessions = manager.list_sessions();
     let mut results = vec![];
 
@@ -238,7 +238,7 @@ pub fn transcript_get_spawn_tree(interp: &mut Interpreter, args: &[Value]) -> Re
     }
 
     // Build tree by collecting all sessions and their parent relationships
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let all_sessions = manager.list_sessions();
     let mut parent_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
 
@@ -587,7 +587,7 @@ pub fn transcript_resume_session(interp: &mut Interpreter, args: &[Value]) -> Re
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     if !manager.session_exists(sid) {
         let mut result = indexmap::IndexMap::new();
         result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
@@ -621,7 +621,7 @@ pub fn transcript_delete_current_session(interp: &mut Interpreter, args: &[Value
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let deleted = manager.delete_session(&sid);
     drop(manager);
 
@@ -654,7 +654,7 @@ pub fn transcript_release_session_lock(interp: &mut Interpreter, args: &[Value])
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     manager.release_session_lock(&target_sid);
     drop(manager);
 
@@ -676,7 +676,7 @@ pub fn transcript_invocation_path(interp: &mut Interpreter, args: &[Value]) -> R
     if target_sid.is_empty() {
         return Ok(Value::Str(Rc::from("")));
     }
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let path = manager.get_session_path(&target_sid);
     drop(manager);
     Ok(Value::Str(Rc::from(path.to_string_lossy().as_ref())))
@@ -697,7 +697,7 @@ pub fn transcript_get_compression_audit(interp: &mut Interpreter, args: &[Value]
 
 /// Get session directory path.
 pub fn transcript_get_session_dir(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     // Use a dummy session to get the base directory
     let path = manager.get_session_path("__dummy__");
     drop(manager);
@@ -720,7 +720,7 @@ pub fn transcript_delete_session(interp: &mut Interpreter, args: &[Value]) -> Re
         ));
     }
 
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let deleted = manager.delete_session(sid);
     drop(manager);
 
@@ -733,7 +733,7 @@ pub fn transcript_delete_session(interp: &mut Interpreter, args: &[Value]) -> Re
 /// Cleanup old sessions.
 pub fn transcript_cleanup_sessions(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let keep_count = arg_int_or(args, 0, 100) as usize;
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let removed = manager.cleanup_old_sessions(keep_count);
     drop(manager);
     Ok(Value::Int(num_bigint::BigInt::from(removed as i64)))
@@ -745,7 +745,7 @@ pub fn transcript_set_session_dir(interp: &mut Interpreter, args: &[Value]) -> R
     
     // Get current session directory
     let previous = {
-        let manager = interp.session_manager.lock().unwrap();
+        let manager = interp.session_manager.lock().expect("mutex poisoned");
         if interp.session_id.is_empty() {
             manager.base_dir.to_string_lossy().to_string()
         } else {
@@ -768,7 +768,7 @@ pub fn transcript_set_session_dir(interp: &mut Interpreter, args: &[Value]) -> R
     
     // Update session manager base_dir directly
     {
-        let mut manager = interp.session_manager.lock().unwrap();
+        let mut manager = interp.session_manager.lock().expect("mutex poisoned");
         manager.base_dir = abs_path.clone();
     }
     

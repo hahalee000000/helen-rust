@@ -207,7 +207,7 @@ pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Val
         _ => None,
     };
 
-    let mut tracker = i.data_lineage.lock().unwrap();
+    let mut tracker = i.data_lineage.lock().expect("mutex poisoned");
     tracker.record_flow(&producer_uuid, &consumer_uuid, &flow_type, metadata.as_ref());
 
     let mut result = indexmap::IndexMap::new();
@@ -227,7 +227,7 @@ pub fn debug_trace_value_origin(i: &mut Interpreter, args: &[Value]) -> Result<V
         _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
     };
 
-    let tracker = i.data_lineage.lock().unwrap();
+    let tracker = i.data_lineage.lock().expect("mutex poisoned");
     let flows = tracker.get_origin(&message_uuid);
 
     let result: Vec<Value> = flows
@@ -245,7 +245,7 @@ pub fn debug_trace_value_consumers(i: &mut Interpreter, args: &[Value]) -> Resul
         _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
     };
 
-    let tracker = i.data_lineage.lock().unwrap();
+    let tracker = i.data_lineage.lock().expect("mutex poisoned");
     let flows = tracker.get_consumers(&message_uuid);
 
     let result: Vec<Value> = flows
@@ -258,7 +258,7 @@ pub fn debug_trace_value_consumers(i: &mut Interpreter, args: &[Value]) -> Resul
 /// Get data lineage graph.
 /// Python: returns `tracker.get_full_lineage()` or {"nodes":[], "edges":[]} if no tracker.
 pub fn debug_get_data_lineage(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let tracker = i.data_lineage.lock().unwrap();
+    let tracker = i.data_lineage.lock().expect("mutex poisoned");
     let lineage = tracker.get_full_lineage();
     Ok(json_to_value(&lineage))
 }

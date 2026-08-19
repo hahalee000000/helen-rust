@@ -10,7 +10,7 @@ use std::rc::Rc;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 
-use helen_core::ast_printer::py_str_float;
+
 use helen_core::tokens::LiteralValue;
 
 use crate::exceptions::ExceptionValue;
@@ -366,8 +366,8 @@ pub type BuiltinImpl = fn(&mut Interpreter, &[Value]) -> Result<Value, Exception
 pub fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let parts: Vec<String> = args.iter().map(|a| a.to_display(true)).collect();
     let result = parts.join(" ");
-    interp.stdout.lock().unwrap().push_str(&result);
-    interp.stdout.lock().unwrap().push('\n');
+    interp.stdout.lock().expect("stdout mutex poisoned").push_str(&result);
+    interp.stdout.lock().expect("stdout mutex poisoned").push('\n');
     Ok(Value::Str(Rc::from(result.as_str())))
 }
 
@@ -658,7 +658,7 @@ mod m3_tests {
     fn with_mcp_clean<T>(f: impl FnOnce() -> T) -> T {
         use std::sync::{Mutex, OnceLock};
         static MCP_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let _g = MCP_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+        let _g = MCP_LOCK.get_or_init(|| Mutex::new(())).lock().expect("MCP mutex poisoned");
         helen_runtime::shutdown_mcp();
         let r = f();
         helen_runtime::shutdown_mcp();
@@ -677,7 +677,7 @@ mod m3_tests {
         );
         let mut interp = Interpreter::new();
         let r = interp.interpret(&program);
-        let out = interp.stdout.lock().unwrap().clone();
+        let out = interp.stdout.lock().expect("stdout mutex poisoned").clone();
         (r, out)
     }
 
@@ -697,7 +697,7 @@ mod m3_tests {
         let mut interp = Interpreter::new();
         interp.set_llm_runtime(runtime);
         let r = interp.interpret(&program);
-        let out = interp.stdout.lock().unwrap().clone();
+        let out = interp.stdout.lock().expect("stdout mutex poisoned").clone();
         (r, out)
     }
 
@@ -751,7 +751,7 @@ mod m3_tests {
         let mut interp = Interpreter::new();
         interp.set_source_file(main_path.to_str().unwrap());
         let r = interp.interpret(&program);
-        let out = interp.stdout.lock().unwrap().clone();
+        let out = interp.stdout.lock().expect("stdout mutex poisoned").clone();
         (r, out)
     }
 

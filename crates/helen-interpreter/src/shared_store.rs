@@ -42,12 +42,12 @@ impl SharedStoreInstance {
 
     /// `get_field` — thread-safe field read.
     pub fn get_field(&self, name: &str) -> Option<Value> {
-        self.fields.lock().unwrap().get(name).cloned()
+        self.fields.lock().expect("mutex poisoned").get(name).cloned()
     }
 
     /// `set_field` — thread-safe field write.
     pub fn set_field(&self, name: &str, value: Value) -> Result<(), String> {
-        let mut fields = self.fields.lock().unwrap();
+        let mut fields = self.fields.lock().expect("mutex poisoned");
         if fields.contains_key(name) {
             fields.insert(name.to_string(), value);
             Ok(())

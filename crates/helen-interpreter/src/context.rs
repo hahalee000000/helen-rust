@@ -80,7 +80,7 @@ fn load_store(interp: &Interpreter) -> Option<TranscriptStore> {
     if interp.session_id.is_empty() {
         return None;
     }
-    let manager = interp.session_manager.lock().unwrap();
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
     let path = manager.get_session_path(&interp.session_id);
     drop(manager);
     if !path.exists() {
@@ -142,11 +142,11 @@ fn json_to_value(v: &serde_json::Value) -> Value {
 
 /// Get or create the working memory map on the interpreter.
 fn get_working_memory(interp: &Interpreter) -> HashMap<String, Vec<Value>> {
-    interp.working_memory.lock().unwrap().clone()
+    interp.working_memory.lock().expect("mutex poisoned").clone()
 }
 
 fn set_working_memory(interp: &Interpreter, wm: HashMap<String, Vec<Value>>) {
-    *interp.working_memory.lock().unwrap() = wm;
+    *interp.working_memory.lock().expect("mutex poisoned") = wm;
 }
 
 // ---------------------------------------------------------------------------

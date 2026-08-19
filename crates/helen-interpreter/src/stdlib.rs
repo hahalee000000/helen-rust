@@ -49,7 +49,7 @@ pub const CORE_EXPORTS: &[&str] = &[
 // ---------------------------------------------------------------------------
 
 
-use crate::stdlib_helpers::{arg_str, arg_int, arg_f64, arg_bool, arg_list, arg_map, arg_opt_str, arg_opt_int, err_expected};
+use crate::stdlib_helpers::{arg_str, arg_int, arg_f64, arg_list, arg_map, arg_opt_str, arg_opt_int, err_expected};
 
 fn dict_keys(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let m = match args.first() {
