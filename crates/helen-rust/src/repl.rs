@@ -518,7 +518,7 @@ fn load_and_resume_transcript(
 }
 
 /// `repl_command()` — the interactive loop. Returns process exit code.
-pub fn repl_command() -> i32 {
+pub fn repl_command(session_id: Option<&str>) -> i32 {
     println!("Helen REPL v1.2");
     println!("Type 'exit' or Ctrl+D to quit, ':help' for commands");
     println!(
@@ -527,6 +527,9 @@ pub fn repl_command() -> i32 {
     println!();
 
     let mut interp = Interpreter::new();
+    if let Some(sid) = session_id {
+        interp.session_id = sid.to_string();
+    }
     let mut analyzer = SemanticAnalyzer::new(
         helen_semantic::ErrorReporter::new(),
         &std::env::current_dir()

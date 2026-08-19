@@ -308,7 +308,7 @@ pub fn watch_command(file: &str) -> i32 {
             let ss = now % 60;
             println!("\n🔄 [{hh:02}:{mm:02}:{ss:02}] Change detected, running {file}...");
             println!("{}", "=".repeat(60));
-            let code = crate::cli_commands::run_command(file);
+            let code = crate::cli_commands::run_command(file, None);
             if code == 0 {
                 println!("✅ Program completed successfully");
             } else {
@@ -644,7 +644,7 @@ pub fn extract_session_flags(argv: &[String]) -> (Option<String>, Vec<String>) {
 
 /// Run a Helen program. Exit codes: 0 success, 1 file-not-found/syntax,
 /// 2 semantic, 3 runtime.
-pub fn run_command(file: &str) -> i32 {
+pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
     let source_path = std::path::Path::new(file);
     if !source_path.exists() {
         eprintln!("Error: file not found: {file}");
@@ -686,6 +686,9 @@ pub fn run_command(file: &str) -> i32 {
 
     // Interpret
     let mut interp = Interpreter::new();
+    if let Some(sid) = session_id {
+        interp.session_id = sid.to_string();
+    }
     interp.set_source_file(file);
     let result = interp.interpret(&program);
     let stdout = interp.stdout.lock().unwrap().clone();

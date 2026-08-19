@@ -625,7 +625,8 @@ fn main() {
         if preflight_config_check().is_err() {
             std::process::exit(1);
         }
-        let code = repl::repl_command();
+        let (session_id, _) = helen_rust::cli_commands::extract_session_flags(&argv);
+        let code = repl::repl_command(session_id.as_deref());
         std::process::exit(code);
     }
 
@@ -643,7 +644,8 @@ fn main() {
             if preflight_config_check().is_err() {
                 std::process::exit(1);
             }
-            let code = repl::repl_command();
+            let (session_id, _) = helen_rust::cli_commands::extract_session_flags(&argv[1..]);
+            let code = repl::repl_command(session_id.as_deref());
             std::process::exit(code);
         }
         "check" => {
@@ -711,7 +713,9 @@ fn main() {
             if preflight_config_check().is_err() {
                 std::process::exit(1);
             }
-            let code = helen_rust::cli_commands::run_command(first);
+            // Extract session flags before running
+            let (session_id, _remaining_argv) = helen_rust::cli_commands::extract_session_flags(&argv[1..]);
+            let code = helen_rust::cli_commands::run_command(first, session_id.as_deref());
             std::process::exit(code);
         }
     }
