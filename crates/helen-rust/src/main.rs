@@ -591,6 +591,36 @@ fn main() {
     // ── M12: real CLI ─────────────────────────────────────────────
     let argv: Vec<String> = args[1..].to_vec();
 
+    // Extract --transcript-log flag (sets HELEN_TRANSCRIPT_LOG env var)
+    let mut filtered_argv = Vec::new();
+    let mut i = 0;
+    while i < argv.len() {
+        if argv[i] == "--transcript-log" && i + 1 < argv.len() {
+            let path = std::path::Path::new(&argv[i + 1]);
+            let abs_path = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir().unwrap_or_default().join(path)
+            };
+            std::env::set_var("HELEN_TRANSCRIPT_LOG", abs_path.to_string_lossy().to_string());
+            i += 2;
+        } else if argv[i].starts_with("--transcript-log=") {
+            let path_str = &argv[i]["--transcript-log=".len()..];
+            let path = std::path::Path::new(path_str);
+            let abs_path = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir().unwrap_or_default().join(path)
+            };
+            std::env::set_var("HELEN_TRANSCRIPT_LOG", abs_path.to_string_lossy().to_string());
+            i += 1;
+        } else {
+            filtered_argv.push(argv[i].clone());
+            i += 1;
+        }
+    }
+    let argv = filtered_argv;
+
     if argv.is_empty() {
         if preflight_config_check().is_err() {
             std::process::exit(1);
