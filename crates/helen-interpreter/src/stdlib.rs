@@ -143,15 +143,6 @@ fn arg_list(args: &[Value], i: usize) -> Result<Vec<Value>, ExceptionValue> {
     }
 }
 
-/// Build a `Value::Map` from str-keyed pairs (insertion-ordered).
-fn make_str_map(pairs: &[(&str, &str)]) -> Value {
-    let mut map = indexmap::IndexMap::new();
-    for (k, v) in pairs {
-        map.insert(Value::Str(Rc::from(*k)), Value::Str(Rc::from(*v)));
-    }
-    Value::Map(Rc::new(RefCell::new(map)))
-}
-
 /// Extract a map argument (Python: requires a dict).
 fn arg_map(args: &[Value], i: usize) -> Result<indexmap::IndexMap<Value, Value>, ExceptionValue> {
     match args.get(i) {
@@ -3893,27 +3884,9 @@ fn network_http_download(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 /// `context_stats()` — port of `stdlib/context.py:_context_stats`.
 /// In batch mode (no transcript store / history wired) Python returns the
 // ---------------------------------------------------------------------------
-// M8: session management — set_session_dir is the only impl_* kept here;
-// all other session functions live in transcript.rs (TRANSCRIPT_EXPORTS).
+// M8: session management — all session functions live in transcript.rs
+// and are exposed via TRANSCRIPT_EXPORTS.
 // ---------------------------------------------------------------------------
-
-/// `set_session_dir(path: str) -> dict` — override the session directory
-/// (port of transcript.py::set_session_dir; returns status dict).
-fn impl_set_session_dir(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let path = match args.first() {
-        Some(Value::Str(s)) => s.to_string(),
-        _ => {
-            return Err(ExceptionValue::new(
-                "TypeError",
-                "set_session_dir() expected a string path".to_string(),
-                None,
-            ))
-        }
-    };
-    let new_mgr = helen_runtime::SessionManager::new(Some(std::path::Path::new(&path)));
-    *i.session_manager.lock().unwrap() = new_mgr;
-    Ok(make_str_map(&[("status", "ok"), ("session_dir", &path)]))
-}
 
 /// `mailbox_select(channels, timeout=None)` (Task 7.5) — port of
 /// `helen/stdlib/mailbox.py::_mailbox_select`.
@@ -5432,10 +5405,6 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "get_session_dir",
         func: crate::transcript::transcript_get_session_dir,
-    },
-    StdlibExport {
-        name: "set_session_dir",
-        func: impl_set_session_dir,
     },
     StdlibExport {
         name: "list_sessions",
