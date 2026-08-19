@@ -58,6 +58,7 @@ pub trait LlmRuntime: Send + Sync {
         system_prompt: Option<&str>,
         tools: Option<&[serde_json::Value]>,
         max_turns: usize,
+        max_tokens: Option<u64>, // v1.31.2: max output tokens
         history: Option<&[serde_json::Value]>,
         dispatch_fn: Option<&dyn Fn(&str, &serde_json::Value) -> String>,
         on_event: &mut dyn FnMut(serde_json::Value) -> bool,

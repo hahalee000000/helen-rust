@@ -83,6 +83,9 @@ pub struct Interpreter {
     pub call_tracker: std::sync::Arc<helen_runtime::call_tracking::CallTracker>,
     /// Data lineage tracker for cross-agent data flow (P5).
     pub data_lineage: std::sync::Arc<std::sync::Mutex<helen_runtime::data_lineage::DataLineageTracker>>,
+    /// LLM call history (Python `_history`) — `{"role", "content"}` entries
+    /// recorded by `llm if`/`llm act`; feeds `format_context_stats`.
+    pub history: Rc<RefCell<Vec<serde_json::Value>>>,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -180,6 +183,7 @@ impl Interpreter {
             working_memory: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             call_tracker: std::sync::Arc::new(helen_runtime::call_tracking::CallTracker::new()),
             data_lineage: std::sync::Arc::new(std::sync::Mutex::new(helen_runtime::data_lineage::DataLineageTracker::new_in_memory())),
+            history: Rc::new(RefCell::new(Vec::new())),
         };
         interp.register_core_builtins();
         interp
@@ -226,27 +230,37 @@ impl Interpreter {
     /// Simplified version - returns basic stats since full history management
     /// is not yet integrated in Rust.
     pub fn format_context_stats(&self) -> String {
-        let mut lines = Vec::new();
-        lines.push("╔══════════════════════════════════════╗".to_string());
-        lines.push("║       Context Usage Statistics        ║".to_string());
-        lines.push("╠══════════════════════════════════════╣".to_string());
-        
-        // Basic stats
-        let fn_count = self.functions.len();
-        let agent_count = self.agents.len();
-        let env_size = self.environment.borrow().store_ref().len();
-        
-        lines.push(format!("║ Functions: {:<26} ║", fn_count));
-        lines.push(format!("║ Agents:    {:<26} ║", agent_count));
-        lines.push(format!("║ Env vars:  {:<26} ║", env_size));
-        lines.push(format!("║ Session:   {:<26} ║", if self.session_id.is_empty() { "(none)" } else { &self.session_id }));
-        
-        lines.push("╠──────────────────────────────────────╣".to_string());
-        lines.push("║ Note: Full token tracking requires   ║".to_string());
-        lines.push("║ transcript store integration (WIP)   ║".to_string());
-        lines.push("╚══════════════════════════════════════╝".to_string());
-        
-        lines.join("\n")
+        // Python: `HistoryManager.get_usage_stats(self._history, system_prompt)`
+        // → `format_usage_stats`. Convert the recorded JSON entries to runtime
+        // Messages and delegate to the runtime's fully-implemented formatter.
+        let history: Vec<helen_runtime::transcript::Message> = self
+            .history
+            .borrow()
+            .iter()
+            .filter_map(|entry| {
+                let role = entry.get("role")?.as_str()?;
+                let content = entry.get("content")?.as_str()?;
+                Some(helen_runtime::transcript::Message::new(
+                    role,
+                    serde_json::Value::String(content.to_string()),
+                    Vec::new(),
+                    None,
+                    helen_runtime::transcript::generate_uuid(),
+                    None,
+                    0,
+                    false,
+                    false,
+                    None,
+                    String::new(),
+                    String::new(),
+                    Vec::new(),
+                ))
+            })
+            .collect();
+
+        let manager = helen_runtime::history::HistoryManager::new(None, None, None);
+        let stats = manager.get_usage_stats(&history, None);
+        manager.format_usage_stats(&stats)
     }
 
     fn register_builtin(&mut self, name: &str, func: BuiltinImpl) {
@@ -2998,6 +3012,16 @@ impl Interpreter {
             _ => None,
         };
 
+        // Record history (Python `_add_to_history` parity).
+        {
+            let mut h = self.history.borrow_mut();
+            h.push(serde_json::json!({"role": "user", "content": format!("[route] {desc_str}")}));
+            h.push(serde_json::json!({
+                "role": "assistant",
+                "content": format!("[routed to: {}]", selected.as_deref().unwrap_or("default"))
+            }));
+        }
+
         // Execute the matching branch in a fresh scope.
         for (idx, b) in li.branches.iter().enumerate() {
             if b.condition.is_some() && selected.as_deref() == Some(branch_names[idx].as_str()) {
@@ -3168,6 +3192,15 @@ impl Interpreter {
             thinking_enabled,
             reasoning_effort.as_deref(),
         )?;
+
+        // Record history (Python `_add_to_history` parity).
+        {
+            let mut h = self.history.borrow_mut();
+            h.push(serde_json::json!({"role": "user", "content": prompt}));
+            if let Some(t) = &response.text {
+                h.push(serde_json::json!({"role": "assistant", "content": t}));
+            }
+        }
 
         let has_streaming = la.on_chunk.is_some() || la.on_complete.is_some();
         if !has_streaming {

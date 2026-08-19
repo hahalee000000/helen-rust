@@ -69,15 +69,110 @@ fn test_get_invocation_tree_empty_map() {
     let mut interp = make_interp();
     let result = transcript_get_invocation_tree(&mut interp, &[]);
     assert!(result.is_ok());
-    // Returns a map with empty invocations when no invocation_id provided
+    // Python parity: returns {} when no session or no invocations.
     match result.unwrap() {
         Value::Map(map) => {
             let borrowed = map.borrow();
-            assert!(borrowed.contains_key(&Value::Str(Rc::from("session_id"))));
-            assert!(borrowed.contains_key(&Value::Str(Rc::from("invocations"))));
+            assert_eq!(borrowed.len(), 0, "expected empty map, got {borrowed:?}");
         }
         _ => panic!("Expected Map, got other type"),
     }
+}
+
+#[test]
+fn test_get_invocation_tree_nested_children() {
+    use helen_runtime::transcript::{JsonlBackend, Message, TranscriptStore};
+    let mut interp = make_interp();
+
+    // Seed a session store with a parent + child invocation.
+    let sid = format!("session_tree_{}", std::process::id());
+    let manager = interp.session_manager.lock().unwrap();
+    let path = manager.get_session_path(&sid);
+    drop(manager);
+    let _ = std::fs::create_dir_all(path.parent().unwrap());
+    let backend = JsonlBackend::new(&path);
+    let mut store = TranscriptStore::load_from_backend(backend, 1000);
+    let parent_uuid = helen_runtime::transcript::generate_uuid();
+    let child_uuid = helen_runtime::transcript::generate_uuid();
+
+    store.append(
+        &mut Message::new(
+            "user",
+            serde_json::json!("hi"),
+            Vec::new(),
+            None,
+            helen_runtime::transcript::generate_uuid(),
+            None,
+            0,
+            false,
+            false,
+            None,
+            parent_uuid.clone(),
+            String::new(),
+            Vec::new(),
+        ),
+        true,
+    );
+    store.append(
+        &mut Message::new(
+            "assistant",
+            serde_json::json!("response"),
+            Vec::new(),
+            None,
+            helen_runtime::transcript::generate_uuid(),
+            None,
+            0,
+            false,
+            false,
+            Some("agentA".to_string()),
+            child_uuid.clone(),
+            parent_uuid.clone(),
+            Vec::new(),
+        ),
+        true,
+    );
+
+    let result = transcript_get_invocation_tree(&mut interp, &[Value::Str(Rc::from(sid.as_str()))]);
+    assert!(result.is_ok(), "tree failed: {:?}", result.err());
+    let tree = result.unwrap();
+    match &tree {
+        Value::Map(map) => {
+            let b = map.borrow();
+            // Single root = parent invocation.
+            assert_eq!(
+                b.get(&Value::Str(Rc::from("invocation_id"))),
+                Some(&Value::Str(Rc::from(parent_uuid.as_str())))
+            );
+            assert_eq!(
+                b.get(&Value::Str(Rc::from("message_count"))),
+                Some(&Value::Int(num_bigint::BigInt::from(1)))
+            );
+            // One child.
+            let kids = b.get(&Value::Str(Rc::from("children"))).unwrap();
+            if let Value::List(list) = kids {
+                let children = list.borrow();
+                assert_eq!(children.len(), 1);
+                if let Value::Map(cmap) = &children[0] {
+                    let cb = cmap.borrow();
+                    assert_eq!(
+                        cb.get(&Value::Str(Rc::from("agent_name"))),
+                        Some(&Value::Str(Rc::from("agentA")))
+                    );
+                    assert_eq!(
+                        cb.get(&Value::Str(Rc::from("parent_invocation_id"))),
+                        Some(&Value::Str(Rc::from(parent_uuid.as_str())))
+                    );
+                } else {
+                    panic!("child not a map");
+                }
+            } else {
+                panic!("children not a list");
+            }
+        }
+        _ => panic!("Expected Map tree, got {:?}", tree),
+    }
+
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
 }
 
 #[test]
@@ -216,4 +311,33 @@ fn test_invocation_path_empty_string() {
     let result = transcript_invocation_path(&mut interp, &[]);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), Value::Str(Rc::from("")));
+}
+
+// ── format_context_stats (HistoryManager wiring) ─────────────────────────
+
+#[test]
+fn test_format_context_stats_empty_history() {
+    let mut interp = make_interp();
+    let s = interp.format_context_stats();
+    // Python-parity box header + 0 tokens.
+    assert!(s.contains("Context Usage Statistics"), "{s}");
+    assert!(s.contains("Tokens:"), "{s}");
+    assert!(s.contains("0 /"), "{s}");
+}
+
+#[test]
+fn test_format_context_stats_after_llm_call() {
+    // Seed history directly (llm calls recorded by visit_llm_act; here we
+    // simulate the recorded entries).
+    let mut interp = make_interp();
+    {
+        let mut h = interp.history.borrow_mut();
+        h.push(serde_json::json!({"role": "user", "content": "hello world"}));
+        h.push(serde_json::json!({"role": "assistant", "content": "hi there"}));
+    }
+    let s = interp.format_context_stats();
+    assert!(s.contains("Messages:"), "{s}");
+    assert!(s.contains("2"), "{s}"); // message_count = 2
+    assert!(s.contains("USER"), "{s}"); // capitalized role label
+    assert!(s.contains("ASSISTANT"), "{s}");
 }

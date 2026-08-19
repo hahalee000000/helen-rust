@@ -387,33 +387,130 @@ pub fn transcript_get_invocation(interp: &mut Interpreter, args: &[Value]) -> Re
 }
 
 /// Get invocation tree (agent call hierarchy within a session).
-/// Simplified: returns a flat list of invocations with parent references.
+/// Python: `get_invocation_tree(session_id=None)` — builds a nested tree
+/// from the message stream using `_build_invocation_index`. Returns the
+/// root invocation with nested children, or a virtual root when there are
+/// multiple roots.
 pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     match load_store(interp, sid) {
         Some((mut store, _)) => {
             let messages = store.read_view();
-            let mut invocations = vec![];
+
+            // Build index: invocation_id -> (agent_name, parent, message_count).
+            // Python `_build_invocation_index` — first message per invocation
+            // defines agent_name/parent; message_count counts all messages.
+            let mut index: indexmap::IndexMap<String, (Option<String>, String, usize)> =
+                indexmap::IndexMap::new();
             for m in &messages {
-                if m.role == "assistant" {
-                    let mut map = indexmap::IndexMap::new();
-                    map.insert(Value::Str(Rc::from("uuid")), Value::Str(Rc::from(m.uuid.as_str())));
-                    map.insert(Value::Str(Rc::from("role")), Value::Str(Rc::from(m.role.as_str())));
-                    map.insert(Value::Str(Rc::from("children")), Value::List(Rc::new(RefCell::new(vec![]))));
-                    invocations.push(Value::Map(Rc::new(RefCell::new(map))));
+                if m.invocation_id.is_empty() {
+                    continue;
+                }
+                let entry = index.entry(m.invocation_id.clone()).or_insert_with(|| {
+                    (
+                        m.agent_name.clone(),
+                        m.parent_invocation_id.clone(),
+                        0usize,
+                    )
+                });
+                entry.2 += 1;
+            }
+
+            // Add children lists.
+            let mut children: std::collections::HashMap<String, Vec<String>> =
+                std::collections::HashMap::new();
+            for (inv_id, (_, parent, _)) in &index {
+                if !parent.is_empty() && index.contains_key(parent) {
+                    children
+                        .entry(parent.clone())
+                        .or_default()
+                        .push(inv_id.clone());
                 }
             }
-            let mut tree = indexmap::IndexMap::new();
-            tree.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(interp.session_id.as_str())));
-            tree.insert(Value::Str(Rc::from("invocations")), Value::List(Rc::new(RefCell::new(invocations))));
-            Ok(Value::Map(Rc::new(RefCell::new(tree))))
+
+            // Recursively build nested Value tree.
+            fn build_node(
+                inv_id: &str,
+                index: &indexmap::IndexMap<String, (Option<String>, String, usize)>,
+                children: &std::collections::HashMap<String, Vec<String>>,
+            ) -> Value {
+                let (agent_name, parent, msg_count) = index.get(inv_id).unwrap();
+                let mut map = indexmap::IndexMap::new();
+                map.insert(
+                    Value::Str(Rc::from("invocation_id")),
+                    Value::Str(Rc::from(inv_id)),
+                );
+                map.insert(
+                    Value::Str(Rc::from("agent_name")),
+                    match agent_name {
+                        Some(n) => Value::Str(Rc::from(n.as_str())),
+                        None => Value::Null,
+                    },
+                );
+                map.insert(
+                    Value::Str(Rc::from("parent_invocation_id")),
+                    Value::Str(Rc::from(parent.as_str())),
+                );
+                map.insert(
+                    Value::Str(Rc::from("message_count")),
+                    Value::Int(num_bigint::BigInt::from(*msg_count as i64)),
+                );
+                let kids: Vec<Value> = children
+                    .get(inv_id)
+                    .map(|c| {
+                        c.iter()
+                            .map(|kid| build_node(kid, index, children))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                map.insert(
+                    Value::Str(Rc::from("children")),
+                    Value::List(Rc::new(RefCell::new(kids))),
+                );
+                Value::Map(Rc::new(RefCell::new(map)))
+            }
+
+            // Roots: invocations whose parent is not in the index.
+            let roots: Vec<String> = index
+                .keys()
+                .filter(|inv_id| {
+                    let parent = &index.get(*inv_id).unwrap().1;
+                    parent.is_empty() || !index.contains_key(parent)
+                })
+                .cloned()
+                .collect();
+
+            let tree = if roots.len() == 1 {
+                build_node(&roots[0], &index, &children)
+            } else {
+                // Multiple roots: wrap in virtual root (Python parity).
+                let mut map = indexmap::IndexMap::new();
+                map.insert(Value::Str(Rc::from("invocation_id")), Value::Str(Rc::from("")));
+                map.insert(Value::Str(Rc::from("agent_name")), Value::Null);
+                map.insert(
+                    Value::Str(Rc::from("message_count")),
+                    Value::Int(num_bigint::BigInt::from(0)),
+                );
+                let kids: Vec<Value> = roots
+                    .iter()
+                    .map(|r| build_node(r, &index, &children))
+                    .collect();
+                map.insert(
+                    Value::Str(Rc::from("children")),
+                    Value::List(Rc::new(RefCell::new(kids))),
+                );
+                Value::Map(Rc::new(RefCell::new(map)))
+            };
+
+            // Python returns {} when the index is empty.
+            if index.is_empty() {
+                return Ok(Value::Map(Rc::new(RefCell::new(indexmap::IndexMap::new()))));
+            }
+            Ok(tree)
         }
-        None => {
-            let mut tree = indexmap::IndexMap::new();
-            tree.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from("")));
-            tree.insert(Value::Str(Rc::from("invocations")), Value::List(Rc::new(RefCell::new(vec![]))));
-            Ok(Value::Map(Rc::new(RefCell::new(tree))))
-        }
+        None => Ok(Value::Map(Rc::new(RefCell::new(
+            indexmap::IndexMap::new(),
+        )))),
     }
 }
 

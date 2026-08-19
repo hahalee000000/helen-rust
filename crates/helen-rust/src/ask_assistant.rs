@@ -323,6 +323,7 @@ fn run_streaming(
         Some(system_prompt),
         Some(tools),
         5,     // max_turns
+        None,  // max_tokens
         None,  // history
         Some(dispatch_fn),
         &mut |event: Value| {

@@ -655,6 +655,7 @@ impl LlmRuntime for HttpLLMRuntime {
         system_prompt: Option<&str>,
         tools: Option<&[Value]>,
         max_turns: usize,
+        max_tokens: Option<u64>,
         history: Option<&[Value]>,
         dispatch_fn: Option<&dyn Fn(&str, &Value) -> String>,
         mut on_event: &mut dyn FnMut(Value) -> bool,
@@ -701,7 +702,7 @@ impl LlmRuntime for HttpLLMRuntime {
                     payload["tools"] = Value::Array(t.to_vec());
                 }
             }
-            if let Some(mt) = max_tokens_for_stream() {
+            if let Some(mt) = max_tokens {
                 payload["max_tokens"] = json!(mt);
             }
             payload = self.protocol().build_request_payload(
@@ -869,11 +870,6 @@ impl LlmRuntime for HttpLLMRuntime {
         }
         Ok(())
     }
-}
-
-/// Placeholder for max_tokens in streaming (Python passes it through).
-fn max_tokens_for_stream() -> Option<u64> {
-    None
 }
 
 /// Process one SSE `data:` line (OpenAI chat.completion.chunk format).

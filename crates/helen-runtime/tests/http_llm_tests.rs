@@ -53,6 +53,7 @@ fn test_http_llm_streaming_content_events() {
         None,
         None,
         3,
+        None, // max_tokens
         None,
         None,
         &mut |ev| {
