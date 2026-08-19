@@ -15,3 +15,28 @@ Top recurring gotchas (details in wiki):
 ## Conventions
 - Commit style: `Mn: <summary> — ...`, push to origin/main.
 - `.helen/` is gitignored (runtime session store) → shared durable docs go in `wiki/`.
+- Reports and analysis docs go in `reports/` directory.
+
+## Codebase analysis (2026-08-19)
+Full report: `reports/CODEBASE_ANALYSIS_REPORT.md`
+
+### Cleanup completed
+- Removed 6 dead `impl_*` session functions from stdlib.rs (~107 lines) — orphaned duplicates of transcript.rs implementations
+- Fixed 4 deprecated `base64::encode/decode` calls in media.rs → use `base64::engine::general_purpose::STANDARD`
+- Added `has_llm_client: bool` field to `ReactiveCompactor` — semantic compression now configurable (was hardcoded `false`)
+- Removed duplicate `set_session_dir` entry from TRANSCRIPT_EXPORTS
+- Removed dead `make_str_map` helper (only used by removed function)
+
+### Session functions architecture
+- Public API: `std.transcript.*` functions (7 total)
+- Implementation: all in `crates/helen-interpreter/src/transcript.rs`
+- Registration: via `TRANSCRIPT_EXPORTS` in stdlib.rs
+- The removed `impl_*` functions were never registered — they were migration leftovers
+
+### Remaining issues
+1. **LLM recording trait defaults** (llm.rs:79-84): `enable_recording/disable_recording` return errors by default; `HttpLLMRuntime` should override
+2. **Quality dimension scoring** (cli_commands.rs:220): `helen quality --dimension <name>` falls back to aggregate score
+3. **Compiler warnings** (6): output filename collision, unused doc comments (2), unused variable, unnecessary mut
+
+### Key insight
+stdlib.rs `impl_*` functions are NOT automatically public API — only functions registered in `*_EXPORTS` tables are exposed to Helen users. Dead `impl_*` functions can be safely removed if not in any EXPORTS table.
