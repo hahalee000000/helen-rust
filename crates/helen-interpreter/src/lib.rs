@@ -7,6 +7,7 @@
 #![allow(clippy::result_large_err)]
 
 pub mod closure;
+pub mod stdlib_math;
 pub mod data_formats;
 pub mod environment;
 pub mod exceptions;
