@@ -3,6 +3,9 @@
 ## Language Policy
 **helen-rust development and maintenance is in English** — code comments, commit messages, documentation, and all communication.
 
+## Tool Usage
+**Always use codebase-memory-mcp-helen when working with code** — for code search, graph queries, and understanding code relationships.
+
 ## Porting playbook (source of truth)
 Full M1–M7 lessons: `wiki/rust/migration-notes.md`
 
