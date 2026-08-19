@@ -30,11 +30,11 @@ use crate::closure::{compute_free_variables, Closure};
 use crate::environment::Environment;
 use crate::exceptions::{error_matches, resolve_exception, ExceptionValue, Flow};
 use crate::interpreter_builtins::{
-    builtin_abs, builtin_bool, builtin_dict, builtin_float, builtin_int, builtin_isinstance,
-    builtin_len, builtin_list, builtin_max, builtin_min, builtin_print, builtin_range,
-    builtin_str, builtin_type, check_type, cmp_values, format_keys, is_mutable_type, is_number,
-    num_f64, py_mod, to_f64, type_from_typenode, BuiltinImpl, ListMethodKind, ListMethodValue,
-    MapMethodKind, MapMethodValue,
+    builtin_abs, builtin_bool, builtin_dict, builtin_float, builtin_input, builtin_int,
+    builtin_isinstance, builtin_len, builtin_list, builtin_max, builtin_min, builtin_multiline_input,
+    builtin_print, builtin_range, builtin_str, builtin_type, check_type, cmp_values, format_keys,
+    is_mutable_type, is_number, num_f64, py_mod, to_f64, type_from_typenode, BuiltinImpl,
+    ListMethodKind, ListMethodValue, MapMethodKind, MapMethodValue,
 };
 use crate::llm_runtime::{LlmRuntime, MockLlmRuntime};
 use crate::value::{BuiltinFn, ChannelMethodValue, ChannelMsg, StoreMethodValue, Value};
@@ -660,6 +660,8 @@ impl Interpreter {
             "max",
             "list",
             "dict",
+            "input",
+            "multiline_input",
         ];
         for n in names {
             self.register_builtin(
@@ -678,6 +680,8 @@ impl Interpreter {
                     "min" => builtin_min,
                     "max" => builtin_max,
                     "list" => builtin_list,
+                    "input" => builtin_input,
+                    "multiline_input" => builtin_multiline_input,
                     _ => builtin_dict,
                 },
             );

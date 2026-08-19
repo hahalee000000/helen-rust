@@ -42,6 +42,8 @@ pub const CORE_EXPORTS: &[&str] = &[
     "max",
     "list",
     "dict",
+    "input",
+    "multiline_input",
 ];
 
 // ---------------------------------------------------------------------------

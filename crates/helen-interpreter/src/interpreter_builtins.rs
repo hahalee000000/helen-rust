@@ -361,6 +361,90 @@ pub type BuiltinImpl = fn(&mut Interpreter, &[Value]) -> Result<Value, Exception
 // Core builtins (stdlib subset; M4 registers the full set)
 // ---------------------------------------------------------------------------
 
+/// Python `input(prompt?)` — read a line from stdin.
+pub fn builtin_input(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    use std::io::{self, BufRead, Write};
+    
+    let prompt = args.first().map(|v| v.python_str()).unwrap_or_default();
+    
+    // Print prompt to stderr (Python prints to stdout, but we want to keep
+    // stdout clean for program output; however, for parity we print to stdout)
+    if !prompt.is_empty() {
+        print!("{}", prompt);
+        io::stdout().flush().ok();
+    }
+    
+    let stdin = io::stdin();
+    let mut line = String::new();
+    match stdin.lock().read_line(&mut line) {
+        Ok(_) => {
+            // Remove trailing newline (Python input() strips it)
+            if line.ends_with('\n') {
+                line.pop();
+                if line.ends_with('\r') {
+                    line.pop();
+                }
+            }
+            Ok(Value::Str(Rc::from(line.as_str())))
+        }
+        Err(e) => Err(ExceptionValue::new(
+            "RuntimeError",
+            format!("failed to read input: {}", e),
+            None,
+        )),
+    }
+}
+
+/// Python `multiline_input(prompt?)` — read multiple lines until empty line.
+pub fn builtin_multiline_input(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    use std::io::{self, BufRead, Write};
+    
+    let prompt = args.first().map(|v| v.python_str()).unwrap_or_default();
+    let mut lines = Vec::new();
+    let mut current_prompt = prompt;
+    
+    let stdin = io::stdin();
+    let mut stdin_lock = stdin.lock();
+    
+    loop {
+        if !current_prompt.is_empty() {
+            print!("{}", current_prompt);
+            io::stdout().flush().ok();
+        }
+        
+        let mut line = String::new();
+        match stdin_lock.read_line(&mut line) {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                // Remove trailing newline
+                if line.ends_with('\n') {
+                    line.pop();
+                    if line.ends_with('\r') {
+                        line.pop();
+                    }
+                }
+                
+                // Empty line terminates
+                if line.is_empty() {
+                    break;
+                }
+                
+                lines.push(line);
+                current_prompt = "... ".to_string();
+            }
+            Err(e) => {
+                return Err(ExceptionValue::new(
+                    "RuntimeError",
+                    format!("failed to read input: {}", e),
+                    None,
+                ));
+            }
+        }
+    }
+    
+    Ok(Value::Str(Rc::from(lines.join("\n").as_str())))
+}
+
 pub fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let parts: Vec<String> = args.iter().map(|a| a.to_display(true)).collect();
     let result = parts.join(" ");
