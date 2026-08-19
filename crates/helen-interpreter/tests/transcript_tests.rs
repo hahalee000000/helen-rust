@@ -341,3 +341,25 @@ fn test_format_context_stats_after_llm_call() {
     assert!(s.contains("USER"), "{s}"); // capitalized role label
     assert!(s.contains("ASSISTANT"), "{s}");
 }
+
+#[test]
+fn test_transcript_log_env_var() {
+    use std::io::Write;
+    let dir = std::env::temp_dir().join(format!("helen_test_transcript_log_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let log_path = dir.join("custom_transcript.jsonl");
+    
+    // Set env var
+    std::env::set_var("HELEN_TRANSCRIPT_LOG", log_path.to_str().unwrap());
+    
+    let mut interp = make_interp();
+    interp.session_id = "test_session".to_string();
+    
+    // Call a function that uses load_store internally
+    let result = helen_interpreter::context::context_context_stats(&mut interp, &[]);
+    assert!(result.is_ok(), "context_stats should work with env var path");
+    
+    // Clean up
+    std::env::remove_var("HELEN_TRANSCRIPT_LOG");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -65,6 +65,18 @@ fn arg_bool_or(args: &[Value], i: usize, default: bool) -> bool {
 }
 
 fn load_store(interp: &Interpreter) -> Option<TranscriptStore> {
+    // Check for HELEN_TRANSCRIPT_LOG environment variable (CLI --transcript-log flag)
+    if let Ok(transcript_log_path) = std::env::var("HELEN_TRANSCRIPT_LOG") {
+        let path = std::path::Path::new(&transcript_log_path);
+        // Create parent directory if needed
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        // Use JSONL backend (SQLite support deferred — requires TranscriptStore refactor)
+        let backend = JsonlBackend::new(path);
+        return Some(TranscriptStore::load_from_backend(backend, 1000));
+    }
+
     if interp.session_id.is_empty() {
         return None;
     }
