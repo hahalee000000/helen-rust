@@ -4552,6 +4552,87 @@ pub static DATA_EXPORTS: &[StdlibExport] = &[
         name: "csv_save",
         func: data_csv_save,
     },
+    // HTML (regex-based, Python data.py parity).
+    StdlibExport {
+        name: "html_parse",
+        func: crate::data_formats::data_html_parse,
+    },
+    StdlibExport {
+        name: "html_text",
+        func: crate::data_formats::data_html_text,
+    },
+    StdlibExport {
+        name: "html_links",
+        func: crate::data_formats::data_html_links,
+    },
+    StdlibExport {
+        name: "html_select",
+        func: crate::data_formats::data_html_select,
+    },
+    // Markdown (line-based, Python data.py parity).
+    StdlibExport {
+        name: "markdown_to_html",
+        func: crate::data_formats::data_markdown_to_html,
+    },
+    StdlibExport {
+        name: "markdown_extract_headings",
+        func: crate::data_formats::data_markdown_extract_headings,
+    },
+    StdlibExport {
+        name: "markdown_parse",
+        func: crate::data_formats::data_markdown_parse,
+    },
+    // TOML.
+    StdlibExport {
+        name: "toml_parse",
+        func: crate::data_formats::data_toml_parse,
+    },
+    StdlibExport {
+        name: "toml_stringify",
+        func: crate::data_formats::data_toml_stringify,
+    },
+    StdlibExport {
+        name: "toml_load",
+        func: crate::data_formats::data_toml_load,
+    },
+    StdlibExport {
+        name: "toml_save",
+        func: crate::data_formats::data_toml_save,
+    },
+    // XML.
+    StdlibExport {
+        name: "xml_parse",
+        func: crate::data_formats::data_xml_parse,
+    },
+    StdlibExport {
+        name: "xml_stringify",
+        func: crate::data_formats::data_xml_stringify,
+    },
+    StdlibExport {
+        name: "xml_load",
+        func: crate::data_formats::data_xml_load,
+    },
+    StdlibExport {
+        name: "xml_save",
+        func: crate::data_formats::data_xml_save,
+    },
+    // YAML.
+    StdlibExport {
+        name: "yaml_parse",
+        func: crate::data_formats::data_yaml_parse,
+    },
+    StdlibExport {
+        name: "yaml_stringify",
+        func: crate::data_formats::data_yaml_stringify,
+    },
+    StdlibExport {
+        name: "yaml_load",
+        func: crate::data_formats::data_yaml_load,
+    },
+    StdlibExport {
+        name: "yaml_save",
+        func: crate::data_formats::data_yaml_save,
+    },
 ];
 
 pub static TIME_EXPORTS: &[StdlibExport] = &[

@@ -2655,13 +2655,59 @@ impl Interpreter {
                     other => s.execute_stmt(other),
                 }
             } else {
-                // Agent without explicit logic: stub LLM response for M3.
-                let prompt = agent
-                    .prompt
-                    .as_ref()
-                    .map(|p| p.content.clone())
-                    .unwrap_or_default();
-                Ok(Flow::Normal(Some(Value::Str(Rc::from(prompt.as_str())))))
+                // Agent without explicit logic but with a prompt:
+                // auto-execute an LLM call (Python `_call_agent` branch).
+                let Some(prompt_def) = &agent.prompt else {
+                    return Ok(Flow::Normal(Some(Value::Null)));
+                };
+                let rendered = s.render_prompt_template(&prompt_def.content);
+                if rendered.trim().is_empty() {
+                    return Ok(Flow::Normal(Some(Value::Null)));
+                }
+                let tools = s.build_tools_list();
+                let s_ptr = s as *mut Interpreter;
+                let dispatch_fn = move |name: &str, args: &serde_json::Value| -> String {
+                    // SAFETY: `s` is the unique owner and lives for the
+                    // duration of this synchronous `act` call.
+                    let interp = unsafe { &mut *s_ptr };
+                    interp.dispatch_agent_tool(name, args)
+                };
+                let model = s.agent_setting("model");
+                let temperature: f64 = s
+                    .agent_setting("temperature")
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(1.0);
+                let max_turns: usize = s
+                    .agent_setting("max-turns")
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(1);
+                let max_tokens: Option<u64> = s
+                    .agent_setting("max-tokens")
+                    .and_then(|v| v.parse().ok());
+                let thinking_enabled = s
+                    .agent_setting("thinking-mode")
+                    .map(|v| v == "true")
+                    .unwrap_or(false);
+                let reasoning_effort = s.agent_setting("reasoning-effort");
+                match s.llm_runtime.act(
+                    &rendered,
+                    &tools,
+                    model.as_deref(),
+                    temperature,
+                    max_turns,
+                    max_tokens,
+                    &[],
+                    None,
+                    Some(&dispatch_fn),
+                    thinking_enabled,
+                    reasoning_effort.as_deref(),
+                ) {
+                    Ok(resp) => Ok(Flow::Normal(Some(match resp.text {
+                        Some(t) => Value::Str(Rc::from(t.as_str())),
+                        None => Value::Null,
+                    }))),
+                    Err(e) => Err(e),
+                }
             };
             // Restore function registry (do not leak agent functions).
             for name in &restored {
@@ -2965,6 +3011,49 @@ impl Interpreter {
             }
         }
         Ok(Flow::Normal(None))
+    }
+
+    /// Render a prompt template by replacing `{{var}}` (and nested
+    /// `{{a.b}}` attribute paths) with environment values. Port of Python
+    /// `_render_prompt_template_legacy` (`_PROMPT_VAR_RE`).
+    fn render_prompt_template(&self, template: &str) -> String {
+        let mut out = String::with_capacity(template.len());
+        let mut rest = template;
+        while let Some(open) = rest.find("{{") {
+            out.push_str(&rest[..open]);
+            let after = &rest[open + 2..];
+            let Some(close) = after.find("}}") else {
+                out.push_str(&rest[open..]);
+                return out;
+            };
+            let var_path = after[..close].trim();
+            let parts: Vec<&str> = var_path.split('.').collect();
+            let mut value: Option<Value> = if let Some(first) = parts.first() {
+                self.environment.borrow().get(first)
+            } else {
+                None
+            };
+            for part in &parts[1..] {
+                value = match value {
+                    Some(Value::Map(m)) => {
+                        m.borrow().get(&Value::Str(Rc::from(*part))).cloned()
+                    }
+                    _ => None,
+                };
+            }
+            match value {
+                Some(v) => out.push_str(&v.python_str()),
+                None => {
+                    // Keep original placeholder if not found.
+                    out.push_str("{{");
+                    out.push_str(var_path);
+                    out.push_str("}}");
+                }
+            }
+            rest = &after[close + 2..];
+        }
+        out.push_str(rest);
+        out
     }
 
     /// Look up an agent declaration setting (Python `_get_agent_setting`).

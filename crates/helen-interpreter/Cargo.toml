@@ -29,6 +29,9 @@ sha2.workspace = true
 hmac.workspace = true
 uuid.workspace = true
 mime_guess = "2.0"
+serde_yaml = "0.9.34"
+quick-xml = "0.41.0"
+toml = "0.8"
 
 [dev-dependencies]
 ryu = { workspace = true }

@@ -273,7 +273,7 @@ pub fn debug_get_data_lineage(i: &mut Interpreter, _args: &[Value]) -> Result<Va
 
 /// Record session (start LLM recording).
 /// Python: `interp.llm_runtime.enable_recording(cassette_path)`.
-pub fn debug_record_session(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_record_session(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let cassette_path = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => {
@@ -284,33 +284,48 @@ pub fn debug_record_session(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
             ));
         }
     };
-    // LLM runtime is Arc<dyn LlmRuntime> — recording requires mutable access
-    // which isn't available through the Arc. Return Python's fallback.
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-    result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
-    result.insert(
-        Value::Str(Rc::from("message")),
-        Value::Str(Rc::from("LLM runtime does not support recording")),
-    );
+    match i.llm_runtime.enable_recording(&cassette_path) {
+        Ok(()) => {
+            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("recording")));
+            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            result.insert(
+                Value::Str(Rc::from("message")),
+                Value::Str(Rc::from(format!("Recording to {cassette_path}"))),
+            );
+        }
+        Err(e) => {
+            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(e)));
+        }
+    }
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Stop recording.
 /// Python: `interp.llm_runtime.disable_recording()`.
-pub fn debug_stop_recording(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_stop_recording(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-    result.insert(
-        Value::Str(Rc::from("message")),
-        Value::Str(Rc::from("LLM runtime does not support recording")),
-    );
+    match i.llm_runtime.disable_recording() {
+        Ok(()) => {
+            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("stopped")));
+            result.insert(
+                Value::Str(Rc::from("message")),
+                Value::Str(Rc::from("Recording stopped")),
+            );
+        }
+        Err(e) => {
+            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+            result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(e)));
+        }
+    }
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Replay session from cassette.
 /// Python: replaces llm_runtime with ReplayLLMRuntime.
-pub fn debug_replay_session(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_replay_session(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let cassette_path = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => {
@@ -321,15 +336,33 @@ pub fn debug_replay_session(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
             ));
         }
     };
-    // ReplayLLMRuntime not yet ported — return Python's error fallback.
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-    result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
-    result.insert(Value::Str(Rc::from("entry_count")), Value::Int(num_bigint::BigInt::from(0)));
-    result.insert(
-        Value::Str(Rc::from("message")),
-        Value::Str(Rc::from("ReplayLLMRuntime not yet implemented in Rust port")),
-    );
+    match i.llm_runtime.enable_replay(&cassette_path) {
+        Ok(()) => {
+            let entry_count = helen_runtime::recording::CassetteReader::new(
+                std::path::Path::new(&cassette_path),
+            )
+            .len();
+            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("replaying")));
+            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            result.insert(
+                Value::Str(Rc::from("entry_count")),
+                Value::Int(num_bigint::BigInt::from(entry_count)),
+            );
+            result.insert(
+                Value::Str(Rc::from("message")),
+                Value::Str(Rc::from(format!(
+                    "Replaying {entry_count} recorded interactions"
+                ))),
+            );
+        }
+        Err(e) => {
+            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            result.insert(Value::Str(Rc::from("entry_count")), Value::Int(num_bigint::BigInt::from(0)));
+            result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(e)));
+        }
+    }
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 

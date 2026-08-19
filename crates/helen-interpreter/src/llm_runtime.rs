@@ -86,6 +86,30 @@ pub trait LlmRuntime {
         }
         Ok(())
     }
+
+    // -----------------------------------------------------------------------
+    // Recording / replay (v1.40) — optional; default: not supported.
+    // -----------------------------------------------------------------------
+
+    /// Whether this runtime supports recording LLM calls to a cassette.
+    fn supports_recording(&self) -> bool {
+        false
+    }
+
+    /// Start recording LLM calls to the given cassette path.
+    fn enable_recording(&self, _cassette_path: &str) -> Result<(), String> {
+        Err("Recording not supported by this LLM runtime".to_string())
+    }
+
+    /// Stop recording LLM calls.
+    fn disable_recording(&self) -> Result<(), String> {
+        Err("Recording not supported by this LLM runtime".to_string())
+    }
+
+    /// Switch this runtime into replay mode using a cassette.
+    fn enable_replay(&self, _cassette_path: &str) -> Result<(), String> {
+        Err("Replay not supported by this LLM runtime".to_string())
+    }
 }
 
 /// A recorded `route()` call: (description, branch names, context).
@@ -102,6 +126,14 @@ pub struct MockLlmRuntime {
     pub act_fail: Option<ExceptionValue>,
     pub route_history: Rc<RefCell<Vec<RouteHistoryEntry>>>,
     pub act_history: Rc<RefCell<Vec<ActHistoryEntry>>>,
+    /// Cassette writer when recording is enabled (v1.40).
+    pub cassette: Rc<RefCell<Option<helen_runtime::recording::CassetteWriter>>>,
+    /// Cassette reader when replay mode is enabled (v1.40).
+    pub replay: Rc<RefCell<Option<helen_runtime::recording::CassetteReader>>>,
+    /// Current replay sequence position.
+    pub replay_seq: Rc<RefCell<u64>>,
+    /// Replay exhausted message (set on first miss).
+    pub replay_exhausted: Rc<RefCell<Option<String>>>,
 }
 
 impl MockLlmRuntime {
@@ -113,6 +145,10 @@ impl MockLlmRuntime {
             act_fail: None,
             route_history: Rc::new(RefCell::new(Vec::new())),
             act_history: Rc::new(RefCell::new(Vec::new())),
+            cassette: Rc::new(RefCell::new(None)),
+            replay: Rc::new(RefCell::new(None)),
+            replay_seq: Rc::new(RefCell::new(u64::MAX)),
+            replay_exhausted: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -150,7 +186,7 @@ impl LlmRuntime for MockLlmRuntime {
         &self,
         prompt: &str,
         tools: &[serde_json::Value],
-        _model: Option<&str>,
+        model: Option<&str>,
         _temperature: f64,
         _max_turns: usize,
         _max_tokens: Option<u64>,
@@ -163,6 +199,72 @@ impl LlmRuntime for MockLlmRuntime {
         self.act_history
             .borrow_mut()
             .push((prompt.to_string(), tools.to_vec()));
+
+        // v1.40 replay mode: serve the next cassette entry instead of the
+        // canned `act_return`.
+        if self.replay.borrow().is_some() {
+            let mut seq = self.replay_seq.borrow_mut();
+            let next = if *seq == u64::MAX { 0 } else { *seq + 1 };
+            let entry = {
+                let reader = self.replay.borrow();
+                let r = reader.as_ref().unwrap();
+                r.get_entry(next)
+                    .or_else(|| r.get_next_entry(*seq))
+                    .cloned()
+            };
+            let Some(entry) = entry else {
+                if self.replay_exhausted.borrow().is_none() {
+                    let total = self
+                        .replay
+                        .borrow()
+                        .as_ref()
+                        .map(|r| r.len())
+                        .unwrap_or(0);
+                    *self.replay_exhausted.borrow_mut() = Some(format!(
+                        "No more recorded interactions in cassette. Used {} of {} entries.",
+                        seq.saturating_add(1),
+                        total
+                    ));
+                }
+                return Err(ExceptionValue::new(
+                    "RuntimeError",
+                    self.replay_exhausted.borrow().clone().unwrap_or_default(),
+                    None,
+                ));
+            };
+            *seq = entry.seq;
+            let text = entry
+                .response
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let tool_calls = entry
+                .response
+                .get("tool_calls")
+                .and_then(|v| v.as_array().cloned())
+                .unwrap_or_default();
+            return Ok(LlmResponse {
+                text: Some(text),
+                tool_calls,
+                model: Some(entry.model.clone()),
+            });
+        }
+
+        // v1.40 recording: write the request to the cassette before answering.
+        if let Some(w) = self.cassette.borrow_mut().as_mut() {
+            let _ = w.write_entry(
+                &serde_json::json!({"messages": [{"role": "user", "content": prompt}]}),
+                &serde_json::json!({"content": self.act_return.clone().and_then(|r| r.text).unwrap_or_default(), "tool_calls": []}),
+                &serde_json::json!({}),
+                0.0,
+                None,
+                model.unwrap_or(""),
+                None,
+                None,
+            );
+        }
+
         if let Some(f) = &self.act_fail {
             return Err(f.clone());
         }
@@ -171,6 +273,40 @@ impl LlmRuntime for MockLlmRuntime {
             text: Some(String::new()),
             ..Default::default()
         }))
+    }
+
+    fn supports_recording(&self) -> bool {
+        true
+    }
+
+    fn enable_recording(&self, cassette_path: &str) -> Result<(), String> {
+        let w = helen_runtime::recording::CassetteWriter::new(std::path::Path::new(
+            cassette_path,
+        ))
+        .map_err(|e| format!("Failed to create cassette: {e}"))?;
+        *self.cassette.borrow_mut() = Some(w);
+        Ok(())
+    }
+
+    fn disable_recording(&self) -> Result<(), String> {
+        if let Some(w) = self.cassette.borrow_mut().as_mut() {
+            w.close();
+        }
+        *self.cassette.borrow_mut() = None;
+        Ok(())
+    }
+
+    fn enable_replay(&self, cassette_path: &str) -> Result<(), String> {
+        let reader = helen_runtime::recording::CassetteReader::new(std::path::Path::new(
+            cassette_path,
+        ));
+        if reader.is_empty() {
+            return Err(format!("Cassette is empty: {cassette_path}"));
+        }
+        *self.replay.borrow_mut() = Some(reader);
+        *self.replay_seq.borrow_mut() = u64::MAX;
+        *self.replay_exhausted.borrow_mut() = None;
+        Ok(())
     }
 }
 
