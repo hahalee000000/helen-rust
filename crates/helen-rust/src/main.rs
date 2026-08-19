@@ -85,6 +85,7 @@ fn run_mode(path: &str, mock_llm: bool) {
                 ..Default::default()
             }),
         );
+        #[allow(clippy::arc_with_non_send_sync)]
         interp.set_llm_runtime(std::sync::Arc::new(mock));
     }
     let result = interp.interpret(&program);

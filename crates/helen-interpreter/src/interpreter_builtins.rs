@@ -11,8 +11,6 @@ use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 
 
-use helen_core::tokens::LiteralValue;
-
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
 use crate::value::Value;
@@ -650,6 +648,7 @@ pub fn builtin_dict(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, 
 #[cfg(test)]
 mod m3_tests {
     use super::*;
+    use crate::llm_runtime::MockLlmRuntime;
     use helen_core::lexer::Scanner;
 
     /// Serialize MCP-touching tests: the runtime MCP registry is a process

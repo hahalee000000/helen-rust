@@ -1,3 +1,7 @@
+// HashMap keys contain RefCell (mutable interior) — this is intentional for the
+// MediaPart value model. Suppress the clippy lint at the module level.
+#![allow(clippy::mutable_key_type)]
+
 //! Media stdlib functions for multimodal support.
 //!
 //! Byte-faithful port of `helen/stdlib/media.py` (v1.44.0): provides

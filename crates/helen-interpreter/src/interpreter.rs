@@ -15,11 +15,11 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use num_bigint::BigInt;
-use num_traits::{Signed, ToPrimitive, Zero};
+use num_traits::{ToPrimitive, Zero};
 
 use helen_core::ast::{
     Access, AgentDecl, Binary, Call, CallArg, Expr, ForStmt, FunctionDecl, IfStmt, ImportStmt,
-    Index, Lambda, Pipe, Program, Spawn, Stmt, ThrowStmt, TypeRef, Unary, VarDecl,
+    Index, Lambda, Pipe, Program, Spawn, Stmt, ThrowStmt, Unary, VarDecl,
 };
 use helen_core::ast_printer::py_str_float;
 use helen_core::source::SourceSpan;
@@ -2947,7 +2947,7 @@ impl Interpreter {
     /// `_create_dispatch_fn` — dispatch a tool call: agent Helen function
     /// first, then the built-in tool registry. Returns JSON string (Python
     /// `json.dumps(result)` semantics for the LLM loop).
-    fn dispatch_agent_tool(&mut self, name: &str, args: &serde_json::Value) -> String {
+    pub(crate) fn dispatch_agent_tool(&mut self, name: &str, args: &serde_json::Value) -> String {
         // 1. Agent Helen function.
         let agent_fns: Vec<FunctionDecl> = self
             .current_agent

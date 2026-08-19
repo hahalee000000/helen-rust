@@ -176,21 +176,21 @@ pub fn quality_command(argv: &[String]) -> i32 {
                     return 2;
                 }
             };
-        let security_val = match helen_interpreter::quality::quality_check_security(&mut interp, &[source_val.clone()]) {
+        let security_val = match helen_interpreter::quality::quality_check_security(&mut interp, std::slice::from_ref(&source_val)) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Error checking security for {file}: {}", e.message);
                 return 2;
             }
         };
-        let score_val = match helen_interpreter::quality::quality_quality_score(&mut interp, &[source_val.clone()]) {
+        let score_val = match helen_interpreter::quality::quality_quality_score(&mut interp, std::slice::from_ref(&source_val)) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Error scoring {file}: {}", e.message);
                 return 2;
             }
         };
-        let dim_scores_val = match helen_interpreter::quality::quality_dimension_scores(&mut interp, &[source_val.clone()]) {
+        let dim_scores_val = match helen_interpreter::quality::quality_dimension_scores(&mut interp, std::slice::from_ref(&source_val)) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Error computing dimension scores for {file}: {}", e.message);
