@@ -1,10 +1,10 @@
 //! Extended tests for value module — clone_deep, clone_owned, make_send_owned, etc.
 
 use helen_interpreter::value::Value;
+use indexmap::IndexMap;
 use num_bigint::BigInt;
 use std::cell::RefCell;
 use std::rc::Rc;
-use indexmap::IndexMap;
 
 // ── clone_deep tests ────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ fn clone_deep_list() {
         Value::List(l) => {
             let l = l.borrow();
             assert_eq!(l.len(), 2);
-        },
+        }
         _ => panic!("expected List"),
     }
 }
@@ -81,7 +81,7 @@ fn clone_deep_map() {
         Value::Map(map) => {
             let map = map.borrow();
             assert_eq!(map.len(), 1);
-        },
+        }
         _ => panic!("expected Map"),
     }
 }
@@ -97,7 +97,7 @@ fn clone_deep_tuple() {
         Value::Tuple(t) => {
             let t = t.borrow();
             assert_eq!(t.len(), 2);
-        },
+        }
         _ => panic!("expected Tuple"),
     }
 }
@@ -139,7 +139,7 @@ fn clone_owned_list() {
         Value::List(l) => {
             let l = l.borrow();
             assert_eq!(l.len(), 1);
-        },
+        }
         _ => panic!("expected List"),
     }
 }
@@ -270,7 +270,7 @@ fn exception_creates_runtime_error() {
         Value::Exception(e) => {
             assert_eq!(e.class_name, "RuntimeError");
             assert_eq!(e.message, "test error");
-        },
+        }
         _ => panic!("expected Exception"),
     }
 }
@@ -282,7 +282,7 @@ fn exception_creates_value_error() {
         Value::Exception(e) => {
             assert_eq!(e.class_name, "ValueError");
             assert_eq!(e.message, "bad value");
-        },
+        }
         _ => panic!("expected Exception"),
     }
 }

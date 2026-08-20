@@ -83,7 +83,11 @@ fn every_error_code_value_is_in_range() {
         ErrorCode::UndeclaredAgentFunction,
         ErrorCode::AgentFunctionArgMismatch,
     ];
-    assert_eq!(codes.len(), 49, "new ErrorCode variant added — update sweep");
+    assert_eq!(
+        codes.len(),
+        49,
+        "new ErrorCode variant added — update sweep"
+    );
     for c in &codes {
         let v = c.value();
         assert!((300..=357).contains(&v), "code {v} out of range");
@@ -184,7 +188,11 @@ fn every_token_type_has_python_name() {
         TokenType::ReasoningEffort,
         TokenType::Eof,
     ];
-    assert_eq!(types.len(), 88, "new TokenType variant added — update sweep");
+    assert_eq!(
+        types.len(),
+        88,
+        "new TokenType variant added — update sweep"
+    );
     for t in &types {
         let n = t.name();
         assert!(!n.is_empty(), "TokenType {:?} has empty name()", t);

@@ -50,9 +50,7 @@ pub fn llm_set_temperature(_i: &mut Interpreter, args: &[Value]) -> Result<Value
 }
 
 pub fn llm_get_temperature(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let temp = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().temperature.unwrap_or(1.0)
-    });
+    let temp = LLM_OVERRIDES.with(|overrides| overrides.borrow().temperature.unwrap_or(1.0));
     Ok(Value::Float(temp))
 }
 
@@ -65,9 +63,7 @@ pub fn llm_set_max_turns(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 }
 
 pub fn llm_get_max_turns(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let turns = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().max_turns.unwrap_or(1)
-    });
+    let turns = LLM_OVERRIDES.with(|overrides| overrides.borrow().max_turns.unwrap_or(1));
     Ok(Value::Int(BigInt::from(turns)))
 }
 
@@ -80,16 +76,17 @@ pub fn llm_set_max_tokens(_i: &mut Interpreter, args: &[Value]) -> Result<Value,
 }
 
 pub fn llm_get_max_tokens(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let tokens = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().max_tokens
-    });
+    let tokens = LLM_OVERRIDES.with(|overrides| overrides.borrow().max_tokens);
     match tokens {
         Some(n) => Ok(Value::Int(BigInt::from(n))),
         None => Ok(Value::Null),
     }
 }
 
-pub fn llm_set_thinking_mode(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn llm_set_thinking_mode(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let enabled = arg_bool(args, 0)?;
     LLM_OVERRIDES.with(|overrides| {
         overrides.borrow_mut().thinking_mode = Some(enabled);
@@ -97,17 +94,21 @@ pub fn llm_set_thinking_mode(_i: &mut Interpreter, args: &[Value]) -> Result<Val
     Ok(Value::Null)
 }
 
-pub fn llm_get_thinking_mode(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let mode = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().thinking_mode
-    });
+pub fn llm_get_thinking_mode(
+    _i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
+    let mode = LLM_OVERRIDES.with(|overrides| overrides.borrow().thinking_mode);
     match mode {
         Some(b) => Ok(Value::Bool(b)),
         None => Ok(Value::Null),
     }
 }
 
-pub fn llm_set_reasoning_effort(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn llm_set_reasoning_effort(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let effort = arg_str(args, 0)?;
     LLM_OVERRIDES.with(|overrides| {
         overrides.borrow_mut().reasoning_effort = Some(effort.to_string());
@@ -115,10 +116,11 @@ pub fn llm_set_reasoning_effort(_i: &mut Interpreter, args: &[Value]) -> Result<
     Ok(Value::Null)
 }
 
-pub fn llm_get_reasoning_effort(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let effort = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().reasoning_effort.clone()
-    });
+pub fn llm_get_reasoning_effort(
+    _i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
+    let effort = LLM_OVERRIDES.with(|overrides| overrides.borrow().reasoning_effort.clone());
     match effort {
         Some(s) => Ok(Value::Str(Rc::from(s.as_str()))),
         None => Ok(Value::Null),
@@ -126,9 +128,7 @@ pub fn llm_get_reasoning_effort(_i: &mut Interpreter, _args: &[Value]) -> Result
 }
 
 pub fn llm_get_model(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let model = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().model.clone()
-    });
+    let model = LLM_OVERRIDES.with(|overrides| overrides.borrow().model.clone());
     match model {
         Some(s) => Ok(Value::Str(Rc::from(s.as_str()))),
         None => Ok(Value::Null),
@@ -136,9 +136,7 @@ pub fn llm_get_model(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, Exc
 }
 
 pub fn llm_get_description(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let desc = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().description.clone()
-    });
+    let desc = LLM_OVERRIDES.with(|overrides| overrides.borrow().description.clone());
     match desc {
         Some(s) => Ok(Value::Str(Rc::from(s.as_str()))),
         None => Ok(Value::Null),
@@ -146,9 +144,7 @@ pub fn llm_get_description(_i: &mut Interpreter, _args: &[Value]) -> Result<Valu
 }
 
 pub fn llm_get_provider(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
-    let provider = LLM_OVERRIDES.with(|overrides| {
-        overrides.borrow().provider.clone()
-    });
+    let provider = LLM_OVERRIDES.with(|overrides| overrides.borrow().provider.clone());
     match provider {
         Some(s) => Ok(Value::Str(Rc::from(s.as_str()))),
         None => Ok(Value::Null),
@@ -162,7 +158,10 @@ pub fn llm_cancel_llm_call(i: &mut Interpreter, args: &[Value]) -> Result<Value,
     Ok(Value::Bool(cancelled))
 }
 
-pub fn llm_current_llm_call_id(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn llm_current_llm_call_id(
+    i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     // Return the ID of the current active streaming LLM call, or None
     match i.call_tracker.get_current_call_id() {
         Some(id) => Ok(Value::Str(std::rc::Rc::from(id))),
@@ -170,7 +169,10 @@ pub fn llm_current_llm_call_id(i: &mut Interpreter, _args: &[Value]) -> Result<V
     }
 }
 
-pub fn llm_cancel_all_llm_calls(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn llm_cancel_all_llm_calls(
+    i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     // Cancel all active streaming LLM calls
     let count = i.call_tracker.cancel_all();
     Ok(Value::Int(num_bigint::BigInt::from(count)))

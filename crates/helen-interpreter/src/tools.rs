@@ -36,7 +36,13 @@ fn arg_int_or(args: &[Value], i: usize, default: i64) -> i64 {
             let s = n.to_string();
             s.parse::<i64>().unwrap_or(default)
         }
-        Some(Value::Bool(b)) => if *b { 1 } else { 0 },
+        Some(Value::Bool(b)) => {
+            if *b {
+                1
+            } else {
+                0
+            }
+        }
         _ => default,
     }
 }
@@ -152,7 +158,10 @@ pub fn tools_load_skill(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
 
 /// List skill references.
 /// Python: `_list_skill_references(name)`
-pub fn tools_list_skill_references(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn tools_list_skill_references(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let name = arg_str(args, 0)?;
     let result = helen_runtime::tools::dispatch_tool(
         "list_skill_references",
@@ -177,12 +186,18 @@ pub fn tools_read_file(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Ex
 pub fn tools_write_file(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?;
     let content = arg_str(args, 1)?;
-    dispatch("write_file", serde_json::json!({ "path": path, "content": content }))
+    dispatch(
+        "write_file",
+        serde_json::json!({ "path": path, "content": content }),
+    )
 }
 
 /// Execute a shell command and return full result as JSON.
 /// Python: `_shell_exec_full(command, timeout=30, shell=True)`
-pub fn tools_shell_exec_full(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn tools_shell_exec_full(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let command = arg_str(args, 0)?;
     let timeout = arg_int_or(args, 1, 30);
     let shell = arg_bool_or(args, 2, true);

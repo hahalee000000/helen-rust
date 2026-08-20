@@ -322,6 +322,8 @@ fn platform_patterns_not_empty() {
 
 #[test]
 fn platform_patterns_contain_dashscope() {
-    let found = PLATFORM_PATTERNS.iter().any(|(_, pk)| *pk == PlatformKind::DashScope);
+    let found = PLATFORM_PATTERNS
+        .iter()
+        .any(|(_, pk)| *pk == PlatformKind::DashScope);
     assert!(found);
 }

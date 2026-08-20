@@ -572,7 +572,10 @@ mod tests {
             .unwrap()
             .contains("[Working Memory]"));
         // Last message is the assistant history
-        assert_eq!(msgs.last().unwrap()["role"].as_str().expect("as_str"), "assistant");
+        assert_eq!(
+            msgs.last().unwrap()["role"].as_str().expect("as_str"),
+            "assistant"
+        );
     }
 
     #[test]

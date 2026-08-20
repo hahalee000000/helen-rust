@@ -16,7 +16,7 @@ fn test_set_get_temperature_float() {
     let mut interp = make_interp();
     let result = llm_set_temperature(&mut interp, &[Value::Float(0.7)]);
     assert!(result.is_ok());
-    
+
     let temp = llm_get_temperature(&mut interp, &[]).unwrap();
     match temp {
         Value::Float(f) => assert!((f - 0.7).abs() < 1e-10),
@@ -29,7 +29,7 @@ fn test_set_get_temperature_int() {
     let mut interp = make_interp();
     let result = llm_set_temperature(&mut interp, &[Value::Int(BigInt::from(1))]);
     assert!(result.is_ok());
-    
+
     let temp = llm_get_temperature(&mut interp, &[]).unwrap();
     match temp {
         Value::Float(f) => assert!((f - 1.0).abs() < 1e-10),
@@ -70,7 +70,7 @@ fn test_set_get_max_turns_int() {
     let mut interp = make_interp();
     let result = llm_set_max_turns(&mut interp, &[Value::Int(BigInt::from(5))]);
     assert!(result.is_ok());
-    
+
     let turns = llm_get_max_turns(&mut interp, &[]).unwrap();
     assert_eq!(turns, Value::Int(BigInt::from(5)));
 }
@@ -80,7 +80,7 @@ fn test_set_get_max_turns_float() {
     let mut interp = make_interp();
     let result = llm_set_max_turns(&mut interp, &[Value::Float(3.7)]);
     assert!(result.is_ok());
-    
+
     let turns = llm_get_max_turns(&mut interp, &[]).unwrap();
     assert_eq!(turns, Value::Int(BigInt::from(3)));
 }
@@ -107,7 +107,7 @@ fn test_set_get_max_tokens() {
     let mut interp = make_interp();
     let result = llm_set_max_tokens(&mut interp, &[Value::Int(BigInt::from(1000))]);
     assert!(result.is_ok());
-    
+
     let tokens = llm_get_max_tokens(&mut interp, &[]).unwrap();
     assert_eq!(tokens, Value::Int(BigInt::from(1000)));
 }
@@ -126,7 +126,7 @@ fn test_set_get_thinking_mode() {
     let mut interp = make_interp();
     let result = llm_set_thinking_mode(&mut interp, &[Value::Bool(true)]);
     assert!(result.is_ok());
-    
+
     let mode = llm_get_thinking_mode(&mut interp, &[]).unwrap();
     assert_eq!(mode, Value::Bool(true));
 }
@@ -153,7 +153,7 @@ fn test_set_get_reasoning_effort() {
     let mut interp = make_interp();
     let result = llm_set_reasoning_effort(&mut interp, &[Value::Str("high".into())]);
     assert!(result.is_ok());
-    
+
     let effort = llm_get_reasoning_effort(&mut interp, &[]).unwrap();
     assert_eq!(effort, Value::Str("high".into()));
 }

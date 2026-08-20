@@ -1,8 +1,8 @@
 //! Tests for analyzer module — helper functions and utilities.
 
-use helen_semantic::analyzer::{SemanticAnalyzer, analyze_codes, analyze_messages};
 use helen_core::ast::*;
 use helen_core::source::SourceSpan;
+use helen_semantic::analyzer::{analyze_codes, analyze_messages, SemanticAnalyzer};
 
 fn dummy_span() -> SourceSpan {
     SourceSpan::new("test.helen", 1, 1, 1, 10)

@@ -159,7 +159,8 @@ fn function_recursion() {
 
 #[test]
 fn for_loop() {
-    let (r, _) = run_src("main {\n let sum = 0\n for i in [1, 2, 3, 4, 5] {\n  sum = sum + i\n }\n sum\n}");
+    let (r, _) =
+        run_src("main {\n let sum = 0\n for i in [1, 2, 3, 4, 5] {\n  sum = sum + i\n }\n sum\n}");
     assert_eq!(r.unwrap(), Some(int(15)));
 }
 
@@ -181,7 +182,9 @@ fn if_else() {
 
 #[test]
 fn try_catch() {
-    let (r, _) = run_src("main {\n try {\n  throw RuntimeError(\"test\")\n } catch RuntimeError e {\n  42\n }\n}");
+    let (r, _) = run_src(
+        "main {\n try {\n  throw RuntimeError(\"test\")\n } catch RuntimeError e {\n  42\n }\n}",
+    );
     assert_eq!(r.unwrap(), Some(int(42)));
 }
 

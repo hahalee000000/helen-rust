@@ -211,9 +211,7 @@ fn generate_docs_empty() {
 
 #[test]
 fn generate_docs_with_source() {
-    let sources = vec![
-        "fn helper() { return 1 }".to_string(),
-    ];
+    let sources = vec!["fn helper() { return 1 }".to_string()];
     let docs = generate_docs(&sources, false);
     assert!(docs.is_object());
 }

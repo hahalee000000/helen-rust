@@ -27,22 +27,19 @@ fn generic_args() -> Vec<Vec<Value>> {
         Value::Str(Rc::from("two")),
     ])));
     let map_val = Value::Map(Rc::new(RefCell::new(
-        vec![(
-            Value::Str(Rc::from("k")),
-            Value::Int(42.into()),
-        )]
-        .into_iter()
-        .collect(),
+        vec![(Value::Str(Rc::from("k")), Value::Int(42.into()))]
+            .into_iter()
+            .collect(),
     )));
     vec![
-        vec![],                                     // arity 0
-        vec![Value::Int(7.into())],                 // int
-        vec![Value::Float(1.5)],                    // float
-        vec![Value::Str(Rc::from("hello"))],        // str
-        vec![Value::Bool(true)],                    // bool
-        vec![Value::Null],                          // null
-        vec![list_val.clone()],                     // list
-        vec![map_val.clone()],                      // map
+        vec![],                                                // arity 0
+        vec![Value::Int(7.into())],                            // int
+        vec![Value::Float(1.5)],                               // float
+        vec![Value::Str(Rc::from("hello"))],                   // str
+        vec![Value::Bool(true)],                               // bool
+        vec![Value::Null],                                     // null
+        vec![list_val.clone()],                                // list
+        vec![map_val.clone()],                                 // map
         vec![Value::Int(0.into()), Value::Str(Rc::from("x"))], // pair
     ]
 }
@@ -161,11 +158,27 @@ fn module_tags_resolve() {
     // blocking modules network/llm/media/transcript are still listed here
     // since module_tag must resolve them regardless of driving).
     let modules = [
-        "std.str", "std.list", "std.dict", "std.math",
-        "std.data", "std.time", "std.crypto", "std.path", "std.io",
-        "std.file", "std.system", "std.network", "std.debug", "std.context",
-        "std.quality", "std.test", "std.tools", "std.llm", "std.media",
-        "std.transcript", "std.concurrency",
+        "std.str",
+        "std.list",
+        "std.dict",
+        "std.math",
+        "std.data",
+        "std.time",
+        "std.crypto",
+        "std.path",
+        "std.io",
+        "std.file",
+        "std.system",
+        "std.network",
+        "std.debug",
+        "std.context",
+        "std.quality",
+        "std.test",
+        "std.tools",
+        "std.llm",
+        "std.media",
+        "std.transcript",
+        "std.concurrency",
     ];
     for m in modules {
         let tag = module_tag(m);

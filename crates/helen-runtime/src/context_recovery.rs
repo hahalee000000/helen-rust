@@ -408,7 +408,10 @@ mod tests {
             {"function": {"name": "read_file"}}
         ]);
         let result = r.context_collapse_recovery(&m);
-        let text = result.messages[1]["content"].as_str().expect("as_str").to_string();
+        let text = result.messages[1]["content"]
+            .as_str()
+            .expect("as_str")
+            .to_string();
         assert!(text.contains("Files:"), "{text}");
         assert!(text.contains("Tools: read_file(2)"), "{text}");
         assert!(text.contains("Tasks:"), "{text}");

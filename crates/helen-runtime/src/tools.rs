@@ -1091,7 +1091,10 @@ mod tests {
     #[test]
     fn unknown_tool_error() {
         let v: Value = serde_json::from_str(&dispatch_tool("nope", &json!({}))).unwrap();
-        assert!(v["error"].as_str().expect("string value").contains("Unknown tool"));
+        assert!(v["error"]
+            .as_str()
+            .expect("string value")
+            .contains("Unknown tool"));
     }
 
     #[test]
@@ -1105,7 +1108,10 @@ mod tests {
     fn read_file_missing_error() {
         let r = dispatch_tool("read_file", &json!({"path": "/no/such/file/xyz"}));
         let v: Value = serde_json::from_str(&r).expect("from_str");
-        assert!(v["error"].as_str().expect("string value").starts_with("Read failed"));
+        assert!(v["error"]
+            .as_str()
+            .expect("string value")
+            .starts_with("Read failed"));
     }
 
     #[test]
@@ -1175,7 +1181,10 @@ mod tests {
             &json!({"path": ps, "old_string": "zzz not here", "new_string": "x"}),
         );
         let v: Value = serde_json::from_str(&r).expect("from_str");
-        assert!(v["error"].as_str().expect("string value").contains("Could not find"));
+        assert!(v["error"]
+            .as_str()
+            .expect("string value")
+            .contains("Could not find"));
         assert!(v["hint"].as_str().is_some());
         std::fs::remove_dir_all(&dir).ok();
     }

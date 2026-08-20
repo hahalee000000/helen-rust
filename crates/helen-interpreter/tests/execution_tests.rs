@@ -85,9 +85,7 @@ fn const_assignment_raises() {
 #[test]
 fn shadow_in_nested_scope() {
     // Variable in inner scope shadows outer, but outer is unchanged.
-    let (r, _) = run_src(
-        "main {\n let x = 1\n if true {\n  let x = 2\n  x\n }\n x\n}",
-    );
+    let (r, _) = run_src("main {\n let x = 1\n if true {\n  let x = 2\n  x\n }\n x\n}");
     assert_eq!(r.unwrap(), Some(int(1)));
 }
 
@@ -113,16 +111,13 @@ fn if_false_no_else() {
 
 #[test]
 fn for_loop_iterates() {
-    let (_, out) =
-        run_src("import std.core.*\nmain {\n for x in [1, 2, 3] {\n  print(x)\n }\n}");
+    let (_, out) = run_src("import std.core.*\nmain {\n for x in [1, 2, 3] {\n  print(x)\n }\n}");
     assert_eq!(out, "1\n2\n3\n");
 }
 
 #[test]
 fn for_loop_sums() {
-    let (r, _) = run_src(
-        "main {\n let s = 0\n for x in [1, 2, 3, 4] {\n  s = s + x\n }\n s\n}",
-    );
+    let (r, _) = run_src("main {\n let s = 0\n for x in [1, 2, 3, 4] {\n  s = s + x\n }\n s\n}");
     assert_eq!(r.unwrap(), Some(int(10)));
 }
 
@@ -172,9 +167,7 @@ fn fn_recursion() {
 
 #[test]
 fn closure_captures_outer() {
-    let (r, _) = run_src(
-        "main {\n let base = 10\n fn add(x) {\n  return base + x\n }\n add(5)\n}",
-    );
+    let (r, _) = run_src("main {\n let base = 10\n fn add(x) {\n  return base + x\n }\n add(5)\n}");
     assert_eq!(r.unwrap(), Some(int(15)));
 }
 
@@ -237,9 +230,8 @@ fn nested_try_catch() {
 
 #[test]
 fn division_by_zero_caught() {
-    let (r, _) = run_src(
-        "main {\n try {\n  1 / 0\n } catch AnyError e {\n  return \"zero\"\n }\n}",
-    );
+    let (r, _) =
+        run_src("main {\n try {\n  1 / 0\n } catch AnyError e {\n  return \"zero\"\n }\n}");
     assert_eq!(r.unwrap(), Some(Value::Str("zero".into())));
 }
 
@@ -348,7 +340,10 @@ fn expr_string() {
 
 #[test]
 fn expr_true_false_null() {
-    assert_eq!(run_src("main {\n true\n}").0.unwrap(), Some(Value::Bool(true)));
+    assert_eq!(
+        run_src("main {\n true\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
     assert_eq!(
         run_src("main {\n false\n}").0.unwrap(),
         Some(Value::Bool(false))
@@ -380,12 +375,30 @@ fn expr_string_number_concat() {
 
 #[test]
 fn expr_comparison() {
-    assert_eq!(run_src("main {\n 1 == 1\n}").0.unwrap(), Some(Value::Bool(true)));
-    assert_eq!(run_src("main {\n 1 != 2\n}").0.unwrap(), Some(Value::Bool(true)));
-    assert_eq!(run_src("main {\n 2 > 1\n}").0.unwrap(), Some(Value::Bool(true)));
-    assert_eq!(run_src("main {\n 2 >= 2\n}").0.unwrap(), Some(Value::Bool(true)));
-    assert_eq!(run_src("main {\n 1 < 2\n}").0.unwrap(), Some(Value::Bool(true)));
-    assert_eq!(run_src("main {\n 1 <= 1\n}").0.unwrap(), Some(Value::Bool(true)));
+    assert_eq!(
+        run_src("main {\n 1 == 1\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
+    assert_eq!(
+        run_src("main {\n 1 != 2\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
+    assert_eq!(
+        run_src("main {\n 2 > 1\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
+    assert_eq!(
+        run_src("main {\n 2 >= 2\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
+    assert_eq!(
+        run_src("main {\n 1 < 2\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
+    assert_eq!(
+        run_src("main {\n 1 <= 1\n}").0.unwrap(),
+        Some(Value::Bool(true))
+    );
 }
 
 #[test]

@@ -104,7 +104,11 @@ fn lex_error_new() {
 
 #[test]
 fn lex_error_display() {
-    let err = LexError::new(ErrorCode::UnterminatedString, "unterminated".into(), dummy_span());
+    let err = LexError::new(
+        ErrorCode::UnterminatedString,
+        "unterminated".into(),
+        dummy_span(),
+    );
     let display = format!("{err}");
     assert!(display.contains("E0306"));
     assert!(display.contains("unterminated"));
@@ -121,7 +125,11 @@ fn lex_error_span() {
 
 #[test]
 fn parse_error_new() {
-    let err = ParseError::new(ErrorCode::ParserError, "unexpected token".into(), dummy_span());
+    let err = ParseError::new(
+        ErrorCode::ParserError,
+        "unexpected token".into(),
+        dummy_span(),
+    );
     assert_eq!(err.code(), ErrorCode::ParserError);
     assert_eq!(err.message(), "unexpected token");
 }
@@ -145,14 +153,22 @@ fn parse_error_span() {
 
 #[test]
 fn semantic_error_new() {
-    let err = SemanticError::new(ErrorCode::SemanticError, "type mismatch".into(), dummy_span());
+    let err = SemanticError::new(
+        ErrorCode::SemanticError,
+        "type mismatch".into(),
+        dummy_span(),
+    );
     assert_eq!(err.code(), ErrorCode::SemanticError);
     assert_eq!(err.message(), "type mismatch");
 }
 
 #[test]
 fn semantic_error_display() {
-    let err = SemanticError::new(ErrorCode::UndeclaredVariable, "x not defined".into(), dummy_span());
+    let err = SemanticError::new(
+        ErrorCode::UndeclaredVariable,
+        "x not defined".into(),
+        dummy_span(),
+    );
     let display = format!("{err}");
     assert!(display.contains("E0332"));
     assert!(display.contains("x not defined"));

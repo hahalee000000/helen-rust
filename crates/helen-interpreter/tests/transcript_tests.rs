@@ -236,9 +236,7 @@ fn test_export_transcript_no_session() {
     let mut interp = make_interp();
     let tmp = std::env::temp_dir().join("helen_test_export_nosession.json");
     let path_str = tmp.to_str().unwrap();
-    let result = transcript_export_transcript(&mut interp, &[
-        Value::Str(Rc::from(path_str)),
-    ]);
+    let result = transcript_export_transcript(&mut interp, &[Value::Str(Rc::from(path_str))]);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), Value::Str(Rc::from("")));
     // Clean up if file was created
@@ -251,10 +249,10 @@ fn test_export_transcript_unknown_format() {
     let mut interp = make_interp();
     let tmp = std::env::temp_dir().join("helen_test_export_badfmt.xyz");
     let path_str = tmp.to_str().unwrap();
-    let result = transcript_export_transcript(&mut interp, &[
-        Value::Str(Rc::from(path_str)),
-        Value::Str(Rc::from("xml")),
-    ]);
+    let result = transcript_export_transcript(
+        &mut interp,
+        &[Value::Str(Rc::from(path_str)), Value::Str(Rc::from("xml"))],
+    );
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), Value::Str(Rc::from("")));
     let _ = std::fs::remove_file(&tmp);
@@ -374,20 +372,24 @@ fn test_format_context_stats_after_llm_call() {
 
 #[test]
 fn test_transcript_log_env_var() {
-    let dir = std::env::temp_dir().join(format!("helen_test_transcript_log_{}", std::process::id()));
+    let dir =
+        std::env::temp_dir().join(format!("helen_test_transcript_log_{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
     let log_path = dir.join("custom_transcript.jsonl");
-    
+
     // Set env var
     std::env::set_var("HELEN_TRANSCRIPT_LOG", log_path.to_str().unwrap());
-    
+
     let mut interp = make_interp();
     interp.session_id = "test_session".to_string();
-    
+
     // Call a function that uses load_store internally
     let result = helen_interpreter::context::context_context_stats(&mut interp, &[]);
-    assert!(result.is_ok(), "context_stats should work with env var path");
-    
+    assert!(
+        result.is_ok(),
+        "context_stats should work with env var path"
+    );
+
     // Clean up
     std::env::remove_var("HELEN_TRANSCRIPT_LOG");
     let _ = std::fs::remove_dir_all(&dir);

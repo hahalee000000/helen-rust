@@ -1,6 +1,8 @@
 //! Unit tests for stdlib.rs functions to improve coverage.
 //! Targets: dict operations, data operations, time operations, crypto operations.
 
+#![allow(clippy::result_large_err)]
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -27,7 +29,12 @@ fn make_list(items: Vec<Value>) -> Value {
 }
 
 // Helper to call a stdlib function
-fn call_stdlib(module: &str, func_name: &str, interp: &mut Interpreter, args: &[Value]) -> Result<Value, helen_interpreter::exceptions::ExceptionValue> {
+fn call_stdlib(
+    module: &str,
+    func_name: &str,
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, helen_interpreter::exceptions::ExceptionValue> {
     let export = helen_interpreter::stdlib::module_exports(module)
         .unwrap()
         .iter()
@@ -110,11 +117,13 @@ fn test_dict_entries_multiple() {
 fn test_dict_get_with_default() {
     let mut interp = make_interp();
     let map = make_map(vec![("key", Value::Int(42.into()))]);
-    let result = call_stdlib("std.dict", "get", &mut interp, &[
-        map,
-        Value::Str(Rc::from("key")),
-        Value::Int(0.into())
-    ]).unwrap();
+    let result = call_stdlib(
+        "std.dict",
+        "get",
+        &mut interp,
+        &[map, Value::Str(Rc::from("key")), Value::Int(0.into())],
+    )
+    .unwrap();
     if let Value::Int(n) = result {
         assert_eq!(n, 42.into());
     } else {
@@ -126,11 +135,13 @@ fn test_dict_get_with_default() {
 fn test_dict_get_missing_with_default() {
     let mut interp = make_interp();
     let map = make_map(vec![("key", Value::Int(42.into()))]);
-    let result = call_stdlib("std.dict", "get", &mut interp, &[
-        map,
-        Value::Str(Rc::from("missing")),
-        Value::Int(99.into())
-    ]).unwrap();
+    let result = call_stdlib(
+        "std.dict",
+        "get",
+        &mut interp,
+        &[map, Value::Str(Rc::from("missing")), Value::Int(99.into())],
+    )
+    .unwrap();
     if let Value::Int(n) = result {
         assert_eq!(n, 99.into());
     } else {
@@ -142,10 +153,13 @@ fn test_dict_get_missing_with_default() {
 fn test_dict_has_key_true() {
     let mut interp = make_interp();
     let map = make_map(vec![("exists", Value::Null)]);
-    let result = call_stdlib("std.dict", "has_key", &mut interp, &[
-        map,
-        Value::Str(Rc::from("exists"))
-    ]).unwrap();
+    let result = call_stdlib(
+        "std.dict",
+        "has_key",
+        &mut interp,
+        &[map, Value::Str(Rc::from("exists"))],
+    )
+    .unwrap();
     assert_eq!(result, Value::Bool(true));
 }
 
@@ -153,10 +167,13 @@ fn test_dict_has_key_true() {
 fn test_dict_has_key_false() {
     let mut interp = make_interp();
     let map = make_map(vec![("exists", Value::Null)]);
-    let result = call_stdlib("std.dict", "has_key", &mut interp, &[
-        map,
-        Value::Str(Rc::from("missing"))
-    ]).unwrap();
+    let result = call_stdlib(
+        "std.dict",
+        "has_key",
+        &mut interp,
+        &[map, Value::Str(Rc::from("missing"))],
+    )
+    .unwrap();
     assert_eq!(result, Value::Bool(false));
 }
 
@@ -177,11 +194,13 @@ fn test_dict_merge_two_maps() {
 fn test_dict_set_key_new() {
     let mut interp = make_interp();
     let map = make_map(vec![("a", Value::Int(1.into()))]);
-    let result = call_stdlib("std.dict", "set_key", &mut interp, &[
-        map,
-        Value::Str(Rc::from("b")),
-        Value::Int(2.into())
-    ]).unwrap();
+    let result = call_stdlib(
+        "std.dict",
+        "set_key",
+        &mut interp,
+        &[map, Value::Str(Rc::from("b")), Value::Int(2.into())],
+    )
+    .unwrap();
     if let Value::Map(m) = result {
         assert_eq!(m.borrow().len(), 2);
     } else {
@@ -196,10 +215,13 @@ fn test_dict_remove_key_existing() {
         ("a", Value::Int(1.into())),
         ("b", Value::Int(2.into())),
     ]);
-    let result = call_stdlib("std.dict", "remove_key", &mut interp, &[
-        map,
-        Value::Str(Rc::from("a"))
-    ]).unwrap();
+    let result = call_stdlib(
+        "std.dict",
+        "remove_key",
+        &mut interp,
+        &[map, Value::Str(Rc::from("a"))],
+    )
+    .unwrap();
     if let Value::Map(m) = result {
         assert_eq!(m.borrow().len(), 1);
     } else {
@@ -413,7 +435,7 @@ fn test_crypto_random_range() {
     let mut interp = make_interp();
     let result = call_stdlib("std.crypto", "random", &mut interp, &[]).unwrap();
     if let Value::Float(f) = result {
-        assert!(f >= 0.0 && f < 1.0);
+        assert!((0.0..1.0).contains(&f));
     } else {
         panic!("Expected float");
     }
@@ -427,7 +449,7 @@ fn test_crypto_randint() {
     let result = call_stdlib("std.crypto", "randint", &mut interp, &[min, max]).unwrap();
     if let Value::Int(n) = result {
         let n_val: i64 = n.try_into().unwrap();
-        assert!(n_val >= 1 && n_val <= 10);
+        assert!((1..=10).contains(&n_val));
     } else {
         panic!("Expected int");
     }

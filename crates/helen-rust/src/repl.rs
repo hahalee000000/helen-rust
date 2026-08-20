@@ -213,7 +213,10 @@ fn handle_repl_command(
                         let created = chrono::DateTime::from_timestamp(s.created_at as i64, 0)
                             .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
                             .unwrap_or_else(|| "unknown".to_string());
-                        println!("{:<40} {:<22} {:>8}", s.session_id, created, s.message_count);
+                        println!(
+                            "{:<40} {:<22} {:>8}",
+                            s.session_id, created, s.message_count
+                        );
                     }
                 }
                 return true;
@@ -296,7 +299,11 @@ fn handle_repl_command(
             if entries.is_empty() {
                 println!("No LLM calls recorded yet.");
             } else {
-                let start = if entries.len() > n { entries.len() - n } else { 0 };
+                let start = if entries.len() > n {
+                    entries.len() - n
+                } else {
+                    0
+                };
                 println!("Last {} LLM calls:", entries.len() - start);
                 for (i, entry) in entries[start..].iter().enumerate() {
                     let status = if entry.error.is_some() { "❌" } else { "✅" };
@@ -306,17 +313,34 @@ fn handle_repl_command(
                             .unwrap_or_else(|| "unknown".to_string());
                         println!("\n  [{}] {} {}", i + 1, status, ts);
                         println!("      Type: {}", entry.call_type);
-                        println!("      Agent: {}", entry.agent_name.as_deref().unwrap_or("anonymous"));
-                        println!("      Model: {}", entry.model.as_deref().unwrap_or("default"));
+                        println!(
+                            "      Agent: {}",
+                            entry.agent_name.as_deref().unwrap_or("anonymous")
+                        );
+                        println!(
+                            "      Model: {}",
+                            entry.model.as_deref().unwrap_or("default")
+                        );
                         let prompt_preview = entry.prompt.chars().take(100).collect::<String>();
-                        let prompt_suffix = if entry.prompt.chars().count() > 100 { "..." } else { "" };
+                        let prompt_suffix = if entry.prompt.chars().count() > 100 {
+                            "..."
+                        } else {
+                            ""
+                        };
                         println!("      Prompt: {}{}", prompt_preview, prompt_suffix);
                         if let Some(ref resp) = entry.response {
                             let resp_preview = resp.chars().take(100).collect::<String>();
-                            let resp_suffix = if resp.chars().count() > 100 { "..." } else { "" };
+                            let resp_suffix = if resp.chars().count() > 100 {
+                                "..."
+                            } else {
+                                ""
+                            };
                             println!("      Response: {}{}", resp_preview, resp_suffix);
                         }
-                        println!("      Tokens: {} in / {} out", entry.tokens_in, entry.tokens_out);
+                        println!(
+                            "      Tokens: {} in / {} out",
+                            entry.tokens_in, entry.tokens_out
+                        );
                         println!("      Duration: {:.0}ms", entry.duration_ms);
                         if !entry.tool_calls.is_empty() {
                             println!("      Tool calls: {}", entry.tool_calls.len());
@@ -330,11 +354,21 @@ fn handle_repl_command(
                             println!("      Error: {}", err);
                         }
                     } else {
-                        let model_str = entry.model.as_ref().map(|m| format!(" @{}", m)).unwrap_or_default();
-                        println!("  {} [{}] {}{} ({}+{} tokens, {:.0}ms)",
-                            status, entry.call_type,
+                        let model_str = entry
+                            .model
+                            .as_ref()
+                            .map(|m| format!(" @{}", m))
+                            .unwrap_or_default();
+                        println!(
+                            "  {} [{}] {}{} ({}+{} tokens, {:.0}ms)",
+                            status,
+                            entry.call_type,
                             entry.agent_name.as_deref().unwrap_or("anonymous"),
-                            model_str, entry.tokens_in, entry.tokens_out, entry.duration_ms);
+                            model_str,
+                            entry.tokens_in,
+                            entry.tokens_out,
+                            entry.duration_ms
+                        );
                         if !entry.tool_calls.is_empty() {
                             println!("      🔧 {} tool call(s)", entry.tool_calls.len());
                         }
@@ -353,7 +387,11 @@ fn handle_repl_command(
 
         // ── :sessions — list transcript sessions ────────────────────
         ":sessions" => {
-            let sessions = interp.session_manager.lock().expect("mutex poisoned").list_sessions();
+            let sessions = interp
+                .session_manager
+                .lock()
+                .expect("mutex poisoned")
+                .list_sessions();
             if sessions.is_empty() {
                 println!("(no sessions found)");
             } else {
@@ -362,7 +400,10 @@ fn handle_repl_command(
                     let created = chrono::DateTime::from_timestamp(s.created_at as i64, 0)
                         .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
                         .unwrap_or_else(|| "unknown".to_string());
-                    println!("{:<40} {:<22} {:>8}", s.session_id, created, s.message_count);
+                    println!(
+                        "{:<40} {:<22} {:>8}",
+                        s.session_id, created, s.message_count
+                    );
                 }
             }
         }
@@ -394,7 +435,10 @@ fn handle_repl_command(
                     drop(manager);
                     match load_and_resume_transcript(interp, &session_path, session_id) {
                         Ok(count) => {
-                            println!("Resumed session: {} ({} messages loaded)", session_id, count);
+                            println!(
+                                "Resumed session: {} ({} messages loaded)",
+                                session_id, count
+                            );
                         }
                         Err(e) => {
                             println!("Error resuming session: {}", e);
@@ -442,14 +486,33 @@ fn handle_transcript(interp: &mut Interpreter, arg: &str) {
         } else {
             println!("Compression audit trail ({} events):", audit.len());
             for (i, entry) in audit.iter().enumerate() {
-                let ts = entry.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                let before = entry.get("items_before").and_then(|v| v.as_u64()).unwrap_or(0);
-                let after = entry.get("items_after").and_then(|v| v.as_u64()).unwrap_or(0);
-                let strategy = entry.get("strategy").and_then(|v| v.as_str()).unwrap_or("unknown");
+                let ts = entry
+                    .get("timestamp")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let before = entry
+                    .get("items_before")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                let after = entry
+                    .get("items_after")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                let strategy = entry
+                    .get("strategy")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
                 let ts_str = chrono::DateTime::from_timestamp(ts as i64, 0)
                     .map(|dt| dt.format("%H:%M:%S").to_string())
                     .unwrap_or_else(|| "??:??:??".to_string());
-                println!("  [{}] {} — {} → {} items ({})", i + 1, ts_str, before, after, strategy);
+                println!(
+                    "  [{}] {} — {} → {} items ({})",
+                    i + 1,
+                    ts_str,
+                    before,
+                    after,
+                    strategy
+                );
             }
         }
     } else if arg.contains("--full") {
@@ -465,7 +528,11 @@ fn handle_transcript(interp: &mut Interpreter, arg: &str) {
                         let role = &msg.role;
                         let (text, _) = helen_runtime::transcript::message_text_parts(&msg.content);
                         let preview: String = text.chars().take(120).collect();
-                        let suffix = if text.chars().count() > 120 { "..." } else { "" };
+                        let suffix = if text.chars().count() > 120 {
+                            "..."
+                        } else {
+                            ""
+                        };
                         println!("  [{}] {}{}", role, preview, suffix);
                     }
                     helen_runtime::transcript::Item::Boundary(b) => {
@@ -480,12 +547,20 @@ fn handle_transcript(interp: &mut Interpreter, arg: &str) {
         if messages.is_empty() {
             println!("(transcript is empty)");
         } else {
-            println!("Transcript for session: {} ({} messages)", interp.session_id, messages.len());
+            println!(
+                "Transcript for session: {} ({} messages)",
+                interp.session_id,
+                messages.len()
+            );
             for msg in messages.iter().take(50) {
                 let role = &msg.role;
                 let (text, _) = helen_runtime::transcript::message_text_parts(&msg.content);
                 let preview: String = text.chars().take(120).collect();
-                let suffix = if text.chars().count() > 120 { "..." } else { "" };
+                let suffix = if text.chars().count() > 120 {
+                    "..."
+                } else {
+                    ""
+                };
                 println!("  [{}] {}{}", role, preview, suffix);
             }
             if messages.len() > 50 {
@@ -580,7 +655,9 @@ pub fn repl_command(session_id: Option<&str>) -> i32 {
         }
 
         // REPL commands only at top-level (no buffer)
-        if buffer.is_empty() && handle_repl_command(trimmed, &mut interp, &mut analyzer, &mut repl_state) {
+        if buffer.is_empty()
+            && handle_repl_command(trimmed, &mut interp, &mut analyzer, &mut repl_state)
+        {
             continue;
         }
 

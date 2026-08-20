@@ -24,7 +24,11 @@ fn no_panic_lex_parse(src: String) {
     let _prog = p.parse();
     for e in p.errors() {
         // every error must carry a real code (>= 300: ScannerError internal + E0xxx)
-        assert!(e.code().value() >= 300, "unexpected error code {}", e.code().value());
+        assert!(
+            e.code().value() >= 300,
+            "unexpected error code {}",
+            e.code().value()
+        );
     }
 }
 

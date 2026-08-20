@@ -113,10 +113,22 @@ pub fn data_html_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Ex
     }
 
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("tag")), Value::Str(Rc::from(tag.as_str())));
-    result.insert(Value::Str(Rc::from("attrs")), Value::Map(Rc::new(RefCell::new(attrs))));
-    result.insert(Value::Str(Rc::from("children")), Value::List(Rc::new(RefCell::new(children))));
-    result.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(content.as_str())));
+    result.insert(
+        Value::Str(Rc::from("tag")),
+        Value::Str(Rc::from(tag.as_str())),
+    );
+    result.insert(
+        Value::Str(Rc::from("attrs")),
+        Value::Map(Rc::new(RefCell::new(attrs))),
+    );
+    result.insert(
+        Value::Str(Rc::from("children")),
+        Value::List(Rc::new(RefCell::new(children))),
+    );
+    result.insert(
+        Value::Str(Rc::from("text")),
+        Value::Str(Rc::from(content.as_str())),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
@@ -229,7 +241,8 @@ pub fn data_html_select(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
         }
     }
     let tag_pattern = sel.trim().to_string();
-    if tag_pattern.is_empty() && id_value.is_none() && class_value.is_none() && attr_name.is_none() {
+    if tag_pattern.is_empty() && id_value.is_none() && class_value.is_none() && attr_name.is_none()
+    {
         return Err(ExceptionValue::new(
             "ValueError",
             format!("Invalid selector: '{selector}'"),
@@ -248,10 +261,7 @@ pub fn data_html_select(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
             rest = &after[end..];
             continue;
         }
-        let tag_name: String = after
-            .chars()
-            .take_while(|c| c.is_alphanumeric())
-            .collect();
+        let tag_name: String = after.chars().take_while(|c| c.is_alphanumeric()).collect();
         if tag_name.is_empty() {
             let end = after.find('>').map(|e| e + 1).unwrap_or(after.len());
             rest = &after[end..];
@@ -318,7 +328,12 @@ pub fn data_html_select(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
         }
         if let Some(cv) = &class_value {
             let classes: Vec<String> = map_get_str(&attrs, "class")
-                .map(|v| v.python_str().split_whitespace().map(String::from).collect())
+                .map(|v| {
+                    v.python_str()
+                        .split_whitespace()
+                        .map(String::from)
+                        .collect()
+                })
                 .unwrap_or_default();
             if !classes.iter().any(|c| c == cv) {
                 rest = &after[gt + 1..];
@@ -339,9 +354,18 @@ pub fn data_html_select(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
             }
         }
         let mut el = indexmap::IndexMap::new();
-        el.insert(Value::Str(Rc::from("tag")), Value::Str(Rc::from(tag_name.as_str())));
-        el.insert(Value::Str(Rc::from("attrs")), Value::Map(Rc::new(RefCell::new(attrs))));
-        el.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(content.as_str())));
+        el.insert(
+            Value::Str(Rc::from("tag")),
+            Value::Str(Rc::from(tag_name.as_str())),
+        );
+        el.insert(
+            Value::Str(Rc::from("attrs")),
+            Value::Map(Rc::new(RefCell::new(attrs))),
+        );
+        el.insert(
+            Value::Str(Rc::from("text")),
+            Value::Str(Rc::from(content.as_str())),
+        );
         results.push(Value::Map(Rc::new(RefCell::new(el))));
         rest = &after[gt + 1..];
     }
@@ -353,7 +377,10 @@ pub fn data_html_select(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
 // ---------------------------------------------------------------------------
 
 /// Python `_markdown_to_html` — headings, paragraphs, bold/italic/code.
-pub fn data_markdown_to_html(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn data_markdown_to_html(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let text = arg_str(args, 0)?;
     let mut html: Vec<String> = Vec::new();
     let mut in_paragraph = false;
@@ -468,9 +495,18 @@ pub fn data_markdown_extract_headings(
                     }
                 }
                 let mut h = indexmap::IndexMap::new();
-                h.insert(Value::Str(Rc::from("level")), Value::Int(BigInt::from(hashes)));
-                h.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(text_content.as_str())));
-                h.insert(Value::Str(Rc::from("id")), Value::Str(Rc::from(collapsed.as_str())));
+                h.insert(
+                    Value::Str(Rc::from("level")),
+                    Value::Int(BigInt::from(hashes)),
+                );
+                h.insert(
+                    Value::Str(Rc::from("text")),
+                    Value::Str(Rc::from(text_content.as_str())),
+                );
+                h.insert(
+                    Value::Str(Rc::from("id")),
+                    Value::Str(Rc::from(collapsed.as_str())),
+                );
                 headings.push(Value::Map(Rc::new(RefCell::new(h))));
             }
         }
@@ -501,9 +537,18 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         // Fenced code block.
         let fence_match = fence_re.captures(stripped);
         if let Some(fm) = fence_match {
-            let fence_char = fm.get(1).expect("fence match").as_str().chars().next().expect("non-empty");
+            let fence_char = fm
+                .get(1)
+                .expect("fence match")
+                .as_str()
+                .chars()
+                .next()
+                .expect("non-empty");
             let fence_len = fm.get(1).expect("fence match").as_str().len();
-            let language = fm.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
+            let language = fm
+                .get(2)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default();
             let mut code_lines = Vec::new();
             i += 1;
             let close_re = regex::Regex::new(&format!(
@@ -521,16 +566,27 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
                 i += 1;
             }
             let mut b = indexmap::IndexMap::new();
-            b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("code_block")));
-            b.insert(Value::Str(Rc::from("language")), Value::Str(Rc::from(language.as_str())));
-            b.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(code_lines.join("\n").as_str())));
+            b.insert(
+                Value::Str(Rc::from("type")),
+                Value::Str(Rc::from("code_block")),
+            );
+            b.insert(
+                Value::Str(Rc::from("language")),
+                Value::Str(Rc::from(language.as_str())),
+            );
+            b.insert(
+                Value::Str(Rc::from("text")),
+                Value::Str(Rc::from(code_lines.join("\n").as_str())),
+            );
             blocks.push(Value::Map(Rc::new(RefCell::new(b))));
             continue;
         }
         // Horizontal rule: ---, ***, ___ (all same char).
         if stripped.len() >= 3
             && stripped.chars().all(|c| c == '-' || c == '*' || c == '_')
-            && stripped.chars().all(|c| c == stripped.chars().next().expect("non-empty string"))
+            && stripped
+                .chars()
+                .all(|c| c == stripped.chars().next().expect("non-empty string"))
         {
             let mut b = indexmap::IndexMap::new();
             b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("hr")));
@@ -543,9 +599,18 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         if (1..=6).contains(&hashes) {
             if let Some(content) = stripped[hashes..].strip_prefix(' ') {
                 let mut b = indexmap::IndexMap::new();
-                b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("heading")));
-                b.insert(Value::Str(Rc::from("level")), Value::Int(BigInt::from(hashes)));
-                b.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(content.trim().to_string().as_str())));
+                b.insert(
+                    Value::Str(Rc::from("type")),
+                    Value::Str(Rc::from("heading")),
+                );
+                b.insert(
+                    Value::Str(Rc::from("level")),
+                    Value::Int(BigInt::from(hashes)),
+                );
+                b.insert(
+                    Value::Str(Rc::from("text")),
+                    Value::Str(Rc::from(content.trim().to_string().as_str())),
+                );
                 blocks.push(Value::Map(Rc::new(RefCell::new(b))));
                 i += 1;
                 continue;
@@ -555,13 +620,23 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         if stripped.starts_with('>') {
             let mut quote_lines = Vec::new();
             while i < n && lines[i].trim().starts_with('>') {
-                let content = lines[i].trim().trim_start_matches('>').trim_start().to_string();
+                let content = lines[i]
+                    .trim()
+                    .trim_start_matches('>')
+                    .trim_start()
+                    .to_string();
                 quote_lines.push(content);
                 i += 1;
             }
             let mut b = indexmap::IndexMap::new();
-            b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("blockquote")));
-            b.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(quote_lines.join("\n").as_str())));
+            b.insert(
+                Value::Str(Rc::from("type")),
+                Value::Str(Rc::from("blockquote")),
+            );
+            b.insert(
+                Value::Str(Rc::from("text")),
+                Value::Str(Rc::from(quote_lines.join("\n").as_str())),
+            );
             blocks.push(Value::Map(Rc::new(RefCell::new(b))));
             continue;
         }
@@ -576,7 +651,10 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
             let mut b = indexmap::IndexMap::new();
             b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("list")));
             b.insert(Value::Str(Rc::from("ordered")), Value::Bool(false));
-            b.insert(Value::Str(Rc::from("items")), Value::List(Rc::new(RefCell::new(items))));
+            b.insert(
+                Value::Str(Rc::from("items")),
+                Value::List(Rc::new(RefCell::new(items))),
+            );
             blocks.push(Value::Map(Rc::new(RefCell::new(b))));
             continue;
         }
@@ -591,7 +669,10 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
             let mut b = indexmap::IndexMap::new();
             b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("list")));
             b.insert(Value::Str(Rc::from("ordered")), Value::Bool(true));
-            b.insert(Value::Str(Rc::from("items")), Value::List(Rc::new(RefCell::new(items))));
+            b.insert(
+                Value::Str(Rc::from("items")),
+                Value::List(Rc::new(RefCell::new(items))),
+            );
             blocks.push(Value::Map(Rc::new(RefCell::new(b))));
             continue;
         }
@@ -611,7 +692,9 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
             }
             if ls.len() >= 3
                 && ls.chars().all(|c| c == '-' || c == '*' || c == '_')
-                && ls.chars().all(|c| c == ls.chars().next().expect("non-empty string"))
+                && ls
+                    .chars()
+                    .all(|c| c == ls.chars().next().expect("non-empty string"))
             {
                 break;
             }
@@ -629,8 +712,14 @@ pub fn data_markdown_parse(_i: &mut Interpreter, args: &[Value]) -> Result<Value
         }
         if !para_lines.is_empty() {
             let mut b = indexmap::IndexMap::new();
-            b.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("paragraph")));
-            b.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(para_lines.join(" ").as_str())));
+            b.insert(
+                Value::Str(Rc::from("type")),
+                Value::Str(Rc::from("paragraph")),
+            );
+            b.insert(
+                Value::Str(Rc::from("text")),
+                Value::Str(Rc::from(para_lines.join(" ").as_str())),
+            );
             blocks.push(Value::Map(Rc::new(RefCell::new(b))));
         }
     }
@@ -710,10 +799,9 @@ fn value_to_toml(v: &Value) -> Result<toml::Value, ExceptionValue> {
     match v {
         Value::Null => Ok(toml::Value::String(String::new())),
         Value::Bool(b) => Ok(toml::Value::Boolean(*b)),
-        Value::Int(n) => n
-            .to_i64()
-            .map(toml::Value::Integer)
-            .ok_or_else(|| ExceptionValue::new("TypeError", "integer too large for TOML".to_string(), None)),
+        Value::Int(n) => n.to_i64().map(toml::Value::Integer).ok_or_else(|| {
+            ExceptionValue::new("TypeError", "integer too large for TOML".to_string(), None)
+        }),
         Value::Float(f) => Ok(toml::Value::Float(*f)),
         Value::Str(s) => Ok(toml::Value::String(s.to_string())),
         Value::List(l) => {
@@ -726,7 +814,10 @@ fn value_to_toml(v: &Value) -> Result<toml::Value, ExceptionValue> {
         Value::Map(_) => value_to_toml_table(v),
         other => Err(ExceptionValue::new(
             "TypeError",
-            format!("Object of type {} is not TOML serializable", other.type_name()),
+            format!(
+                "Object of type {} is not TOML serializable",
+                other.type_name()
+            ),
             None,
         )),
     }
@@ -755,19 +846,21 @@ pub fn data_toml_load(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exc
 /// Python `_toml_save`.
 pub fn data_toml_save(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?.to_string();
-    let value = args
-        .get(1)
-        .cloned()
-        .ok_or_else(|| ExceptionValue::new("RuntimeError", "missing argument 2".to_string(), None))?;
+    let value = args.get(1).cloned().ok_or_else(|| {
+        ExceptionValue::new("RuntimeError", "missing argument 2".to_string(), None)
+    })?;
     let table = value_to_toml_table(&value)?;
-    let s = toml::to_string(&table)
-        .map_err(|e| ExceptionValue::new("RuntimeError", format!("Python ValueError: {e}"), None))?;
+    let s = toml::to_string(&table).map_err(|e| {
+        ExceptionValue::new("RuntimeError", format!("Python ValueError: {e}"), None)
+    })?;
     if let Some(parent) = std::path::Path::new(&path).parent() {
         let _ = std::fs::create_dir_all(parent);
     }
     std::fs::write(&path, s)
         .map_err(|e| ExceptionValue::new("RuntimeError", format!("IOError: {e}"), None))?;
-    Ok(Value::Str(Rc::from(format!("Saved TOML to {path}").as_str())))
+    Ok(Value::Str(Rc::from(
+        format!("Saved TOML to {path}").as_str(),
+    )))
 }
 
 // ---------------------------------------------------------------------------
@@ -907,7 +1000,10 @@ fn xml_element_to_value(node: &XmlNode) -> Value {
         }
         for (tag, vals) in child_map {
             if vals.len() == 1 {
-                result.insert(Value::Str(Rc::from(tag.as_str())), vals.into_iter().next().expect("non-empty iterator"));
+                result.insert(
+                    Value::Str(Rc::from(tag.as_str())),
+                    vals.into_iter().next().expect("non-empty iterator"),
+                );
             } else {
                 result.insert(
                     Value::Str(Rc::from(tag.as_str())),
@@ -920,7 +1016,10 @@ fn xml_element_to_value(node: &XmlNode) -> Value {
         if result.is_empty() {
             return Value::Str(Rc::from(text.as_str()));
         }
-        result.insert(Value::Str(Rc::from("#text")), Value::Str(Rc::from(text.as_str())));
+        result.insert(
+            Value::Str(Rc::from("#text")),
+            Value::Str(Rc::from(text.as_str())),
+        );
     }
     let mut outer = indexmap::IndexMap::new();
     outer.insert(
@@ -1019,10 +1118,9 @@ pub fn data_xml_load(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exce
 /// Python `_xml_save`.
 pub fn data_xml_save(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?.to_string();
-    let value = args
-        .get(1)
-        .cloned()
-        .ok_or_else(|| ExceptionValue::new("RuntimeError", "missing argument 2".to_string(), None))?;
+    let value = args.get(1).cloned().ok_or_else(|| {
+        ExceptionValue::new("RuntimeError", "missing argument 2".to_string(), None)
+    })?;
     let root = match args.get(2) {
         Some(Value::Str(s)) => s.to_string(),
         _ => "root".to_string(),
@@ -1034,7 +1132,9 @@ pub fn data_xml_save(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exce
     }
     std::fs::write(&path, out)
         .map_err(|e| ExceptionValue::new("RuntimeError", format!("IOError: {e}"), None))?;
-    Ok(Value::Str(Rc::from(format!("Saved XML to {path}").as_str())))
+    Ok(Value::Str(Rc::from(
+        format!("Saved XML to {path}").as_str(),
+    )))
 }
 
 // ---------------------------------------------------------------------------
@@ -1095,18 +1195,20 @@ pub fn data_yaml_load(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exc
 /// Python `_yaml_save`.
 pub fn data_yaml_save(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?.to_string();
-    let value = args
-        .get(1)
-        .cloned()
-        .ok_or_else(|| ExceptionValue::new("RuntimeError", "missing argument 2".to_string(), None))?;
+    let value = args.get(1).cloned().ok_or_else(|| {
+        ExceptionValue::new("RuntimeError", "missing argument 2".to_string(), None)
+    })?;
     let j = value_to_json(&value)
         .map_err(|m| ExceptionValue::new("RuntimeError", format!("Python TypeError: {m}"), None))?;
-    let s = serde_yaml::to_string(&j)
-        .map_err(|e| ExceptionValue::new("RuntimeError", format!("Python ValueError: {e}"), None))?;
+    let s = serde_yaml::to_string(&j).map_err(|e| {
+        ExceptionValue::new("RuntimeError", format!("Python ValueError: {e}"), None)
+    })?;
     if let Some(parent) = std::path::Path::new(&path).parent() {
         let _ = std::fs::create_dir_all(parent);
     }
     std::fs::write(&path, s)
         .map_err(|e| ExceptionValue::new("RuntimeError", format!("IOError: {e}"), None))?;
-    Ok(Value::Str(Rc::from(format!("Saved YAML to {path}").as_str())))
+    Ok(Value::Str(Rc::from(
+        format!("Saved YAML to {path}").as_str(),
+    )))
 }

@@ -41,32 +41,37 @@ fn run_err(src: &str) -> ExceptionValue {
 
 #[test]
 fn match_literal_int() {
-    let (r, _) = run_src("main {\n let x = 5\n match x {\n  case 5 { 10 }\n  default { 20 }\n }\n}");
+    let (r, _) =
+        run_src("main {\n let x = 5\n match x {\n  case 5 { 10 }\n  default { 20 }\n }\n}");
     assert_eq!(r.unwrap(), Some(int(10)));
 }
 
 #[test]
 fn match_default_case() {
-    let (r, _) = run_src("main {\n let x = 99\n match x {\n  case 1 { 10 }\n  default { 20 }\n }\n}");
+    let (r, _) =
+        run_src("main {\n let x = 99\n match x {\n  case 1 { 10 }\n  default { 20 }\n }\n}");
     assert_eq!(r.unwrap(), Some(int(20)));
 }
 
 #[test]
 fn match_string_literal() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  let x = "hello"
  match x {
   case "hello" { 1 }
   case "world" { 2 }
   default { 3 }
  }
-}"#);
+}"#,
+    );
     assert_eq!(r.unwrap(), Some(int(1)));
 }
 
 #[test]
 fn match_bool() {
-    let (r, _) = run_src("main {\n let x = true\n match x {\n  case true { 1 }\n  case false { 2 }\n }\n}");
+    let (r, _) =
+        run_src("main {\n let x = true\n match x {\n  case true { 1 }\n  case false { 2 }\n }\n}");
     assert_eq!(r.unwrap(), Some(int(1)));
 }
 
@@ -104,19 +109,23 @@ fn list_index_out_of_bounds() {
 
 #[test]
 fn map_key_access() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  let m = {"a": 1, "b": 2}
  m["a"]
-}"#);
+}"#,
+    );
     assert_eq!(r.unwrap(), Some(int(1)));
 }
 
 #[test]
 fn map_missing_key() {
-    let e = run_err(r#"main {
+    let e = run_err(
+        r#"main {
  let m = {"a": 1}
  m["z"]
-}"#);
+}"#,
+    );
     assert_eq!(e.class_name, "RuntimeError");
 }
 
@@ -124,10 +133,12 @@ fn map_missing_key() {
 
 #[test]
 fn map_dot_access() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  let m = {"x": 42}
  m.x
-}"#);
+}"#,
+    );
     assert_eq!(r.unwrap(), Some(int(42)));
 }
 
@@ -167,7 +178,8 @@ fn lambda_higher_order() {
 
 #[test]
 fn agent_basic_declaration() {
-    let (r, _) = run_src(r#"
+    let (r, _) = run_src(
+        r#"
 agent Greeter(name: str) {
     description "A simple greeter"
     prompt "Hello!"
@@ -178,7 +190,8 @@ agent Greeter(name: str) {
 main {
     "done"
 }
-"#);
+"#,
+    );
     assert!(r.is_ok());
 }
 
@@ -218,13 +231,15 @@ fn nested_loops() {
 
 #[test]
 fn try_catch_basic() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  try {
   throw RuntimeError("boom")
  } catch RuntimeError e {
   42
  }
-}"#);
+}"#,
+    );
     assert_eq!(r.unwrap(), Some(int(42)));
 }
 
@@ -250,9 +265,11 @@ fn assert_false_fails() {
 
 #[test]
 fn assert_with_message() {
-    let e = run_err(r#"main {
+    let e = run_err(
+        r#"main {
  assert false, "custom message"
-}"#);
+}"#,
+    );
     assert_eq!(e.class_name, "AssertionError");
 }
 
@@ -260,18 +277,22 @@ fn assert_with_message() {
 
 #[test]
 fn string_concat() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  "hello" + " " + "world"
-}"#);
+}"#,
+    );
     assert!(r.is_ok());
 }
 
 #[test]
 fn string_index() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  let s = "hello"
  s[1]
-}"#);
+}"#,
+    );
     assert!(r.is_ok());
 }
 
@@ -287,11 +308,13 @@ fn list_pop() {
 
 #[test]
 fn map_insert() {
-    let (r, _) = run_src(r#"main {
+    let (r, _) = run_src(
+        r#"main {
  let m = {"a": 1}
  m["b"] = 2
  m["b"]
-}"#);
+}"#,
+    );
     assert_eq!(r.unwrap(), Some(int(2)));
 }
 

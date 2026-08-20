@@ -10,9 +10,9 @@ use num_traits::ToPrimitive;
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
-use crate::value::Value;
 use crate::stdlib::StdlibExport;
-use crate::stdlib_helpers::{arg_str, arg_int, arg_bool, arg_list, arg_opt_str, arg_opt_int};
+use crate::stdlib_helpers::{arg_bool, arg_int, arg_list, arg_opt_int, arg_opt_str, arg_str};
+use crate::value::Value;
 
 // std.system
 // ---------------------------------------------------------------------------
@@ -51,7 +51,9 @@ fn system_env_delete(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Exce
     // Python parity: `_env_delete` guards with `if key in os.environ` —
     // missing/invalid keys return "Variable {key} not found" (never panics).
     if key.is_empty() || key.contains('=') || key.contains('\0') {
-        return Ok(Value::Str(Rc::from(format!("Variable {key} not found").as_str())));
+        return Ok(Value::Str(Rc::from(
+            format!("Variable {key} not found").as_str(),
+        )));
     }
     unsafe { std::env::remove_var(key) };
     Ok(Value::Str(Rc::from(format!("Deleted {key}").as_str())))

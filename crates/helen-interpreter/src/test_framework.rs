@@ -128,12 +128,17 @@ impl TestRegistry {
         self.current_suite = None;
     }
 
-    pub fn register_test(&mut self, name: &str, body: Option<Rc<crate::closure::Closure>>, skip: bool) {
+    pub fn register_test(
+        &mut self,
+        name: &str,
+        body: Option<Rc<crate::closure::Closure>>,
+        skip: bool,
+    ) {
         if self.current_suite.is_none() {
             self.start_suite("(default)");
         }
         let idx = self.current_suite.unwrap();
-        
+
         for existing in &self.suites[idx].tests {
             if existing.name == name {
                 let warning = format!(
@@ -144,7 +149,7 @@ impl TestRegistry {
                 break;
             }
         }
-        
+
         self.suites[idx].tests.push(TestCase {
             name: name.to_string(),
             body,
@@ -239,9 +244,17 @@ impl TestRegistry {
         self.running = false;
 
         let total = self.results.len();
-        let passed = self.results.iter().filter(|r| r.passed && r.error.is_none()).count();
+        let passed = self
+            .results
+            .iter()
+            .filter(|r| r.passed && r.error.is_none())
+            .count();
         let failed = self.results.iter().filter(|r| !r.passed).count();
-        let skipped = self.results.iter().filter(|r| r.error.as_deref() == Some("SKIPPED")).count();
+        let skipped = self
+            .results
+            .iter()
+            .filter(|r| r.error.as_deref() == Some("SKIPPED"))
+            .count();
 
         TestReport {
             suites: self.suites.clone(),
@@ -263,50 +276,56 @@ impl TestRegistry {
 pub fn test_describe(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let name = arg_str(args, 0)?;
     let body = arg_closure(args, 1)?;
-    
+
     TEST_REGISTRY.with(|registry| {
         let mut reg = registry.borrow_mut();
         reg.start_suite(name);
     });
-    
+
     let span = dummy_span();
     _i.call_closure(body.as_ref(), vec![], &span)?;
-    
+
     TEST_REGISTRY.with(|registry| {
         let mut reg = registry.borrow_mut();
         reg.end_suite();
     });
-    
-    Ok(Value::Str(Rc::from(format!("Suite '{}' registered", name).as_str())))
+
+    Ok(Value::Str(Rc::from(
+        format!("Suite '{}' registered", name).as_str(),
+    )))
 }
 
 pub fn test_it(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let name = arg_str(args, 0)?;
     let body = arg_closure(args, 1)?;
-    
+
     TEST_REGISTRY.with(|registry| {
         let mut reg = registry.borrow_mut();
         reg.register_test(name, Some(body), false);
     });
-    
-    Ok(Value::Str(Rc::from(format!("Test '{}' registered", name).as_str())))
+
+    Ok(Value::Str(Rc::from(
+        format!("Test '{}' registered", name).as_str(),
+    )))
 }
 
 pub fn test_it_skip(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let name = arg_str(args, 0)?;
-    
+
     TEST_REGISTRY.with(|registry| {
         let mut reg = registry.borrow_mut();
         reg.register_test(name, None, true);
     });
-    
-    Ok(Value::Str(Rc::from(format!("Test '{}' skipped", name).as_str())))
+
+    Ok(Value::Str(Rc::from(
+        format!("Test '{}' skipped", name).as_str(),
+    )))
 }
 
 pub fn test_assert_true(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let condition = args.first().cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 1)?.unwrap_or("");
-    
+
     if !condition.truthy() {
         let msg = if message.is_empty() {
             format!("Assertion failed: {:?} is not truthy", condition)
@@ -315,7 +334,7 @@ pub fn test_assert_true(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
         };
         return Err(ExceptionValue::new("AssertionError", msg, None));
     }
-    
+
     Ok(Value::Bool(true))
 }
 
@@ -323,7 +342,7 @@ pub fn test_assert_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
     let actual = args.first().cloned().unwrap_or(Value::Null);
     let expected = args.get(1).cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 2)?.unwrap_or("");
-    
+
     if actual != expected {
         let msg = if message.is_empty() {
             format!("Expected {:?}, got {:?}", expected, actual)
@@ -332,15 +351,18 @@ pub fn test_assert_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
         };
         return Err(ExceptionValue::new("AssertionError", msg, None));
     }
-    
+
     Ok(Value::Bool(true))
 }
 
-pub fn test_assert_not_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn test_assert_not_equal(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let actual = args.first().cloned().unwrap_or(Value::Null);
     let expected = args.get(1).cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 2)?.unwrap_or("");
-    
+
     if actual == expected {
         let msg = if message.is_empty() {
             format!("Expected {:?} != {:?}", actual, expected)
@@ -349,7 +371,7 @@ pub fn test_assert_not_equal(_i: &mut Interpreter, args: &[Value]) -> Result<Val
         };
         return Err(ExceptionValue::new("AssertionError", msg, None));
     }
-    
+
     Ok(Value::Bool(true))
 }
 
@@ -357,7 +379,7 @@ pub fn test_assert_contains(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
     let container = args.first().cloned().unwrap_or(Value::Null);
     let item = args.get(1).cloned().unwrap_or(Value::Null);
     let message = arg_opt_str(args, 2)?.unwrap_or("");
-    
+
     let contains = match &container {
         Value::Str(s) => {
             if let Value::Str(sub) = &item {
@@ -366,15 +388,11 @@ pub fn test_assert_contains(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
                 false
             }
         }
-        Value::List(list) => {
-            list.borrow().contains(&item)
-        }
-        Value::Map(map) => {
-            map.borrow().contains_key(&item)
-        }
+        Value::List(list) => list.borrow().contains(&item),
+        Value::Map(map) => map.borrow().contains_key(&item),
         _ => false,
     };
-    
+
     if !contains {
         let msg = if message.is_empty() {
             format!("Expected {:?} to contain {:?}", container, item)
@@ -383,24 +401,29 @@ pub fn test_assert_contains(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
         };
         return Err(ExceptionValue::new("AssertionError", msg, None));
     }
-    
+
     Ok(Value::Bool(true))
 }
 
 pub fn test_assert_throws(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let func = arg_closure(args, 0)?;
     let error_type = arg_opt_str(args, 1)?.unwrap_or("");
-    
+
     let span = dummy_span();
     match _i.call_closure(func.as_ref(), vec![], &span) {
-        Ok(_) => {
-            Err(ExceptionValue::new("AssertionError", "Expected function to throw, but it did not".to_string(), None))
-        }
+        Ok(_) => Err(ExceptionValue::new(
+            "AssertionError",
+            "Expected function to throw, but it did not".to_string(),
+            None,
+        )),
         Err(e) => {
             if !error_type.is_empty() && e.class_name != error_type {
                 return Err(ExceptionValue::new(
                     "AssertionError",
-                    format!("Expected {}, got {}: {}", error_type, e.class_name, e.message),
+                    format!(
+                        "Expected {}, got {}: {}",
+                        error_type, e.class_name, e.message
+                    ),
                     None,
                 ));
             }
@@ -411,7 +434,11 @@ pub fn test_assert_throws(_i: &mut Interpreter, args: &[Value]) -> Result<Value,
 
 pub fn test_fail(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let message = arg_opt_str(args, 0)?.unwrap_or("Test failed");
-    Err(ExceptionValue::new("AssertionError", message.to_string(), None))
+    Err(ExceptionValue::new(
+        "AssertionError",
+        message.to_string(),
+        None,
+    ))
 }
 
 pub fn test_before_each(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
@@ -456,7 +483,9 @@ pub fn test_set_timeout(_i: &mut Interpreter, args: &[Value]) -> Result<Value, E
         let mut reg = registry.borrow_mut();
         reg.set_timeout(seconds);
     });
-    Ok(Value::Str(Rc::from(format!("Test timeout set to {}s", seconds).as_str())))
+    Ok(Value::Str(Rc::from(
+        format!("Test timeout set to {}s", seconds).as_str(),
+    )))
 }
 
 pub fn test_run_tests(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
@@ -464,15 +493,33 @@ pub fn test_run_tests(i: &mut Interpreter, _args: &[Value]) -> Result<Value, Exc
         let mut reg = registry.borrow_mut();
         reg.run_all(i)
     });
-    
+
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("total")), Value::Int(BigInt::from(report.total as i64)));
-    result.insert(Value::Str(Rc::from("passed")), Value::Int(BigInt::from(report.passed as i64)));
-    result.insert(Value::Str(Rc::from("failed")), Value::Int(BigInt::from(report.failed as i64)));
-    result.insert(Value::Str(Rc::from("skipped")), Value::Int(BigInt::from(report.skipped as i64)));
-    result.insert(Value::Str(Rc::from("duration_ms")), Value::Float(report.duration_ms));
-    result.insert(Value::Str(Rc::from("report")), Value::Str(Rc::from(format_report(&report).as_str())));
-    
+    result.insert(
+        Value::Str(Rc::from("total")),
+        Value::Int(BigInt::from(report.total as i64)),
+    );
+    result.insert(
+        Value::Str(Rc::from("passed")),
+        Value::Int(BigInt::from(report.passed as i64)),
+    );
+    result.insert(
+        Value::Str(Rc::from("failed")),
+        Value::Int(BigInt::from(report.failed as i64)),
+    );
+    result.insert(
+        Value::Str(Rc::from("skipped")),
+        Value::Int(BigInt::from(report.skipped as i64)),
+    );
+    result.insert(
+        Value::Str(Rc::from("duration_ms")),
+        Value::Float(report.duration_ms),
+    );
+    result.insert(
+        Value::Str(Rc::from("report")),
+        Value::Str(Rc::from(format_report(&report).as_str())),
+    );
+
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
@@ -481,7 +528,7 @@ pub fn test_run_tests_json(i: &mut Interpreter, _args: &[Value]) -> Result<Value
         let mut reg = registry.borrow_mut();
         reg.run_all(i)
     });
-    
+
     let json = serde_json::json!({
         "total": report.total,
         "passed": report.passed,
@@ -505,8 +552,10 @@ pub fn test_run_tests_json(i: &mut Interpreter, _args: &[Value]) -> Result<Value
             })
         }).collect::<Vec<_>>(),
     });
-    
-    Ok(Value::Str(Rc::from(serde_json::to_string_pretty(&json).unwrap().as_str())))
+
+    Ok(Value::Str(Rc::from(
+        serde_json::to_string_pretty(&json).unwrap().as_str(),
+    )))
 }
 
 pub fn test_reset(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
@@ -526,12 +575,21 @@ pub fn test_count(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, Except
             reg.results.len(),
         )
     });
-    
+
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("suites")), Value::Int(BigInt::from(suites as i64)));
-    result.insert(Value::Str(Rc::from("tests")), Value::Int(BigInt::from(tests as i64)));
-    result.insert(Value::Str(Rc::from("results")), Value::Int(BigInt::from(results as i64)));
-    
+    result.insert(
+        Value::Str(Rc::from("suites")),
+        Value::Int(BigInt::from(suites as i64)),
+    );
+    result.insert(
+        Value::Str(Rc::from("tests")),
+        Value::Int(BigInt::from(tests as i64)),
+    );
+    result.insert(
+        Value::Str(Rc::from("results")),
+        Value::Int(BigInt::from(results as i64)),
+    );
+
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
@@ -541,7 +599,9 @@ pub fn test_suite(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Excepti
         let mut reg = registry.borrow_mut();
         reg.start_suite(name);
     });
-    Ok(Value::Str(Rc::from(format!("Suite '{}' started", name).as_str())))
+    Ok(Value::Str(Rc::from(
+        format!("Suite '{}' started", name).as_str(),
+    )))
 }
 
 pub fn test_end_suite(_i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
@@ -560,7 +620,7 @@ fn format_report(report: &TestReport) -> String {
     let mut lines = vec![String::new(), "=".repeat(60), "TEST RESULTS".to_string()];
     lines.push("=".repeat(60));
     lines.push(String::new());
-    
+
     for result in &report.results {
         let status = if result.error.as_deref() == Some("SKIPPED") {
             "⊘"
@@ -569,14 +629,17 @@ fn format_report(report: &TestReport) -> String {
         } else {
             "✗"
         };
-        lines.push(format!("{} {} ({}ms)", status, result.name, result.duration_ms as i64));
+        lines.push(format!(
+            "{} {} ({}ms)",
+            status, result.name, result.duration_ms as i64
+        ));
         if let Some(err) = &result.error {
             if err != "SKIPPED" {
                 lines.push(format!("  Error: {}", err));
             }
         }
     }
-    
+
     lines.push(String::new());
     lines.push("-".repeat(60));
     lines.push(format!(
@@ -584,7 +647,7 @@ fn format_report(report: &TestReport) -> String {
         report.total, report.passed, report.failed, report.skipped, report.duration_ms
     ));
     lines.push("=".repeat(60));
-    
+
     lines.join("\n")
 }
 
@@ -658,6 +721,9 @@ pub fn test_expect(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Except
     // Returns the value wrapped in a map for now
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("value")), value);
-    result.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("expectation")));
+    result.insert(
+        Value::Str(Rc::from("type")),
+        Value::Str(Rc::from("expectation")),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }

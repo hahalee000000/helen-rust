@@ -17,7 +17,11 @@ fn parse_print(src: &str) -> (String, Vec<String>) {
     let mut p = Parser::new(toks);
     let prog = p.parse();
     let pr = AstPrinter::new();
-    let codes = p.errors().iter().map(|e| format!("E{:04}", e.code().value())).collect();
+    let codes = p
+        .errors()
+        .iter()
+        .map(|e| format!("E{:04}", e.code().value()))
+        .collect();
     (pr.print_program(&prog), codes)
 }
 

@@ -63,14 +63,19 @@ fn is_canonical_builtin_unknown() {
 #[test]
 fn is_canonical_builtin_common() {
     // Common builtins should be canonical
-    let common = ["len", "print", "type", "str", "int", "float", "bool", "list", "map"];
+    let common = [
+        "len", "print", "type", "str", "int", "float", "bool", "list", "map",
+    ];
     let mut found = 0;
     for name in &common {
         if is_canonical_builtin(name) {
             found += 1;
         }
     }
-    assert!(found > 0, "at least some common builtins should be canonical");
+    assert!(
+        found > 0,
+        "at least some common builtins should be canonical"
+    );
 }
 
 // ── canonical_name tests ────────────────────────────────────────────────
@@ -135,8 +140,10 @@ fn all_aliases_no_duplicate_keys() {
 fn all_aliases_canonical_is_builtin() {
     let aliases = all_aliases();
     for (_, canonical) in aliases.iter().take(10) {
-        assert!(is_canonical_builtin(canonical),
-            "alias canonical name '{canonical}' should be a canonical builtin");
+        assert!(
+            is_canonical_builtin(canonical),
+            "alias canonical name '{canonical}' should be a canonical builtin"
+        );
     }
 }
 
@@ -155,6 +162,9 @@ fn alias_to_canonical_roundtrip() {
 fn is_alias_consistent_with_all_aliases() {
     let aliases = all_aliases();
     for (alias, _) in &aliases {
-        assert!(is_alias(alias), "is_alias should be true for alias from all_aliases");
+        assert!(
+            is_alias(alias),
+            "is_alias should be true for alias from all_aliases"
+        );
     }
 }

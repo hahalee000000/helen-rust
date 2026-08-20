@@ -141,49 +141,61 @@ fn parse_list_negative_index() {
 
 #[test]
 fn parse_map_literal() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  {"a": 1, "b": 2}
-}"#);
+}"#,
+    );
 }
 
 #[test]
 fn parse_map_access() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  let m = {"a": 1}
  m["a"]
-}"#);
+}"#,
+    );
 }
 
 #[test]
 fn parse_map_dot_access() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  let m = {"x": 42}
  m.x
-}"#);
+}"#,
+    );
 }
 
 // ── String expressions ──────────────────────────────────────────────────
 
 #[test]
 fn parse_string_concat() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  "hello" + " " + "world"
-}"#);
+}"#,
+    );
 }
 
 #[test]
 fn parse_string_multiply() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  "ab" * 3
-}"#);
+}"#,
+    );
 }
 
 #[test]
 fn parse_string_index() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  let s = "hello"
  s[0]
-}"#);
+}"#,
+    );
 }
 
 // ── Function calls ──────────────────────────────────────────────────────
@@ -266,13 +278,15 @@ fn parse_match_int() {
 
 #[test]
 fn parse_match_string() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  let x = "hello"
  match x {
   case "hello" { 1 }
   default { 2 }
  }
-}"#);
+}"#,
+    );
 }
 
 #[test]
@@ -284,18 +298,21 @@ fn parse_match_multiple_cases() {
 
 #[test]
 fn parse_try_catch() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  try {
   throw RuntimeError("boom")
  } catch RuntimeError e {
   42
  }
-}"#);
+}"#,
+    );
 }
 
 #[test]
 fn parse_try_catch_finally() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  try {
   1
  } catch RuntimeError e {
@@ -303,7 +320,8 @@ fn parse_try_catch_finally() {
  } finally {
   3
  }
-}"#);
+}"#,
+    );
 }
 
 // ── Assert ──────────────────────────────────────────────────────────────
@@ -315,16 +333,19 @@ fn parse_assert_true() {
 
 #[test]
 fn parse_assert_with_message() {
-    parse_ok(r#"main {
+    parse_ok(
+        r#"main {
  assert true, "message"
-}"#);
+}"#,
+    );
 }
 
 // ── Agent declarations ──────────────────────────────────────────────────
 
 #[test]
 fn parse_agent_basic() {
-    parse_ok(r#"
+    parse_ok(
+        r#"
 agent MyAgent(x: int) {
     description "test"
     prompt "test"
@@ -333,12 +354,14 @@ agent MyAgent(x: int) {
     }
 }
 main { "done" }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn parse_agent_with_tools() {
-    parse_ok(r#"
+    parse_ok(
+        r#"
 agent MyAgent(x: int) {
     description "test"
     prompt "test"
@@ -348,7 +371,8 @@ agent MyAgent(x: int) {
     }
 }
 main { "done" }
-"#);
+"#,
+    );
 }
 
 // ── Import statements ───────────────────────────────────────────────────

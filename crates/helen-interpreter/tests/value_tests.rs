@@ -1,10 +1,10 @@
 //! Tests for value module — runtime value operations.
 
 use helen_interpreter::value::Value;
+use indexmap::IndexMap;
 use num_bigint::BigInt;
 use std::cell::RefCell;
 use std::rc::Rc;
-use indexmap::IndexMap;
 
 // ── Truthiness ──────────────────────────────────────────────────────────
 
@@ -94,17 +94,26 @@ fn test_type_name_str() {
 
 #[test]
 fn test_type_name_list() {
-    assert_eq!(Value::List(Rc::new(RefCell::new(vec![]))).type_name(), "list");
+    assert_eq!(
+        Value::List(Rc::new(RefCell::new(vec![]))).type_name(),
+        "list"
+    );
 }
 
 #[test]
 fn test_type_name_tuple() {
-    assert_eq!(Value::Tuple(Rc::new(RefCell::new(vec![]))).type_name(), "tuple");
+    assert_eq!(
+        Value::Tuple(Rc::new(RefCell::new(vec![]))).type_name(),
+        "tuple"
+    );
 }
 
 #[test]
 fn test_type_name_map() {
-    assert_eq!(Value::Map(Rc::new(RefCell::new(IndexMap::new()))).type_name(), "dict");
+    assert_eq!(
+        Value::Map(Rc::new(RefCell::new(IndexMap::new()))).type_name(),
+        "dict"
+    );
 }
 
 // ── Display (to_display) ────────────────────────────────────────────────
@@ -236,12 +245,12 @@ fn test_clone_deep_list() {
         Value::Int(BigInt::from(2)),
     ])));
     let cloned = original.clone_deep();
-    
+
     // Modify original
     if let Value::List(l) = &original {
         l.borrow_mut().push(Value::Int(BigInt::from(3)));
     }
-    
+
     // Clone should be unchanged
     if let Value::List(l) = &cloned {
         assert_eq!(l.borrow().len(), 2);
@@ -254,12 +263,13 @@ fn test_clone_deep_map() {
     m.insert(Value::Str(Rc::from("k")), Value::Int(BigInt::from(1)));
     let original = Value::Map(Rc::new(RefCell::new(m)));
     let cloned = original.clone_deep();
-    
+
     // Modify original
     if let Value::Map(map) = &original {
-        map.borrow_mut().insert(Value::Str(Rc::from("k2")), Value::Int(BigInt::from(2)));
+        map.borrow_mut()
+            .insert(Value::Str(Rc::from("k2")), Value::Int(BigInt::from(2)));
     }
-    
+
     // Clone should be unchanged
     if let Value::Map(map) = &cloned {
         assert_eq!(map.borrow().len(), 1);

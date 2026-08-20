@@ -111,7 +111,10 @@ fn json_to_value(v: &serde_json::Value) -> Value {
 
 /// Get current session ID.
 /// Python: `get_session_id()` → returns `agent_ctx.session_id` or `""`.
-pub fn transcript_get_session_id(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_session_id(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     if interp.session_id.is_empty() {
         // Lazy init: create a new session via the manager (Python
         // `_init_transcript_store(None)` -> `SessionManager.create_session`).
@@ -127,37 +130,77 @@ pub fn transcript_get_session_id(interp: &mut Interpreter, _args: &[Value]) -> R
 
 /// Get session metadata.
 /// Python: `get_session_meta(session_id="")` → reads meta from transcript.
-pub fn transcript_get_session_meta(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_session_meta(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     match load_store(interp, sid) {
-        Some((store, _)) => {
-            match store.read_meta() {
-                Some(meta) => {
-                    let mut data = indexmap::IndexMap::new();
-                    data.insert(Value::Str(Rc::from("argv")), json_to_value(&serde_json::to_value(&meta.argv).unwrap_or(serde_json::Value::Array(vec![]))));
-                    data.insert(Value::Str(Rc::from("timestamp")), Value::Float(meta.timestamp));
-                    data.insert(Value::Str(Rc::from("helen_version")), Value::Str(Rc::from(meta.helen_version.as_str())));
-                    data.insert(Value::Str(Rc::from("platform")), Value::Str(Rc::from(meta.platform.as_str())));
-                    data.insert(Value::Str(Rc::from("cwd")), Value::Str(Rc::from(meta.cwd.as_str())));
-                    data.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(meta.session_id.as_str())));
-                    data.insert(Value::Str(Rc::from("session_scope")), Value::Str(Rc::from(meta.session_scope.as_str())));
-                    let mut result = indexmap::IndexMap::new();
-                    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-                    result.insert(Value::Str(Rc::from("data")), Value::Map(Rc::new(RefCell::new(data))));
-                    Ok(Value::Map(Rc::new(RefCell::new(result))))
-                }
-                None => {
-                    let mut result = indexmap::IndexMap::new();
-                    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-                    result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("No session metadata available")));
-                    Ok(Value::Map(Rc::new(RefCell::new(result))))
-                }
+        Some((store, _)) => match store.read_meta() {
+            Some(meta) => {
+                let mut data = indexmap::IndexMap::new();
+                data.insert(
+                    Value::Str(Rc::from("argv")),
+                    json_to_value(
+                        &serde_json::to_value(&meta.argv)
+                            .unwrap_or(serde_json::Value::Array(vec![])),
+                    ),
+                );
+                data.insert(
+                    Value::Str(Rc::from("timestamp")),
+                    Value::Float(meta.timestamp),
+                );
+                data.insert(
+                    Value::Str(Rc::from("helen_version")),
+                    Value::Str(Rc::from(meta.helen_version.as_str())),
+                );
+                data.insert(
+                    Value::Str(Rc::from("platform")),
+                    Value::Str(Rc::from(meta.platform.as_str())),
+                );
+                data.insert(
+                    Value::Str(Rc::from("cwd")),
+                    Value::Str(Rc::from(meta.cwd.as_str())),
+                );
+                data.insert(
+                    Value::Str(Rc::from("session_id")),
+                    Value::Str(Rc::from(meta.session_id.as_str())),
+                );
+                data.insert(
+                    Value::Str(Rc::from("session_scope")),
+                    Value::Str(Rc::from(meta.session_scope.as_str())),
+                );
+                let mut result = indexmap::IndexMap::new();
+                result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
+                result.insert(
+                    Value::Str(Rc::from("data")),
+                    Value::Map(Rc::new(RefCell::new(data))),
+                );
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
-        }
+            None => {
+                let mut result = indexmap::IndexMap::new();
+                result.insert(
+                    Value::Str(Rc::from("status")),
+                    Value::Str(Rc::from("error")),
+                );
+                result.insert(
+                    Value::Str(Rc::from("error")),
+                    Value::Str(Rc::from("No session metadata available")),
+                );
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
+            }
+        },
         None => {
             let mut result = indexmap::IndexMap::new();
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-            result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("TranscriptStore not enabled")));
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("error")),
+            );
+            result.insert(
+                Value::Str(Rc::from("error")),
+                Value::Str(Rc::from("TranscriptStore not enabled")),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
     }
@@ -165,7 +208,10 @@ pub fn transcript_get_session_meta(interp: &mut Interpreter, args: &[Value]) -> 
 
 /// List all transcript sessions.
 /// Python: `list_sessions(scope="")` → uses SessionManager.list_sessions().
-pub fn transcript_list_sessions(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_list_sessions(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let _scope = arg_str_or(args, 0, "");
     let manager = interp.session_manager.lock().expect("mutex poisoned");
     let sessions = manager.list_sessions();
@@ -173,11 +219,26 @@ pub fn transcript_list_sessions(interp: &mut Interpreter, args: &[Value]) -> Res
         .iter()
         .map(|s| {
             let mut map = indexmap::IndexMap::new();
-            map.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(s.session_id.as_str())));
-            map.insert(Value::Str(Rc::from("created_at")), Value::Float(s.created_at));
-            map.insert(Value::Str(Rc::from("modified_at")), Value::Float(s.modified_at));
-            map.insert(Value::Str(Rc::from("size_bytes")), Value::Int(num_bigint::BigInt::from(s.size_bytes as i64)));
-            map.insert(Value::Str(Rc::from("message_count")), Value::Int(num_bigint::BigInt::from(s.message_count as i64)));
+            map.insert(
+                Value::Str(Rc::from("session_id")),
+                Value::Str(Rc::from(s.session_id.as_str())),
+            );
+            map.insert(
+                Value::Str(Rc::from("created_at")),
+                Value::Float(s.created_at),
+            );
+            map.insert(
+                Value::Str(Rc::from("modified_at")),
+                Value::Float(s.modified_at),
+            );
+            map.insert(
+                Value::Str(Rc::from("size_bytes")),
+                Value::Int(num_bigint::BigInt::from(s.size_bytes as i64)),
+            );
+            map.insert(
+                Value::Str(Rc::from("message_count")),
+                Value::Int(num_bigint::BigInt::from(s.message_count as i64)),
+            );
             Value::Map(Rc::new(RefCell::new(map)))
         })
         .collect();
@@ -186,7 +247,10 @@ pub fn transcript_list_sessions(interp: &mut Interpreter, args: &[Value]) -> Res
 
 /// Get spawned sessions (children of a given session).
 /// Python: `get_spawned_sessions(session_id="")` → searches for parent_session_id matches.
-pub fn transcript_get_spawned_sessions(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_spawned_sessions(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let target_sid = if sid.is_empty() {
         interp.session_id.clone()
@@ -211,9 +275,18 @@ pub fn transcript_get_spawned_sessions(interp: &mut Interpreter, args: &[Value])
         if let Some(meta) = store.read_meta() {
             if meta.parent_session_id == target_sid {
                 let mut map = indexmap::IndexMap::new();
-                map.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(s.session_id.as_str())));
-                map.insert(Value::Str(Rc::from("parent_session_id")), Value::Str(Rc::from(meta.parent_session_id.as_str())));
-                map.insert(Value::Str(Rc::from("timestamp")), Value::Float(meta.timestamp));
+                map.insert(
+                    Value::Str(Rc::from("session_id")),
+                    Value::Str(Rc::from(s.session_id.as_str())),
+                );
+                map.insert(
+                    Value::Str(Rc::from("parent_session_id")),
+                    Value::Str(Rc::from(meta.parent_session_id.as_str())),
+                );
+                map.insert(
+                    Value::Str(Rc::from("timestamp")),
+                    Value::Float(meta.timestamp),
+                );
                 results.push(Value::Map(Rc::new(RefCell::new(map))));
             }
         }
@@ -223,7 +296,10 @@ pub fn transcript_get_spawned_sessions(interp: &mut Interpreter, args: &[Value])
 
 /// Get spawn tree (recursive).
 /// Python: `get_spawn_tree(session_id="")` → builds tree recursively.
-pub fn transcript_get_spawn_tree(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_spawn_tree(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let target_sid = if sid.is_empty() {
         interp.session_id.clone()
@@ -233,14 +309,18 @@ pub fn transcript_get_spawn_tree(interp: &mut Interpreter, args: &[Value]) -> Re
     if target_sid.is_empty() {
         let mut map = indexmap::IndexMap::new();
         map.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from("")));
-        map.insert(Value::Str(Rc::from("children")), Value::List(Rc::new(RefCell::new(vec![]))));
+        map.insert(
+            Value::Str(Rc::from("children")),
+            Value::List(Rc::new(RefCell::new(vec![]))),
+        );
         return Ok(Value::Map(Rc::new(RefCell::new(map))));
     }
 
     // Build tree by collecting all sessions and their parent relationships
     let manager = interp.session_manager.lock().expect("mutex poisoned");
     let all_sessions = manager.list_sessions();
-    let mut parent_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut parent_map: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
 
     for s in &all_sessions {
         let path = manager.get_session_path(&s.session_id);
@@ -267,8 +347,14 @@ pub fn transcript_get_spawn_tree(interp: &mut Interpreter, args: &[Value]) -> Re
             .map(|child_sid| build_tree(child_sid, parent_map))
             .collect();
         let mut map = indexmap::IndexMap::new();
-        map.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(sid)));
-        map.insert(Value::Str(Rc::from("children")), Value::List(Rc::new(RefCell::new(children))));
+        map.insert(
+            Value::Str(Rc::from("session_id")),
+            Value::Str(Rc::from(sid)),
+        );
+        map.insert(
+            Value::Str(Rc::from("children")),
+            Value::List(Rc::new(RefCell::new(children))),
+        );
         Value::Map(Rc::new(RefCell::new(map)))
     }
 
@@ -277,7 +363,10 @@ pub fn transcript_get_spawn_tree(interp: &mut Interpreter, args: &[Value]) -> Re
 
 /// Query transcript messages.
 /// Python: `query_transcript(session_id="", role="", limit=0)` → uses store.query().
-pub fn transcript_query_transcript(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_query_transcript(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let role = arg_str_or(args, 1, "");
     let limit = arg_int_or(args, 2, 0) as usize;
@@ -287,7 +376,11 @@ pub fn transcript_query_transcript(interp: &mut Interpreter, args: &[Value]) -> 
             let messages = if role.is_empty() {
                 store.read_view()
             } else {
-                store.read_view().into_iter().filter(|m| m.role == role).collect()
+                store
+                    .read_view()
+                    .into_iter()
+                    .filter(|m| m.role == role)
+                    .collect()
             };
             let messages = if limit > 0 && messages.len() > limit {
                 messages[..limit].to_vec()
@@ -306,7 +399,10 @@ pub fn transcript_query_transcript(interp: &mut Interpreter, args: &[Value]) -> 
 
 /// Search transcript by content.
 /// Python: `search_transcript(query, role="", limit=20)` → filters messages.
-pub fn transcript_search_transcript(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_search_transcript(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let query = arg_str_or(args, 0, "");
     let role = arg_str_or(args, 1, "");
     let limit = arg_int_or(args, 2, 20) as usize;
@@ -325,7 +421,9 @@ pub fn transcript_search_transcript(interp: &mut Interpreter, args: &[Value]) ->
                 }
                 let (text, _) = helen_runtime::transcript::message_text_parts(&m.content);
                 if text.contains(query) {
-                    results.push(json_to_value(&helen_runtime::transcript::message_to_dict(m)));
+                    results.push(json_to_value(&helen_runtime::transcript::message_to_dict(
+                        m,
+                    )));
                     if results.len() >= limit {
                         break;
                     }
@@ -339,7 +437,10 @@ pub fn transcript_search_transcript(interp: &mut Interpreter, args: &[Value]) ->
 
 /// List invocations (LLM calls) in a session.
 /// Python: `list_invocations(session_id=None, agent=None, limit=50)`.
-pub fn transcript_list_invocations(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_list_invocations(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let _agent = arg_str_or(args, 1, "");
     let limit = arg_int_or(args, 2, 50) as usize;
@@ -353,9 +454,18 @@ pub fn transcript_list_invocations(interp: &mut Interpreter, args: &[Value]) -> 
                     let msg_type = m.infer_message_type();
                     if msg_type == "llm_response" || msg_type == "tool_result" {
                         let mut map = indexmap::IndexMap::new();
-                        map.insert(Value::Str(Rc::from("uuid")), Value::Str(Rc::from(m.uuid.as_str())));
-                        map.insert(Value::Str(Rc::from("role")), Value::Str(Rc::from(m.role.as_str())));
-                        map.insert(Value::Str(Rc::from("message_type")), Value::Str(Rc::from(msg_type.as_str())));
+                        map.insert(
+                            Value::Str(Rc::from("uuid")),
+                            Value::Str(Rc::from(m.uuid.as_str())),
+                        );
+                        map.insert(
+                            Value::Str(Rc::from("role")),
+                            Value::Str(Rc::from(m.role.as_str())),
+                        );
+                        map.insert(
+                            Value::Str(Rc::from("message_type")),
+                            Value::Str(Rc::from(msg_type.as_str())),
+                        );
                         invocations.push(Value::Map(Rc::new(RefCell::new(map))));
                         if invocations.len() >= limit {
                             break;
@@ -370,18 +480,19 @@ pub fn transcript_list_invocations(interp: &mut Interpreter, args: &[Value]) -> 
 }
 
 /// Get a specific invocation by UUID.
-pub fn transcript_get_invocation(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_invocation(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let uuid = arg_str_or(args, 0, "");
     if uuid.is_empty() {
         return Ok(Value::Null);
     }
     match load_store(interp, "") {
-        Some((store, _)) => {
-            match store.get(uuid) {
-                Some(item) => Ok(json_to_value(&item.to_dict())),
-                None => Ok(Value::Null),
-            }
-        }
+        Some((store, _)) => match store.get(uuid) {
+            Some(item) => Ok(json_to_value(&item.to_dict())),
+            None => Ok(Value::Null),
+        },
         None => Ok(Value::Null),
     }
 }
@@ -391,7 +502,10 @@ pub fn transcript_get_invocation(interp: &mut Interpreter, args: &[Value]) -> Re
 /// from the message stream using `_build_invocation_index`. Returns the
 /// root invocation with nested children, or a virtual root when there are
 /// multiple roots.
-pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_invocation_tree(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     match load_store(interp, sid) {
         Some((mut store, _)) => {
@@ -407,11 +521,7 @@ pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) 
                     continue;
                 }
                 let entry = index.entry(m.invocation_id.clone()).or_insert_with(|| {
-                    (
-                        m.agent_name.clone(),
-                        m.parent_invocation_id.clone(),
-                        0usize,
-                    )
+                    (m.agent_name.clone(), m.parent_invocation_id.clone(), 0usize)
                 });
                 entry.2 += 1;
             }
@@ -485,7 +595,10 @@ pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) 
             } else {
                 // Multiple roots: wrap in virtual root (Python parity).
                 let mut map = indexmap::IndexMap::new();
-                map.insert(Value::Str(Rc::from("invocation_id")), Value::Str(Rc::from("")));
+                map.insert(
+                    Value::Str(Rc::from("invocation_id")),
+                    Value::Str(Rc::from("")),
+                );
                 map.insert(Value::Str(Rc::from("agent_name")), Value::Null);
                 map.insert(
                     Value::Str(Rc::from("message_count")),
@@ -508,9 +621,7 @@ pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) 
             }
             Ok(tree)
         }
-        None => Ok(Value::Map(Rc::new(RefCell::new(
-            indexmap::IndexMap::new(),
-        )))),
+        None => Ok(Value::Map(Rc::new(RefCell::new(indexmap::IndexMap::new())))),
     }
 }
 
@@ -524,7 +635,10 @@ pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) 
 ///   include_spawned: If true, export all spawned sessions recursively.
 ///
 /// Returns: output_path on success, empty string on failure.
-pub fn transcript_export_transcript(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_export_transcript(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let output_path = arg_str_or(args, 0, "");
     let format = arg_str_or(args, 1, "json");
     let sid = arg_str_or(args, 2, "");
@@ -566,8 +680,8 @@ pub fn transcript_export_transcript(interp: &mut Interpreter, args: &[Value]) ->
     // Write to file based on format
     let result = match format {
         "json" => {
-            let json_str = serde_json::to_string_pretty(&messages)
-                .unwrap_or_else(|_| "[]".to_string());
+            let json_str =
+                serde_json::to_string_pretty(&messages).unwrap_or_else(|_| "[]".to_string());
             std::fs::write(path, json_str)
         }
         "markdown" => {
@@ -575,7 +689,10 @@ pub fn transcript_export_transcript(interp: &mut Interpreter, args: &[Value]) ->
             let mut content = String::from("# Transcript Export\n\n");
             for msg in &messages {
                 if msg.get("type").and_then(|v| v.as_str()) == Some("message") {
-                    let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    let role = msg
+                        .get("role")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
                     let msg_content = msg.get("content").unwrap_or(&empty_content);
                     let (text, _) = helen_runtime::transcript::message_text_parts(msg_content);
                     // Title-case the role
@@ -598,7 +715,10 @@ pub fn transcript_export_transcript(interp: &mut Interpreter, args: &[Value]) ->
             let mut content = String::new();
             for msg in &messages {
                 if msg.get("type").and_then(|v| v.as_str()) == Some("message") {
-                    let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    let role = msg
+                        .get("role")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
                     let msg_content = msg.get("content").unwrap_or(&empty_content);
                     let (text, _) = helen_runtime::transcript::message_text_parts(msg_content);
                     content.push_str(&format!("[{}] {}\n", role, text));
@@ -684,7 +804,10 @@ fn collect_full_session_messages(interp: &Interpreter, session_id: &str) -> Vec<
 }
 
 /// Replay transcript messages.
-pub fn transcript_replay_transcript(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_replay_transcript(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let include_compressed = arg_bool_or(args, 1, false);
 
@@ -707,7 +830,10 @@ pub fn transcript_replay_transcript(interp: &mut Interpreter, args: &[Value]) ->
 }
 
 /// Replay full session (including compressed).
-pub fn transcript_replay_full_session(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_replay_full_session(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     match load_store(interp, sid) {
         Some((mut store, _)) => {
@@ -723,20 +849,35 @@ pub fn transcript_replay_full_session(interp: &mut Interpreter, args: &[Value]) 
 }
 
 /// Resume a session (set interpreter's session_id).
-pub fn transcript_resume_session(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_resume_session(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     if sid.is_empty() {
         let mut result = indexmap::IndexMap::new();
-        result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-        result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("session_id is required")));
+        result.insert(
+            Value::Str(Rc::from("status")),
+            Value::Str(Rc::from("error")),
+        );
+        result.insert(
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from("session_id is required")),
+        );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
     let manager = interp.session_manager.lock().expect("mutex poisoned");
     if !manager.session_exists(sid) {
         let mut result = indexmap::IndexMap::new();
-        result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-        result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from(format!("Session not found: {sid}").as_str())));
+        result.insert(
+            Value::Str(Rc::from("status")),
+            Value::Str(Rc::from("error")),
+        );
+        result.insert(
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from(format!("Session not found: {sid}").as_str())),
+        );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
     drop(manager);
@@ -744,25 +885,43 @@ pub fn transcript_resume_session(interp: &mut Interpreter, args: &[Value]) -> Re
     interp.session_id = sid.to_string();
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-    result.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(sid)));
+    result.insert(
+        Value::Str(Rc::from("session_id")),
+        Value::Str(Rc::from(sid)),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Delete current session.
-pub fn transcript_delete_current_session(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_delete_current_session(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let confirm = arg_bool_or(args, 0, false);
     if !confirm {
         let mut result = indexmap::IndexMap::new();
-        result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-        result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("confirm=true required to delete session")));
+        result.insert(
+            Value::Str(Rc::from("status")),
+            Value::Str(Rc::from("error")),
+        );
+        result.insert(
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from("confirm=true required to delete session")),
+        );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
     let sid = interp.session_id.clone();
     if sid.is_empty() {
         let mut result = indexmap::IndexMap::new();
-        result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-        result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("No active session")));
+        result.insert(
+            Value::Str(Rc::from("status")),
+            Value::Str(Rc::from("error")),
+        );
+        result.insert(
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from("No active session")),
+        );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
@@ -774,18 +933,30 @@ pub fn transcript_delete_current_session(interp: &mut Interpreter, args: &[Value
         interp.session_id.clear();
         let mut result = indexmap::IndexMap::new();
         result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-        result.insert(Value::Str(Rc::from("deleted")), Value::Str(Rc::from(sid.as_str())));
+        result.insert(
+            Value::Str(Rc::from("deleted")),
+            Value::Str(Rc::from(sid.as_str())),
+        );
         Ok(Value::Map(Rc::new(RefCell::new(result))))
     } else {
         let mut result = indexmap::IndexMap::new();
-        result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-        result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("Failed to delete session")));
+        result.insert(
+            Value::Str(Rc::from("status")),
+            Value::Str(Rc::from("error")),
+        );
+        result.insert(
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from("Failed to delete session")),
+        );
         Ok(Value::Map(Rc::new(RefCell::new(result))))
     }
 }
 
 /// Release session lock.
-pub fn transcript_release_session_lock(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_release_session_lock(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let target_sid = if sid.is_empty() {
         interp.session_id.clone()
@@ -794,8 +965,14 @@ pub fn transcript_release_session_lock(interp: &mut Interpreter, args: &[Value])
     };
     if target_sid.is_empty() {
         let mut result = indexmap::IndexMap::new();
-        result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-        result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from("No active session")));
+        result.insert(
+            Value::Str(Rc::from("status")),
+            Value::Str(Rc::from("error")),
+        );
+        result.insert(
+            Value::Str(Rc::from("error")),
+            Value::Str(Rc::from("No active session")),
+        );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
 
@@ -805,12 +982,18 @@ pub fn transcript_release_session_lock(interp: &mut Interpreter, args: &[Value])
 
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-    result.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(target_sid.as_str())));
+    result.insert(
+        Value::Str(Rc::from("session_id")),
+        Value::Str(Rc::from(target_sid.as_str())),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Get invocation path (session path for an invocation).
-pub fn transcript_invocation_path(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_invocation_path(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let _invocation_id = arg_str_or(args, 0, "");
     let sid = arg_str_or(args, 1, "");
     let target_sid = if sid.is_empty() {
@@ -828,7 +1011,10 @@ pub fn transcript_invocation_path(interp: &mut Interpreter, args: &[Value]) -> R
 }
 
 /// Get compression audit trail.
-pub fn transcript_get_compression_audit(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_compression_audit(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     match load_store(interp, sid) {
         Some((store, _)) => {
@@ -841,7 +1027,10 @@ pub fn transcript_get_compression_audit(interp: &mut Interpreter, args: &[Value]
 }
 
 /// Get session directory path.
-pub fn transcript_get_session_dir(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_get_session_dir(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let manager = interp.session_manager.lock().expect("mutex poisoned");
     // Use a dummy session to get the base directory
     let path = manager.get_session_path("__dummy__");
@@ -849,12 +1038,18 @@ pub fn transcript_get_session_dir(interp: &mut Interpreter, _args: &[Value]) -> 
     let dir = path.parent().unwrap_or(&path);
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-    result.insert(Value::Str(Rc::from("path")), Value::Str(Rc::from(dir.to_string_lossy().as_ref())));
+    result.insert(
+        Value::Str(Rc::from("path")),
+        Value::Str(Rc::from(dir.to_string_lossy().as_ref())),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Delete a specific session.
-pub fn transcript_delete_session(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_delete_session(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let sid = arg_str_or(args, 0, "");
     let _cascade = arg_bool_or(args, 1, true);
     if sid.is_empty() {
@@ -876,7 +1071,10 @@ pub fn transcript_delete_session(interp: &mut Interpreter, args: &[Value]) -> Re
 }
 
 /// Cleanup old sessions.
-pub fn transcript_cleanup_sessions(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_cleanup_sessions(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let keep_count = arg_int_or(args, 0, 100) as usize;
     let manager = interp.session_manager.lock().expect("mutex poisoned");
     let removed = manager.cleanup_old_sessions(keep_count);
@@ -885,42 +1083,65 @@ pub fn transcript_cleanup_sessions(interp: &mut Interpreter, args: &[Value]) -> 
 }
 
 /// Set the transcript session directory at runtime.
-pub fn transcript_set_session_dir(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn transcript_set_session_dir(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?;
-    
+
     // Get current session directory
     let previous = {
         let manager = interp.session_manager.lock().expect("mutex poisoned");
         if interp.session_id.is_empty() {
             manager.base_dir.to_string_lossy().to_string()
         } else {
-            manager.get_session_dir(&interp.session_id).to_string_lossy().to_string()
+            manager
+                .get_session_dir(&interp.session_id)
+                .to_string_lossy()
+                .to_string()
         }
     };
-    
+
     // Resolve to absolute path
     let abs_path = if std::path::Path::new(&path).is_absolute() {
         std::path::PathBuf::from(&path)
     } else {
         std::env::current_dir()
-            .map_err(|e| ExceptionValue::new("RuntimeError", format!("Failed to get current directory: {}", e), None))?
+            .map_err(|e| {
+                ExceptionValue::new(
+                    "RuntimeError",
+                    format!("Failed to get current directory: {}", e),
+                    None,
+                )
+            })?
             .join(&path)
     };
-    
+
     // Create directory if it doesn't exist
-    std::fs::create_dir_all(&abs_path)
-        .map_err(|e| ExceptionValue::new("RuntimeError", format!("Failed to create directory: {}", e), None))?;
-    
+    std::fs::create_dir_all(&abs_path).map_err(|e| {
+        ExceptionValue::new(
+            "RuntimeError",
+            format!("Failed to create directory: {}", e),
+            None,
+        )
+    })?;
+
     // Update session manager base_dir directly
     {
         let mut manager = interp.session_manager.lock().expect("mutex poisoned");
         manager.base_dir = abs_path.clone();
     }
-    
+
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-    result.insert(Value::Str(Rc::from("session_dir")), Value::Str(Rc::from(abs_path.to_string_lossy().as_ref())));
-    result.insert(Value::Str(Rc::from("previous")), Value::Str(Rc::from(previous.as_str())));
-    
+    result.insert(
+        Value::Str(Rc::from("session_dir")),
+        Value::Str(Rc::from(abs_path.to_string_lossy().as_ref())),
+    );
+    result.insert(
+        Value::Str(Rc::from("previous")),
+        Value::Str(Rc::from(previous.as_str())),
+    );
+
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }

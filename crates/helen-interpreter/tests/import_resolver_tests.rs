@@ -1,8 +1,8 @@
 //! Tests for import_resolver module — ImportResolver, FileRegistry, path resolution.
 
 use helen_interpreter::import_resolver::*;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 fn tmp_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("helen_test_import_{name}"));
@@ -28,7 +28,7 @@ fn resolver_python_import() {
     // Non-helen data file -> Python
     let result = r.resolve("math", None).unwrap();
     match result {
-        ResolvedImport::Python => {},
+        ResolvedImport::Python => {}
         _ => panic!("expected Python"),
     }
 }
@@ -39,7 +39,7 @@ fn resolver_python_file_import() {
     let mut r = ImportResolver::new(dir);
     let result = r.resolve("foo.py", None).unwrap();
     match result {
-        ResolvedImport::Python => {},
+        ResolvedImport::Python => {}
         _ => panic!("expected Python"),
     }
 }
@@ -65,7 +65,7 @@ fn resolver_load_helen_file() {
     match result {
         ResolvedImport::Helen { path } => {
             assert!(path.to_string_lossy().contains("utils.helen"));
-        },
+        }
         _ => panic!("expected Helen"),
     }
     assert_eq!(r.load_order().len(), 1);
@@ -90,10 +90,10 @@ fn resolver_load_json_file() {
             match value {
                 helen_interpreter::value::Value::Map(m) => {
                     assert!(!m.borrow().is_empty());
-                },
+                }
                 _ => panic!("expected Map"),
             }
-        },
+        }
         _ => panic!("expected Data"),
     }
 }
@@ -111,10 +111,10 @@ fn resolver_load_text_file() {
             match value {
                 helen_interpreter::value::Value::Str(s) => {
                     assert_eq!(s.as_ref(), "Hello, world!");
-                },
+                }
                 _ => panic!("expected Str"),
             }
-        },
+        }
         _ => panic!("expected Data"),
     }
 }
@@ -129,7 +129,7 @@ fn resolver_load_yaml_as_text() {
     match result {
         ResolvedImport::Data { alias, .. } => {
             assert_eq!(alias, "config");
-        },
+        }
         _ => panic!("expected Data"),
     }
 }
@@ -145,7 +145,7 @@ fn resolver_circular_import() {
     // Second load (circular) should return Helen without re-parsing
     let result = r.resolve("a.helen", None).unwrap();
     match result {
-        ResolvedImport::Helen { .. } => {},
+        ResolvedImport::Helen { .. } => {}
         _ => panic!("expected Helen for circular import"),
     }
     // Load order should only have one entry
@@ -164,7 +164,7 @@ fn resolver_from_file_relative() {
     fs::write(&from_file, "").unwrap();
     let result = r.resolve("utils.helen", Some(&from_file)).unwrap();
     match result {
-        ResolvedImport::Helen { .. } => {},
+        ResolvedImport::Helen { .. } => {}
         _ => panic!("expected Helen"),
     }
 }
@@ -175,7 +175,11 @@ fn resolver_nested_imports() {
     let a_file = dir.join("a.helen");
     let b_file = dir.join("b.helen");
     fs::write(&b_file, "fn bfunc() { return 2 }\n").unwrap();
-    fs::write(&a_file, "import \"b.helen\" as b\nfn afunc() { return 1 }\n").unwrap();
+    fs::write(
+        &a_file,
+        "import \"b.helen\" as b\nfn afunc() { return 1 }\n",
+    )
+    .unwrap();
     let mut r = ImportResolver::new(dir);
     let _ = r.resolve("a.helen", None);
     // Both files should be in load order
@@ -186,7 +190,11 @@ fn resolver_nested_imports() {
 fn resolver_file_registry() {
     let dir = tmp_dir("registry");
     let helen_file = dir.join("lib.helen");
-    fs::write(&helen_file, "fn foo() { return 1 }\nfn bar() { return 2 }\nconst X = 10\n").unwrap();
+    fs::write(
+        &helen_file,
+        "fn foo() { return 1 }\nfn bar() { return 2 }\nconst X = 10\n",
+    )
+    .unwrap();
     let mut r = ImportResolver::new(dir);
     let _ = r.resolve("lib.helen", None);
     let abs = helen_file.canonicalize().unwrap_or(helen_file);
@@ -213,7 +221,7 @@ fn resolver_json_parse_error() {
     let mut r = ImportResolver::new(dir);
     let result = r.resolve("bad.json", None);
     match result {
-        Err(_) => {}, // expected
+        Err(_) => {} // expected
         Ok(_) => panic!("expected error"),
     }
 }
@@ -231,10 +239,10 @@ fn resolver_md_file_as_text() {
             match value {
                 helen_interpreter::value::Value::Str(s) => {
                     assert!(s.as_ref().contains("# Title"));
-                },
+                }
                 _ => panic!("expected Str"),
             }
-        },
+        }
         _ => panic!("expected Data"),
     }
 }

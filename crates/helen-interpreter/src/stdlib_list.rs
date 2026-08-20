@@ -9,9 +9,9 @@ use num_traits::ToPrimitive;
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
-use crate::value::Value;
 use crate::stdlib::StdlibExport;
 use crate::stdlib_helpers::{arg_int, arg_list, err_expected};
+use crate::value::Value;
 
 fn list_sort(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let items = match args.first() {
@@ -362,7 +362,6 @@ fn wrap_hof_error(op: &str, index: usize, item: &Value, e: ExceptionValue) -> Ex
         e.span,
     )
 }
-
 
 pub static LIST_EXPORTS: &[StdlibExport] = &[
     StdlibExport {

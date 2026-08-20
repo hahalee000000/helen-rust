@@ -209,7 +209,8 @@ fn test_eval_while_loop() {
 
 #[test]
 fn test_eval_while_with_break() {
-    let (r, _) = run_src("main { let i = 0\n while i < 10 { i = i + 1\n if i == 5 { break } }\n i }");
+    let (r, _) =
+        run_src("main { let i = 0\n while i < 10 { i = i + 1\n if i == 5 { break } }\n i }");
     assert_eq!(r.unwrap(), Some(int(5)));
 }
 
@@ -235,7 +236,9 @@ fn test_eval_function_with_return() {
 
 #[test]
 fn test_eval_function_early_return() {
-    let (r, _) = run_src("fn check(x) { if x > 10 { return \"big\" }\n return \"small\" }\nmain { check(15) }");
+    let (r, _) = run_src(
+        "fn check(x) { if x > 10 { return \"big\" }\n return \"small\" }\nmain { check(15) }",
+    );
     assert!(r.is_ok());
 }
 
@@ -324,7 +327,8 @@ fn test_eval_type_coercion() {
 
 #[test]
 fn test_eval_nested_function_calls() {
-    let (r, _) = run_src("fn add(a, b) { a + b }\nfn mul(a, b) { a * b }\nmain { mul(add(2, 3), 4) }");
+    let (r, _) =
+        run_src("fn add(a, b) { a + b }\nfn mul(a, b) { a * b }\nmain { mul(add(2, 3), 4) }");
     assert_eq!(r.unwrap(), Some(int(20)));
 }
 

@@ -82,10 +82,7 @@ fn usage_ratio_zero_max_tokens() {
 
 #[test]
 fn usage_ratio_basic() {
-    let msgs = vec![
-        make_msg("user", "hello"),
-        make_msg("assistant", "world"),
-    ];
+    let msgs = vec![make_msg("user", "hello"), make_msg("assistant", "world")];
     let ratio = calculate_usage_ratio(&msgs, 100);
     assert!(ratio > 0.0);
 }
@@ -146,10 +143,7 @@ fn cache_aware_compress_empty() {
 
 #[test]
 fn cache_aware_compress_basic() {
-    let history = vec![
-        make_msg("user", "hello"),
-        make_msg("assistant", "world"),
-    ];
+    let history = vec![make_msg("user", "hello"), make_msg("assistant", "world")];
     let (result, _stats) = cache_aware_compress(&history, 1000, None);
     assert!(!result.is_empty());
 }
@@ -208,9 +202,6 @@ fn usage_ratio_single_message() {
 
 #[test]
 fn graduated_compress_with_max_tokens() {
-    let history = vec![
-        make_msg("user", "hello"),
-        make_msg("assistant", "world"),
-    ];
+    let history = vec![make_msg("user", "hello"), make_msg("assistant", "world")];
     let (_result, _layer) = graduated_compress(&history, 0.5, Some(4096));
 }

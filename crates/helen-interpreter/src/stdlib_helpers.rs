@@ -107,7 +107,10 @@ pub(crate) fn arg_list(args: &[Value], i: usize) -> Result<Vec<Value>, Exception
 }
 
 /// Extract a map argument (Python: requires a dict).
-pub(crate) fn arg_map(args: &[Value], i: usize) -> Result<indexmap::IndexMap<Value, Value>, ExceptionValue> {
+pub(crate) fn arg_map(
+    args: &[Value],
+    i: usize,
+) -> Result<indexmap::IndexMap<Value, Value>, ExceptionValue> {
     match args.get(i) {
         Some(Value::Map(m)) => Ok(m.borrow().clone()),
         Some(v) => Err(ExceptionValue::new(

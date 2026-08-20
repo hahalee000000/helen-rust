@@ -50,8 +50,9 @@ pub const CORE_EXPORTS: &[&str] = &[
 // Argument helpers
 // ---------------------------------------------------------------------------
 
-
-use crate::stdlib_helpers::{arg_str, arg_int, arg_f64, arg_list, arg_map, arg_opt_str, arg_opt_int, err_expected};
+use crate::stdlib_helpers::{
+    arg_f64, arg_int, arg_list, arg_map, arg_opt_int, arg_opt_str, arg_str, err_expected,
+};
 
 fn dict_keys(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let m = match args.first() {
@@ -1305,7 +1306,6 @@ pub static SET_EXPORTS: &[StdlibExport] = &[
     },
 ];
 
-
 pub static DATA_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "json_parse",
@@ -1571,8 +1571,6 @@ pub static CRYPTO_EXPORTS: &[StdlibExport] = &[
         func: crypto_random_base64,
     },
 ];
-
-
 
 pub static DEBUG_EXPORTS: &[StdlibExport] = &[
     StdlibExport {

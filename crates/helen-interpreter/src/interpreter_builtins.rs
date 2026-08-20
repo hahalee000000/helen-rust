@@ -10,7 +10,6 @@ use std::rc::Rc;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 
-
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
 use crate::value::Value;
@@ -341,9 +340,17 @@ impl ListMethodValue {
                     // Compare values using Python-like ordering
                     match (a, b) {
                         (Value::Int(x), Value::Int(y)) => x.cmp(y),
-                        (Value::Float(x), Value::Float(y)) => x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
-                        (Value::Int(x), Value::Float(y)) => x.to_f64().unwrap_or(0.0).partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
-                        (Value::Float(x), Value::Int(y)) => x.partial_cmp(&y.to_f64().unwrap_or(0.0)).unwrap_or(std::cmp::Ordering::Equal),
+                        (Value::Float(x), Value::Float(y)) => {
+                            x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal)
+                        }
+                        (Value::Int(x), Value::Float(y)) => x
+                            .to_f64()
+                            .unwrap_or(0.0)
+                            .partial_cmp(y)
+                            .unwrap_or(std::cmp::Ordering::Equal),
+                        (Value::Float(x), Value::Int(y)) => x
+                            .partial_cmp(&y.to_f64().unwrap_or(0.0))
+                            .unwrap_or(std::cmp::Ordering::Equal),
                         (Value::Str(x), Value::Str(y)) => x.cmp(y),
                         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
                         _ => std::cmp::Ordering::Equal, // Incomparable types
@@ -364,16 +371,16 @@ pub type BuiltinImpl = fn(&mut Interpreter, &[Value]) -> Result<Value, Exception
 /// Python `input(prompt?)` — read a line from stdin.
 pub fn builtin_input(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     use std::io::{self, BufRead, Write};
-    
+
     let prompt = args.first().map(|v| v.python_str()).unwrap_or_default();
-    
+
     // Print prompt to stderr (Python prints to stdout, but we want to keep
     // stdout clean for program output; however, for parity we print to stdout)
     if !prompt.is_empty() {
         print!("{}", prompt);
         io::stdout().flush().ok();
     }
-    
+
     let stdin = io::stdin();
     let mut line = String::new();
     match stdin.lock().read_line(&mut line) {
@@ -396,22 +403,25 @@ pub fn builtin_input(_interp: &mut Interpreter, args: &[Value]) -> Result<Value,
 }
 
 /// Python `multiline_input(prompt?)` — read multiple lines until empty line.
-pub fn builtin_multiline_input(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn builtin_multiline_input(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     use std::io::{self, BufRead, Write};
-    
+
     let prompt = args.first().map(|v| v.python_str()).unwrap_or_default();
     let mut lines = Vec::new();
     let mut current_prompt = prompt;
-    
+
     let stdin = io::stdin();
     let mut stdin_lock = stdin.lock();
-    
+
     loop {
         if !current_prompt.is_empty() {
             print!("{}", current_prompt);
             io::stdout().flush().ok();
         }
-        
+
         let mut line = String::new();
         match stdin_lock.read_line(&mut line) {
             Ok(0) => break, // EOF
@@ -423,12 +433,12 @@ pub fn builtin_multiline_input(_interp: &mut Interpreter, args: &[Value]) -> Res
                         line.pop();
                     }
                 }
-                
+
                 // Empty line terminates
                 if line.is_empty() {
                     break;
                 }
-                
+
                 lines.push(line);
                 current_prompt = "... ".to_string();
             }
@@ -441,15 +451,23 @@ pub fn builtin_multiline_input(_interp: &mut Interpreter, args: &[Value]) -> Res
             }
         }
     }
-    
+
     Ok(Value::Str(Rc::from(lines.join("\n").as_str())))
 }
 
 pub fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let parts: Vec<String> = args.iter().map(|a| a.to_display(true)).collect();
     let result = parts.join(" ");
-    interp.stdout.lock().expect("stdout mutex poisoned").push_str(&result);
-    interp.stdout.lock().expect("stdout mutex poisoned").push('\n');
+    interp
+        .stdout
+        .lock()
+        .expect("stdout mutex poisoned")
+        .push_str(&result);
+    interp
+        .stdout
+        .lock()
+        .expect("stdout mutex poisoned")
+        .push('\n');
     Ok(Value::Str(Rc::from(result.as_str())))
 }
 
@@ -550,7 +568,10 @@ pub fn builtin_type(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, 
     Ok(Value::Str(Rc::from(v.type_name().as_str())))
 }
 
-pub fn builtin_isinstance(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn builtin_isinstance(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let v = args.first().cloned().unwrap_or(Value::Null);
     let type_name = match args.get(1) {
         Some(Value::Str(s)) => s.to_string(),
@@ -741,7 +762,10 @@ mod m3_tests {
     fn with_mcp_clean<T>(f: impl FnOnce() -> T) -> T {
         use std::sync::{Mutex, OnceLock};
         static MCP_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let _g = MCP_LOCK.get_or_init(|| Mutex::new(())).lock().expect("MCP mutex poisoned");
+        let _g = MCP_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("MCP mutex poisoned");
         helen_runtime::shutdown_mcp();
         let r = f();
         helen_runtime::shutdown_mcp();
@@ -1140,7 +1164,7 @@ print(A())
         let mut mock = MockLlmRuntime::new(None, None);
         mock.route_fail = Some(ExceptionValue::new(
             "RuntimeError",
-    #[allow(clippy::arc_with_non_send_sync)]
+            #[allow(clippy::arc_with_non_send_sync)]
             "timeout".to_string(),
             None,
         ));
@@ -1277,7 +1301,6 @@ print(A())
         assert_eq!(out, "C:story\nDONE\nRET:story\n");
     }
     #[allow(clippy::arc_with_non_send_sync)]
-
     #[test]
     fn llm_act_streaming_chunk_false_interrupts() {
         // on_chunk returning literal `false` interrupts: on_complete is
@@ -1291,7 +1314,6 @@ print(A())
         assert_eq!(out, "C:story\nRET:story\n");
     }
     #[allow(clippy::arc_with_non_send_sync)]
-
     #[test]
     fn llm_act_streaming_empty_text_returns_empty_string() {
         // Python: no content events (mock text="") → on_chunk never fires
@@ -1737,7 +1759,11 @@ print(len(remaining))
             let dir = std::env::temp_dir().join(format!("mcp_agent_{}", std::process::id()));
             std::fs::create_dir_all(&dir).expect("create dir");
             let config_path = dir.join(".mcp.json");
-            std::fs::write(&config_path, serde_json::to_string(&config).expect("write file")).unwrap();
+            std::fs::write(
+                &config_path,
+                serde_json::to_string(&config).expect("write file"),
+            )
+            .unwrap();
 
             // Initialize MCP.
             helen_runtime::initialize_mcp(&config_path);

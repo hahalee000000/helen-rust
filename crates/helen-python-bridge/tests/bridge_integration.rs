@@ -46,7 +46,11 @@ fn add(a: int, b: int): int {
 fn load_agent_call_positional_and_kwargs() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "SumAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "SumAgent").unwrap(),
+        )
+        .unwrap();
         // Positional.
         let out: i64 = a
             .bind(py)
@@ -86,7 +90,11 @@ fn load_agent_call_positional_and_kwargs() {
 fn load_agent_type_error_messages() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "SumAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "SumAgent").unwrap(),
+        )
+        .unwrap();
         // Too many positional.
         let err = a
             .bind(py)
@@ -121,7 +129,11 @@ fn load_agent_type_error_messages() {
 fn agent_default_parameter_is_optional() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "DefaultAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "DefaultAgent").unwrap(),
+        )
+        .unwrap();
         // `b` has a default — no TypeError.
         let out: i64 = a
             .bind(py)
@@ -140,7 +152,11 @@ fn agent_default_parameter_is_optional() {
 fn load_function_positional_and_kwargs() {
     let file = write_temp_helen("sum_agent.helen", AGENT_SRC);
     Python::with_gil(|py| {
-        let f = Py::new(py, helen_python_bridge::load_function(&file, "add").unwrap()).unwrap();
+        let f = Py::new(
+            py,
+            helen_python_bridge::load_function(&file, "add").unwrap(),
+        )
+        .unwrap();
         let out: i64 = f
             .bind(py)
             .as_any()
@@ -211,8 +227,10 @@ fn parse_check_returns_semantic_codes() {
     Python::with_gil(|_py| {
         // Valid main-block program → no codes.
         assert_eq!(
-            helen_python_bridge::parse_check("import std.core.*\nmain {\n    let x = 1\n    print(x)\n}\n")
-                .unwrap(),
+            helen_python_bridge::parse_check(
+                "import std.core.*\nmain {\n    let x = 1\n    print(x)\n}\n"
+            )
+            .unwrap(),
             Vec::<String>::new()
         );
         // Undefined variable → a semantic error code.
@@ -265,7 +283,11 @@ agent LenAgent(items: list) {
 "#,
     );
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "LenAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "LenAgent").unwrap(),
+        )
+        .unwrap();
         let items = PyTuple::new(py, [1i32, 2i32, 3i32]).unwrap();
         let out: i64 = a
             .bind(py)
@@ -291,7 +313,11 @@ agent ThrowAgent() {
 "#,
     );
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "ThrowAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "ThrowAgent").unwrap(),
+        )
+        .unwrap();
         let err = a.bind(py).as_any().call0().unwrap_err();
         // RuntimeError maps to Python RuntimeError with the message.
         assert!(
@@ -348,7 +374,9 @@ fn load_from_nonexistent_file_raises() {
             Err(e) => {
                 let err = e.to_string();
                 assert!(
-                    err.contains("No such file") || err.contains("not found") || err.contains("cannot"),
+                    err.contains("No such file")
+                        || err.contains("not found")
+                        || err.contains("cannot"),
                     "got: {err}"
                 );
             }
@@ -434,7 +462,11 @@ agent StringAgent(msg: str) {
 "#,
     );
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "StringAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "StringAgent").unwrap(),
+        )
+        .unwrap();
         let out: String = a
             .bind(py)
             .as_any()
@@ -459,7 +491,11 @@ agent BoolAgent(flag: bool) {
 "#,
     );
     Python::with_gil(|py| {
-        let a = Py::new(py, helen_python_bridge::load_agent(&file, "BoolAgent").unwrap()).unwrap();
+        let a = Py::new(
+            py,
+            helen_python_bridge::load_agent(&file, "BoolAgent").unwrap(),
+        )
+        .unwrap();
         let out: bool = a
             .bind(py)
             .as_any()
@@ -482,7 +518,11 @@ fn add_three(a: int, b: int, c: int): int {
 "#,
     );
     Python::with_gil(|py| {
-        let f = Py::new(py, helen_python_bridge::load_function(&file, "add_three").unwrap()).unwrap();
+        let f = Py::new(
+            py,
+            helen_python_bridge::load_function(&file, "add_three").unwrap(),
+        )
+        .unwrap();
         let out: i64 = f
             .bind(py)
             .as_any()

@@ -356,7 +356,10 @@ mod tests {
     fn diagnostics_bundle() {
         let d = generate_diagnostics("TimeoutError", "timeout", None, None, None);
         assert_eq!(d["diagnostic_category"], "LLMTimeout");
-        assert!(d["suggestion"].as_str().expect("string value").contains("超时"));
+        assert!(d["suggestion"]
+            .as_str()
+            .expect("string value")
+            .contains("超时"));
         assert!(d["data_flow"].as_array().expect("array exists").is_empty());
     }
 }

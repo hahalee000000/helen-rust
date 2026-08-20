@@ -10,9 +10,9 @@ use num_traits::ToPrimitive;
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
-use crate::value::Value;
 use crate::stdlib::StdlibExport;
-use crate::stdlib_helpers::{arg_str, arg_opt_str};
+use crate::stdlib_helpers::{arg_opt_str, arg_str};
+use crate::value::Value;
 
 // std.network
 // ---------------------------------------------------------------------------
@@ -226,9 +226,6 @@ fn network_http_download(_i: &mut Interpreter, args: &[Value]) -> Result<Value, 
 // ---------------------------------------------------------------------------
 // Stub module functions (runtime-dependent; documented error until M5+).
 // ---------------------------------------------------------------------------
-
-
-
 
 // `context_stats()` — port of `stdlib/context.py:_context_stats`.
 // In batch mode (no transcript store / history wired) Python returns the

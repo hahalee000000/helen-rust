@@ -214,12 +214,7 @@ impl LlmRuntime for MockLlmRuntime {
             };
             let Some(entry) = entry else {
                 if self.replay_exhausted.borrow().is_none() {
-                    let total = self
-                        .replay
-                        .borrow()
-                        .as_ref()
-                        .map(|r| r.len())
-                        .unwrap_or(0);
+                    let total = self.replay.borrow().as_ref().map(|r| r.len()).unwrap_or(0);
                     *self.replay_exhausted.borrow_mut() = Some(format!(
                         "No more recorded interactions in cassette. Used {} of {} entries.",
                         seq.saturating_add(1),
@@ -280,10 +275,8 @@ impl LlmRuntime for MockLlmRuntime {
     }
 
     fn enable_recording(&self, cassette_path: &str) -> Result<(), String> {
-        let w = helen_runtime::recording::CassetteWriter::new(std::path::Path::new(
-            cassette_path,
-        ))
-        .map_err(|e| format!("Failed to create cassette: {e}"))?;
+        let w = helen_runtime::recording::CassetteWriter::new(std::path::Path::new(cassette_path))
+            .map_err(|e| format!("Failed to create cassette: {e}"))?;
         *self.cassette.borrow_mut() = Some(w);
         Ok(())
     }
@@ -297,9 +290,8 @@ impl LlmRuntime for MockLlmRuntime {
     }
 
     fn enable_replay(&self, cassette_path: &str) -> Result<(), String> {
-        let reader = helen_runtime::recording::CassetteReader::new(std::path::Path::new(
-            cassette_path,
-        ));
+        let reader =
+            helen_runtime::recording::CassetteReader::new(std::path::Path::new(cassette_path));
         if reader.is_empty() {
             return Err(format!("Cassette is empty: {cassette_path}"));
         }

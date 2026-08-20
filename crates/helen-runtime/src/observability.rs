@@ -728,7 +728,13 @@ mod tests {
             .as_str()
             .unwrap()
             .ends_with("[truncated]"));
-        assert_eq!(d.get("duration_ms").expect("key exists").as_f64().expect("f64 value"), 1.25);
+        assert_eq!(
+            d.get("duration_ms")
+                .expect("key exists")
+                .as_f64()
+                .expect("f64 value"),
+            1.25
+        );
     }
 
     #[test]
@@ -773,7 +779,12 @@ mod tests {
         let out = safe_serialize(&Value::Array(big));
         let arr = out.as_array().expect("array exists");
         assert_eq!(arr.len(), 51);
-        assert!(arr.last().expect("non-empty array").as_str().expect("string value").contains("60 items"));
+        assert!(arr
+            .last()
+            .expect("non-empty array")
+            .as_str()
+            .expect("string value")
+            .contains("60 items"));
     }
 
     #[test]

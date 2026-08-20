@@ -39,7 +39,12 @@ impl PythonRuntime {
     /// Python parity: `ImportError` on failure with message
     /// `Cannot import module '{name}': {e}`.
     pub fn import_module(&self, module_name: &str) -> Result<Value, String> {
-        if let Some(cached) = self.modules.lock().expect("mutex poisoned").get(module_name) {
+        if let Some(cached) = self
+            .modules
+            .lock()
+            .expect("mutex poisoned")
+            .get(module_name)
+        {
             let obj = pyo3::Python::with_gil(|py| cached.clone_ref(py));
             let module = PythonModule::new(module_name.to_string(), obj);
             return Ok(Value::Native(NativeHandle(std::sync::Arc::new(module))));

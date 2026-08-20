@@ -1,7 +1,7 @@
 //! Tests for llm_runtime module — LlmResponse, MockLlmRuntime, LlmRuntime trait.
 
-use helen_interpreter::llm_runtime::*;
 use helen_interpreter::exceptions::ExceptionValue;
+use helen_interpreter::llm_runtime::*;
 
 // ── LlmResponse tests ───────────────────────────────────────────────────
 
@@ -118,14 +118,42 @@ fn mock_runtime_route_history() {
 #[test]
 fn mock_runtime_act_success() {
     let m = MockLlmRuntime::with_act_text("act result");
-    let result = m.act("prompt", &[], None, 0.7, 1, None, &[], None, None, false, None).unwrap();
+    let result = m
+        .act(
+            "prompt",
+            &[],
+            None,
+            0.7,
+            1,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
     assert_eq!(result.text(), "act result");
 }
 
 #[test]
 fn mock_runtime_act_none_returns_empty() {
     let m = MockLlmRuntime::new(None, None);
-    let result = m.act("prompt", &[], None, 0.7, 1, None, &[], None, None, false, None).unwrap();
+    let result = m
+        .act(
+            "prompt",
+            &[],
+            None,
+            0.7,
+            1,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
     assert_eq!(result.text(), "");
 }
 
@@ -135,7 +163,19 @@ fn mock_runtime_act_fail() {
         act_fail: Some(ExceptionValue::new("Error", "act failed".into(), None)),
         ..Default::default()
     };
-    let result = m.act("prompt", &[], None, 0.7, 1, None, &[], None, None, false, None);
+    let result = m.act(
+        "prompt",
+        &[],
+        None,
+        0.7,
+        1,
+        None,
+        &[],
+        None,
+        None,
+        false,
+        None,
+    );
     assert!(result.is_err());
 }
 
@@ -143,8 +183,32 @@ fn mock_runtime_act_fail() {
 fn mock_runtime_act_history() {
     let m = MockLlmRuntime::with_act_text("ok");
     let tools = vec![serde_json::json!({"name": "tool1"})];
-    let _ = m.act("prompt1", &tools, None, 0.7, 1, None, &[], None, None, false, None);
-    let _ = m.act("prompt2", &[], None, 0.5, 2, None, &[], None, None, false, None);
+    let _ = m.act(
+        "prompt1",
+        &tools,
+        None,
+        0.7,
+        1,
+        None,
+        &[],
+        None,
+        None,
+        false,
+        None,
+    );
+    let _ = m.act(
+        "prompt2",
+        &[],
+        None,
+        0.5,
+        2,
+        None,
+        &[],
+        None,
+        None,
+        false,
+        None,
+    );
     let history = m.act_history.borrow();
     assert_eq!(history.len(), 2);
     assert_eq!(history[0].0, "prompt1");
@@ -158,9 +222,20 @@ fn mock_runtime_act_stream_default() {
     let m = MockLlmRuntime::with_act_text("streamed");
     let mut events: Vec<serde_json::Value> = Vec::new();
     let result = m.act_stream(
-        "prompt", None, 0.7, None, &[], 1, &[], None,
-        &mut |ev| { events.push(ev); true },
-        false, None,
+        "prompt",
+        None,
+        0.7,
+        None,
+        &[],
+        1,
+        &[],
+        None,
+        &mut |ev| {
+            events.push(ev);
+            true
+        },
+        false,
+        None,
     );
     assert!(result.is_ok());
     assert_eq!(events.len(), 1);
@@ -173,9 +248,20 @@ fn mock_runtime_act_stream_empty_text_no_event() {
     let m = MockLlmRuntime::new(None, None); // act returns empty text
     let mut events: Vec<serde_json::Value> = Vec::new();
     let result = m.act_stream(
-        "prompt", None, 0.7, None, &[], 1, &[], None,
-        &mut |ev| { events.push(ev); true },
-        false, None,
+        "prompt",
+        None,
+        0.7,
+        None,
+        &[],
+        1,
+        &[],
+        None,
+        &mut |ev| {
+            events.push(ev);
+            true
+        },
+        false,
+        None,
     );
     assert!(result.is_ok());
     assert!(events.is_empty()); // empty text -> no content event
@@ -186,9 +272,20 @@ fn mock_runtime_act_stream_callback_returns_false() {
     let m = MockLlmRuntime::with_act_text("data");
     let mut call_count = 0;
     let result = m.act_stream(
-        "prompt", None, 0.7, None, &[], 1, &[], None,
-        &mut |_ev| { call_count += 1; false }, // stop after first event
-        false, None,
+        "prompt",
+        None,
+        0.7,
+        None,
+        &[],
+        1,
+        &[],
+        None,
+        &mut |_ev| {
+            call_count += 1;
+            false
+        }, // stop after first event
+        false,
+        None,
     );
     assert!(result.is_ok());
     assert_eq!(call_count, 1);
@@ -200,6 +297,18 @@ fn mock_runtime_clone() {
     let c = m.clone();
     assert_eq!(c.act_return.as_ref().unwrap().text(), "original");
     // History is shared via Rc
-    let _ = c.act("test", &[], None, 0.7, 1, None, &[], None, None, false, None);
+    let _ = c.act(
+        "test",
+        &[],
+        None,
+        0.7,
+        1,
+        None,
+        &[],
+        None,
+        None,
+        false,
+        None,
+    );
     assert_eq!(m.act_history.borrow().len(), 1);
 }

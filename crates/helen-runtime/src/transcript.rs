@@ -1083,9 +1083,15 @@ impl TranscriptStore {
                 Item::Message(m) => {
                     let mut d = message_to_dict(m);
                     // to_dict omits agent_name/invocation fields (Python parity).
-                    d.as_object_mut().expect("object exists").remove("agent_name");
-                    d.as_object_mut().expect("object exists").remove("invocation_id");
-                    d.as_object_mut().expect("object exists").remove("parent_invocation_id");
+                    d.as_object_mut()
+                        .expect("object exists")
+                        .remove("agent_name");
+                    d.as_object_mut()
+                        .expect("object exists")
+                        .remove("invocation_id");
+                    d.as_object_mut()
+                        .expect("object exists")
+                        .remove("parent_invocation_id");
                     d.as_object_mut()
                         .unwrap()
                         .remove("visible_to_invocation_ids");

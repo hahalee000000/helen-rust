@@ -489,7 +489,10 @@ fn greet(name: string) {
         let functions = docs["functions"].as_array().expect("array exists");
         assert_eq!(functions.len(), 1);
         assert_eq!(functions[0]["name"], "greet");
-        assert!(!functions[0]["params"].as_array().expect("array exists").is_empty());
+        assert!(!functions[0]["params"]
+            .as_array()
+            .expect("array exists")
+            .is_empty());
     }
 
     #[test]

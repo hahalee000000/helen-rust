@@ -22,7 +22,11 @@ fn corpus_dirs() -> Vec<std::path::PathBuf> {
         .unwrap()
         .to_path_buf(); // crates/helen-interpreter -> workspace root
     let base = root.join("tests").join("programs");
-    let mut dirs = vec![base.join("authored"), base.join("display"), base.join("stdlib")];
+    let mut dirs = vec![
+        base.join("authored"),
+        base.join("display"),
+        base.join("stdlib"),
+    ];
     if let Ok(entries) = std::fs::read_dir(base.join("pytest")) {
         for e in entries.flatten() {
             if e.path().is_dir() {
@@ -60,7 +64,7 @@ fn run_corpus() -> usize {
             let mut interp = Interpreter::new();
             interp.set_source_file(&f.to_string_lossy());
             let _ = interp.interpret(&program); // runtime errors acceptable
-            // touch stdout so the capture path is exercised
+                                                // touch stdout so the capture path is exercised
             let _out = interp.stdout.lock().unwrap().clone();
         }
     }
@@ -98,7 +102,10 @@ fn corpus_drives_ast_printer() {
             printed += 1;
         }
     }
-    assert!(printed > 50, "expected a substantial corpus, got {printed} programs");
+    assert!(
+        printed > 50,
+        "expected a substantial corpus, got {printed} programs"
+    );
     eprintln!("ast-printer coverage driver: {printed} programs printed");
 }
 

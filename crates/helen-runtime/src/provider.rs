@@ -269,7 +269,10 @@ impl PlatformProtocol for MinimaxProtocol {
             if let Value::Object(m) = &mut result {
                 m.insert(
                     "reasoning_details".into(),
-                    message.get("reasoning_details").cloned().unwrap_or_default(),
+                    message
+                        .get("reasoning_details")
+                        .cloned()
+                        .unwrap_or_default(),
                 );
             }
         }
@@ -442,7 +445,9 @@ pub fn register_custom_protocol(
     }
     let map =
         CUSTOM_PROTOCOLS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
-    map.lock().expect("mutex poisoned").insert(name.to_string(), proto);
+    map.lock()
+        .expect("mutex poisoned")
+        .insert(name.to_string(), proto);
     Some(name.to_string())
 }
 

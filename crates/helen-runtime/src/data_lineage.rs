@@ -282,7 +282,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("helen_lineage_empty_{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("create dir");
         let t = DataLineageTracker::new(&dir, "sess-3");
-        assert!(t.get_full_lineage()["edges"].as_array().expect("array exists").is_empty());
+        assert!(t.get_full_lineage()["edges"]
+            .as_array()
+            .expect("array exists")
+            .is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

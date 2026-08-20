@@ -7,13 +7,13 @@
 //! recording/replay, coverage, output validation) return safe defaults
 //! matching the Python fallback behavior.
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
 use crate::stdlib::{json_to_value, value_to_json};
 use crate::value::Value;
 use serde_json::json;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -21,7 +21,10 @@ use serde_json::json;
 
 fn make_error_map(msg: &str) -> Value {
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+    result.insert(
+        Value::Str(Rc::from("status")),
+        Value::Str(Rc::from("error")),
+    );
     result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(msg)));
     Value::Map(Rc::new(RefCell::new(result)))
 }
@@ -72,7 +75,11 @@ pub fn debug_get_llm_log(i: &mut Interpreter, args: &[Value]) -> Result<Value, E
         _ => 10,
     };
     let entries = i.observability.llm_audit.entries();
-    let start = if entries.len() > n { entries.len() - n } else { 0 };
+    let start = if entries.len() > n {
+        entries.len() - n
+    } else {
+        0
+    };
     let list: Vec<Value> = entries[start..]
         .iter()
         .map(|e| {
@@ -121,7 +128,10 @@ pub fn debug_get_last_error(i: &mut Interpreter, _args: &[Value]) -> Result<Valu
 
 /// Get detailed last error info (verbose format).
 /// Python: same as get_last_error but with full trace.
-pub fn debug_last_error_detail(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_last_error_detail(
+    i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match &i.observability.last_error {
         None => Ok(Value::Null),
         Some(snapshot) => {
@@ -153,7 +163,10 @@ pub fn debug_error_category(_i: &mut Interpreter, args: &[Value]) -> Result<Valu
 
 /// Get error suggestion from error dict.
 /// Python: `error.get("suggestion", "")`
-pub fn debug_error_suggestion(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_error_suggestion(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match args.first() {
         Some(Value::Map(m)) => {
             let map = m.borrow();
@@ -168,7 +181,10 @@ pub fn debug_error_suggestion(_i: &mut Interpreter, args: &[Value]) -> Result<Va
 
 /// Get error data flow from error dict.
 /// Python: `error.get("data_flow", [])`
-pub fn debug_error_data_flow(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_error_data_flow(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match args.first() {
         Some(Value::Map(m)) => {
             let map = m.borrow();
@@ -187,7 +203,10 @@ pub fn debug_error_data_flow(_i: &mut Interpreter, args: &[Value]) -> Result<Val
 
 /// Record data flow (manual).
 /// Python: delegates to `interp._data_lineage_tracker.record_flow(...)`.
-pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_record_data_flow(
+    i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let producer_uuid = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => return Ok(make_error_map("producer_uuid (string) required")),
@@ -201,27 +220,42 @@ pub fn debug_record_data_flow(i: &mut Interpreter, args: &[Value]) -> Result<Val
         _ => return Ok(make_error_map("flow_type (string) required")),
     };
     let metadata = match args.get(3) {
-        Some(Value::Map(m)) => {
-            value_to_json(&Value::Map(m.clone())).ok()
-        }
+        Some(Value::Map(m)) => value_to_json(&Value::Map(m.clone())).ok(),
         _ => None,
     };
 
     let mut tracker = i.data_lineage.lock().expect("mutex poisoned");
-    tracker.record_flow(&producer_uuid, &consumer_uuid, &flow_type, metadata.as_ref());
+    tracker.record_flow(
+        &producer_uuid,
+        &consumer_uuid,
+        &flow_type,
+        metadata.as_ref(),
+    );
 
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("recorded")));
+    result.insert(
+        Value::Str(Rc::from("status")),
+        Value::Str(Rc::from("recorded")),
+    );
     result.insert(
         Value::Str(Rc::from("message")),
-        Value::Str(Rc::from(format!("Recorded {} flow from {} to {}", flow_type, producer_uuid, consumer_uuid).as_str())),
+        Value::Str(Rc::from(
+            format!(
+                "Recorded {} flow from {} to {}",
+                flow_type, producer_uuid, consumer_uuid
+            )
+            .as_str(),
+        )),
     );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Trace value origin.
 /// Python: returns `tracker.get_origin(uuid)` or [] if no tracker.
-pub fn debug_trace_value_origin(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_trace_value_origin(
+    i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let message_uuid = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
@@ -239,7 +273,10 @@ pub fn debug_trace_value_origin(i: &mut Interpreter, args: &[Value]) -> Result<V
 
 /// Trace value consumers.
 /// Python: returns `tracker.get_consumers(uuid)` or [] if no tracker.
-pub fn debug_trace_value_consumers(i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_trace_value_consumers(
+    i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let message_uuid = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => return Ok(Value::List(Rc::new(RefCell::new(vec![])))),
@@ -257,7 +294,10 @@ pub fn debug_trace_value_consumers(i: &mut Interpreter, args: &[Value]) -> Resul
 
 /// Get data lineage graph.
 /// Python: returns `tracker.get_full_lineage()` or {"nodes":[], "edges":[]} if no tracker.
-pub fn debug_get_data_lineage(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_get_data_lineage(
+    i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let tracker = i.data_lineage.lock().expect("mutex poisoned");
     let lineage = tracker.get_full_lineage();
     Ok(json_to_value(&lineage))
@@ -284,16 +324,28 @@ pub fn debug_record_session(i: &mut Interpreter, args: &[Value]) -> Result<Value
     let mut result = indexmap::IndexMap::new();
     match i.llm_runtime.enable_recording(&cassette_path) {
         Ok(()) => {
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("recording")));
-            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("recording")),
+            );
+            result.insert(
+                Value::Str(Rc::from("cassette_path")),
+                Value::Str(Rc::from(cassette_path.as_str())),
+            );
             result.insert(
                 Value::Str(Rc::from("message")),
                 Value::Str(Rc::from(format!("Recording to {cassette_path}"))),
             );
         }
         Err(e) => {
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("error")),
+            );
+            result.insert(
+                Value::Str(Rc::from("cassette_path")),
+                Value::Str(Rc::from(cassette_path.as_str())),
+            );
             result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(e)));
         }
     }
@@ -306,14 +358,20 @@ pub fn debug_stop_recording(i: &mut Interpreter, _args: &[Value]) -> Result<Valu
     let mut result = indexmap::IndexMap::new();
     match i.llm_runtime.disable_recording() {
         Ok(()) => {
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("stopped")));
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("stopped")),
+            );
             result.insert(
                 Value::Str(Rc::from("message")),
                 Value::Str(Rc::from("Recording stopped")),
             );
         }
         Err(e) => {
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("error")),
+            );
             result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(e)));
         }
     }
@@ -336,12 +394,17 @@ pub fn debug_replay_session(i: &mut Interpreter, args: &[Value]) -> Result<Value
     let mut result = indexmap::IndexMap::new();
     match i.llm_runtime.enable_replay(&cassette_path) {
         Ok(()) => {
-            let entry_count = helen_runtime::recording::CassetteReader::new(
-                std::path::Path::new(&cassette_path),
-            )
-            .len();
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("replaying")));
-            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
+            let entry_count =
+                helen_runtime::recording::CassetteReader::new(std::path::Path::new(&cassette_path))
+                    .len();
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("replaying")),
+            );
+            result.insert(
+                Value::Str(Rc::from("cassette_path")),
+                Value::Str(Rc::from(cassette_path.as_str())),
+            );
             result.insert(
                 Value::Str(Rc::from("entry_count")),
                 Value::Int(num_bigint::BigInt::from(entry_count)),
@@ -354,9 +417,18 @@ pub fn debug_replay_session(i: &mut Interpreter, args: &[Value]) -> Result<Value
             );
         }
         Err(e) => {
-            result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-            result.insert(Value::Str(Rc::from("cassette_path")), Value::Str(Rc::from(cassette_path.as_str())));
-            result.insert(Value::Str(Rc::from("entry_count")), Value::Int(num_bigint::BigInt::from(0)));
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("error")),
+            );
+            result.insert(
+                Value::Str(Rc::from("cassette_path")),
+                Value::Str(Rc::from(cassette_path.as_str())),
+            );
+            result.insert(
+                Value::Str(Rc::from("entry_count")),
+                Value::Int(num_bigint::BigInt::from(0)),
+            );
             result.insert(Value::Str(Rc::from("message")), Value::Str(Rc::from(e)));
         }
     }
@@ -370,7 +442,10 @@ pub fn debug_replay_session(i: &mut Interpreter, args: &[Value]) -> Result<Value
 
 /// Validate LLM output against a contract.
 /// Python: delegates to `helen.runtime.output_validator.validate_output`.
-pub fn debug_validate_output(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_validate_output(
+    _i: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let output = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => String::new(),
@@ -415,7 +490,11 @@ pub fn debug_validate_output(_i: &mut Interpreter, args: &[Value]) -> Result<Val
                         }
                     }
                     if let Some(field_name) = missing_field {
-                        (false, format!("Missing required field: {}", field_name), parsed_val)
+                        (
+                            false,
+                            format!("Missing required field: {}", field_name),
+                            parsed_val,
+                        )
                     } else {
                         (true, String::new(), parsed_val)
                     }
@@ -432,7 +511,10 @@ pub fn debug_validate_output(_i: &mut Interpreter, args: &[Value]) -> Result<Val
 fn make_validation_result(valid: bool, violation: String, parsed: Value) -> Value {
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("valid")), Value::Bool(valid));
-    result.insert(Value::Str(Rc::from("violation")), Value::Str(Rc::from(violation.as_str())));
+    result.insert(
+        Value::Str(Rc::from("violation")),
+        Value::Str(Rc::from(violation.as_str())),
+    );
     result.insert(Value::Str(Rc::from("parsed")), parsed);
     Value::Map(Rc::new(RefCell::new(result)))
 }
@@ -457,11 +539,20 @@ pub fn debug_coverage_off(i: &mut Interpreter, _args: &[Value]) -> Result<Value,
 
 /// Get coverage summary.
 /// Python: `_coverage_summary()` → one-line "Coverage: Lines x% (a/b) | ...".
-pub fn debug_coverage_summary(i: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn debug_coverage_summary(
+    i: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let summary = i.observability.coverage.get_summary();
     let lines = summary.get("lines").cloned().unwrap_or_else(|| json!({}));
-    let funcs = summary.get("functions").cloned().unwrap_or_else(|| json!({}));
-    let branches = summary.get("branches").cloned().unwrap_or_else(|| json!({}));
+    let funcs = summary
+        .get("functions")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let branches = summary
+        .get("branches")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
 
     let line_pct = lines.get("percent").and_then(|v| v.as_f64()).unwrap_or(0.0);
     let line_cov = lines.get("covered").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -469,8 +560,14 @@ pub fn debug_coverage_summary(i: &mut Interpreter, _args: &[Value]) -> Result<Va
     let func_pct = funcs.get("percent").and_then(|v| v.as_f64()).unwrap_or(0.0);
     let func_cov = funcs.get("covered").and_then(|v| v.as_u64()).unwrap_or(0);
     let func_tot = funcs.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
-    let br_pct = branches.get("percent").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let br_cov = branches.get("covered").and_then(|v| v.as_u64()).unwrap_or(0);
+    let br_pct = branches
+        .get("percent")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let br_cov = branches
+        .get("covered")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     let br_tot = branches.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
 
     let msg = format!(

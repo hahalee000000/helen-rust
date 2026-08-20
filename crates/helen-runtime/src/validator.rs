@@ -245,7 +245,10 @@ mod tests {
     fn json_contract_invalid() {
         let r = validate_output("{not json", Some(&json!("json")));
         assert!(!r["valid"].as_bool().expect("bool value"));
-        assert!(r["violation"].as_str().expect("string value").contains("not valid JSON"));
+        assert!(r["violation"]
+            .as_str()
+            .expect("string value")
+            .contains("not valid JSON"));
     }
 
     #[test]
@@ -253,7 +256,10 @@ mod tests {
         let schema = json!({"type": "object", "required": ["name"]});
         let r = validate_output(r#"{"age": 3}"#, Some(&schema));
         assert!(!r["valid"].as_bool().expect("bool value"));
-        assert!(r["violation"].as_str().expect("string value").contains("name"));
+        assert!(r["violation"]
+            .as_str()
+            .expect("string value")
+            .contains("name"));
     }
 
     #[test]
@@ -275,7 +281,10 @@ mod tests {
         });
         let r = validate_output(r#"{"color": "green"}"#, Some(&schema));
         assert!(!r["valid"].as_bool().expect("bool value"));
-        assert!(r["violation"].as_str().expect("string value").contains("green"));
+        assert!(r["violation"]
+            .as_str()
+            .expect("string value")
+            .contains("green"));
     }
 
     #[test]

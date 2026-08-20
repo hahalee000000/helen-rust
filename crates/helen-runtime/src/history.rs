@@ -914,7 +914,10 @@ mod tests {
         let loaded = h.load_from_file(&path_s);
         assert_eq!(loaded.len(), 2);
         assert_eq!(loaded[0].role, "user");
-        assert_eq!(loaded[0].content.as_str().expect("string value"), "hello world");
+        assert_eq!(
+            loaded[0].content.as_str().expect("string value"),
+            "hello world"
+        );
         std::fs::remove_file(&path).ok();
     }
 

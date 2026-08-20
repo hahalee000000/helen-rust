@@ -17,13 +17,22 @@ fn assert_no_panic(src: String) {
     let errs = s.errors();
     for e in &errs {
         // every error must carry a real code (>= 300: ScannerError internal + E0xxx)
-        assert!(e.code().value() >= 300, "unexpected error code {}", e.code().value());
+        assert!(
+            e.code().value() >= 300,
+            "unexpected error code {}",
+            e.code().value()
+        );
     }
     // every token kind must be a defined variant — we can't enumerate all,
     // but scanning twice must yield identical token counts.
     let mut s2 = Scanner::new(&src, "<fuzz>");
     let toks2 = s2.scan_all();
-    assert_eq!(toks.len(), toks2.len(), "non-deterministic scan of {:?}", &src[..src.len().min(64)]);
+    assert_eq!(
+        toks.len(),
+        toks2.len(),
+        "non-deterministic scan of {:?}",
+        &src[..src.len().min(64)]
+    );
 }
 
 proptest! {

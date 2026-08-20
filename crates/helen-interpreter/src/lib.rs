@@ -7,31 +7,31 @@
 #![allow(clippy::result_large_err)]
 
 pub mod closure;
-pub mod stdlib_math;
-pub mod stdlib_io;
-pub mod stdlib_system;
-pub mod stdlib_network;
+pub mod context;
 pub mod data_formats;
+pub mod debug;
 pub mod environment;
 pub mod exceptions;
 pub mod import_resolver;
 pub mod interpreter;
 pub mod interpreter_builtins;
+pub mod llm_control;
 pub mod llm_runtime;
+pub mod media;
 pub mod native;
+pub mod observability;
+pub mod quality;
 pub mod shared_store;
 pub mod stdlib;
 pub mod stdlib_helpers;
-pub mod stdlib_string;
+pub mod stdlib_io;
 pub mod stdlib_list;
+pub mod stdlib_math;
+pub mod stdlib_network;
+pub mod stdlib_string;
+pub mod stdlib_system;
 pub mod test_framework;
-pub mod llm_control;
-pub mod media;
-pub mod context;
-pub mod debug;
-pub mod observability;
 pub mod tools;
-pub mod quality;
 pub mod transcript;
 pub mod value;
 

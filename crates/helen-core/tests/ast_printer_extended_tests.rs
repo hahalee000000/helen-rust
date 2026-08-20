@@ -148,8 +148,14 @@ fn test_print_call() {
     let expr = Expr::Call(Call {
         callee: Box::new(make_var("f")),
         arguments: vec![
-            CallArg { name: None, value: make_var("x") },
-            CallArg { name: None, value: make_var("y") },
+            CallArg {
+                name: None,
+                value: make_var("x"),
+            },
+            CallArg {
+                name: None,
+                value: make_var("y"),
+            },
         ],
         span: dummy_span(),
     });

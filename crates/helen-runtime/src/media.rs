@@ -74,11 +74,7 @@ impl MediaPart {
     }
 
     /// Create a MediaPart from base64 data.
-    pub fn from_base64(
-        data: String,
-        mime: String,
-        media_type: String,
-    ) -> Result<Self, String> {
+    pub fn from_base64(data: String, mime: String, media_type: String) -> Result<Self, String> {
         Self::new("base64".to_string(), data, mime, media_type, HashMap::new())
     }
 

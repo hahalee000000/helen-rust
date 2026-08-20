@@ -31,10 +31,11 @@ use crate::environment::Environment;
 use crate::exceptions::{error_matches, resolve_exception, ExceptionValue, Flow};
 use crate::interpreter_builtins::{
     builtin_abs, builtin_bool, builtin_dict, builtin_float, builtin_input, builtin_int,
-    builtin_isinstance, builtin_len, builtin_list, builtin_max, builtin_min, builtin_multiline_input,
-    builtin_print, builtin_range, builtin_str, builtin_type, check_type, cmp_values, format_keys,
-    is_mutable_type, is_number, num_f64, py_mod, to_f64, type_from_typenode, BuiltinImpl,
-    ListMethodKind, ListMethodValue, MapMethodKind, MapMethodValue,
+    builtin_isinstance, builtin_len, builtin_list, builtin_max, builtin_min,
+    builtin_multiline_input, builtin_print, builtin_range, builtin_str, builtin_type, check_type,
+    cmp_values, format_keys, is_mutable_type, is_number, num_f64, py_mod, to_f64,
+    type_from_typenode, BuiltinImpl, ListMethodKind, ListMethodValue, MapMethodKind,
+    MapMethodValue,
 };
 use crate::llm_runtime::{LlmRuntime, MockLlmRuntime};
 use crate::value::{BuiltinFn, ChannelMethodValue, ChannelMsg, StoreMethodValue, Value};
@@ -85,11 +86,13 @@ pub struct Interpreter {
     /// AI-native observability (tracer, call_stack, llm_audit, last_error).
     pub observability: crate::observability::ObservabilityManager,
     /// Working memory for context management (P1).
-    pub working_memory: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<Value>>>>,
+    pub working_memory:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<Value>>>>,
     /// Call tracker for cancellable LLM calls (P3).
     pub call_tracker: std::sync::Arc<helen_runtime::call_tracking::CallTracker>,
     /// Data lineage tracker for cross-agent data flow (P5).
-    pub data_lineage: std::sync::Arc<std::sync::Mutex<helen_runtime::data_lineage::DataLineageTracker>>,
+    pub data_lineage:
+        std::sync::Arc<std::sync::Mutex<helen_runtime::data_lineage::DataLineageTracker>>,
     /// LLM call history (Python `_history`) — `{"role", "content"}` entries
     /// recorded by `llm if`/`llm act`; feeds `format_context_stats`.
     pub history: Rc<RefCell<Vec<serde_json::Value>>>,
@@ -187,9 +190,13 @@ impl Interpreter {
             )),
             session_id: String::new(),
             observability: crate::observability::ObservabilityManager::new(),
-            working_memory: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            working_memory: std::sync::Arc::new(std::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
             call_tracker: std::sync::Arc::new(helen_runtime::call_tracking::CallTracker::new()),
-            data_lineage: std::sync::Arc::new(std::sync::Mutex::new(helen_runtime::data_lineage::DataLineageTracker::new_in_memory())),
+            data_lineage: std::sync::Arc::new(std::sync::Mutex::new(
+                helen_runtime::data_lineage::DataLineageTracker::new_in_memory(),
+            )),
             history: Rc::new(RefCell::new(Vec::new())),
         };
         interp.register_core_builtins();
@@ -734,18 +741,14 @@ impl Interpreter {
             // Register/record function declarations for coverage.
             match stmt {
                 Stmt::FunctionDecl(f) => {
-                    self.observability.coverage.record_function(
-                        file,
-                        f.span.start_line,
-                        &f.name,
-                    );
+                    self.observability
+                        .coverage
+                        .record_function(file, f.span.start_line, &f.name);
                 }
                 Stmt::AgentDecl(a) => {
-                    self.observability.coverage.record_function(
-                        file,
-                        a.span.start_line,
-                        &a.name,
-                    );
+                    self.observability
+                        .coverage
+                        .record_function(file, a.span.start_line, &a.name);
                 }
                 Stmt::FnBlock(fb) => {
                     self.observability.coverage.record_function(
@@ -1262,9 +1265,11 @@ impl Interpreter {
             } else {
                 Some(s.span.file.as_str())
             };
-            self.observability
-                .coverage
-                .record_branch(file, s.span.start_line, if condition.truthy() { 1 } else { 0 });
+            self.observability.coverage.record_branch(
+                file,
+                s.span.start_line,
+                if condition.truthy() { 1 } else { 0 },
+            );
         }
         if condition.truthy() {
             return self.execute_stmt(&s.then_branch);
@@ -2640,7 +2645,12 @@ impl Interpreter {
             let prev_functions: HashMap<String, Rc<FunctionDecl>> = agent
                 .functions
                 .iter()
-                .filter_map(|f| s.functions.get(&f.name).cloned().map(|v| (f.name.clone(), v)))
+                .filter_map(|f| {
+                    s.functions
+                        .get(&f.name)
+                        .cloned()
+                        .map(|v| (f.name.clone(), v))
+                })
                 .collect();
             let mut restored: Vec<String> = Vec::new();
             for f in &agent.functions {
@@ -2706,9 +2716,8 @@ impl Interpreter {
                     .agent_setting("max-turns")
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(1);
-                let max_tokens: Option<u64> = s
-                    .agent_setting("max-tokens")
-                    .and_then(|v| v.parse().ok());
+                let max_tokens: Option<u64> =
+                    s.agent_setting("max-tokens").and_then(|v| v.parse().ok());
                 let thinking_enabled = s
                     .agent_setting("thinking-mode")
                     .map(|v| v == "true")
@@ -3070,9 +3079,7 @@ impl Interpreter {
             };
             for part in &parts[1..] {
                 value = match value {
-                    Some(Value::Map(m)) => {
-                        m.borrow().get(&Value::Str(Rc::from(*part))).cloned()
-                    }
+                    Some(Value::Map(m)) => m.borrow().get(&Value::Str(Rc::from(*part))).cloned(),
                     _ => None,
                 };
             }
@@ -3288,4 +3295,3 @@ impl Default for Interpreter {
 // ---------------------------------------------------------------------------
 // Free functions
 // ---------------------------------------------------------------------------
-

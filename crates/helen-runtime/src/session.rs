@@ -306,7 +306,10 @@ mod tests {
         let m = SessionManager::new(Some(&base));
         let id = m.create_session(None);
         let p = m.get_session_path(&id);
-        assert_eq!(p.file_name().expect("file_name").to_str().expect("to_str"), "transcript.jsonl");
+        assert_eq!(
+            p.file_name().expect("file_name").to_str().expect("to_str"),
+            "transcript.jsonl"
+        );
         assert!(p.parent().expect("parent").is_dir());
     }
 

@@ -17,7 +17,11 @@ fn scan_tokens(src: &str) -> (Vec<(TokenType, String)>, Vec<(ErrorCode, String)>
     let mut s = Scanner::new(src, "<test>");
     let toks = s.scan_all();
     let pairs = toks.iter().map(|t| (t.kind, t.lexeme.clone())).collect();
-    let errs = s.errors().iter().map(|e| (e.code(), e.message().to_string())).collect();
+    let errs = s
+        .errors()
+        .iter()
+        .map(|e| (e.code(), e.message().to_string()))
+        .collect();
     (pairs, errs)
 }
 
@@ -25,9 +29,7 @@ fn scan_tokens(src: &str) -> (Vec<(TokenType, String)>, Vec<(ErrorCode, String)>
 fn t0_src_0() {
     let src = "";
     let (toks, errs) = scan_tokens(src);
-    let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::Eof, "".to_string()),
-    ];
+    let expected: Vec<(TokenType, String)> = vec![(TokenType::Eof, "".to_string())];
     assert_eq!(toks.len(), expected.len(), "token count");
     for (got, want) in toks.iter().zip(expected.iter()) {
         assert_eq!(got.0, want.0, "kind mismatch");
@@ -39,9 +41,7 @@ fn t0_src_0() {
 fn t1_____412532a() {
     let src = "   ";
     let (toks, errs) = scan_tokens(src);
-    let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::Eof, "".to_string()),
-    ];
+    let expected: Vec<(TokenType, String)> = vec![(TokenType::Eof, "".to_string())];
     assert_eq!(toks.len(), expected.len(), "token count");
     for (got, want) in toks.iter().zip(expected.iter()) {
         assert_eq!(got.0, want.0, "kind mismatch");
@@ -53,9 +53,7 @@ fn t1_____412532a() {
 fn t2_____573e5df() {
     let src = "\n\n\n";
     let (toks, errs) = scan_tokens(src);
-    let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::Eof, "".to_string()),
-    ];
+    let expected: Vec<(TokenType, String)> = vec![(TokenType::Eof, "".to_string())];
     assert_eq!(toks.len(), expected.len(), "token count");
     for (got, want) in toks.iter().zip(expected.iter()) {
         assert_eq!(got.0, want.0, "kind mismatch");
@@ -67,9 +65,7 @@ fn t2_____573e5df() {
 fn t3____________ef01da() {
     let src = "  \t \n \r  \n";
     let (toks, errs) = scan_tokens(src);
-    let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::Eof, "".to_string()),
-    ];
+    let expected: Vec<(TokenType, String)> = vec![(TokenType::Eof, "".to_string())];
     assert_eq!(toks.len(), expected.len(), "token count");
     for (got, want) in toks.iter().zip(expected.iter()) {
         assert_eq!(got.0, want.0, "kind mismatch");
@@ -544,7 +540,10 @@ fn t34____hello____d2fcae() {
     let src = "\"\"\"hello\"\"\"";
     let (toks, errs) = scan_tokens(src);
     let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::TripleQuoteString, "\"\"\"hello\"\"\"".to_string()),
+        (
+            TokenType::TripleQuoteString,
+            "\"\"\"hello\"\"\"".to_string(),
+        ),
         (TokenType::Eof, "".to_string()),
     ];
     assert_eq!(toks.len(), expected.len(), "token count");
@@ -559,7 +558,10 @@ fn t35____line1_line2_line3____3e37390() {
     let src = "\"\"\"line1\nline2\nline3\"\"\"";
     let (toks, errs) = scan_tokens(src);
     let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::TripleQuoteString, "\"\"\"line1\nline2\nline3\"\"\"".to_string()),
+        (
+            TokenType::TripleQuoteString,
+            "\"\"\"line1\nline2\nline3\"\"\"".to_string(),
+        ),
         (TokenType::Eof, "".to_string()),
     ];
     assert_eq!(toks.len(), expected.len(), "token count");
@@ -574,7 +576,10 @@ fn t36____hello_nworld____50456b() {
     let src = "\"\"\"hello\\nworld\"\"\"";
     let (toks, errs) = scan_tokens(src);
     let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::TripleQuoteString, "\"\"\"hello\\nworld\"\"\"".to_string()),
+        (
+            TokenType::TripleQuoteString,
+            "\"\"\"hello\\nworld\"\"\"".to_string(),
+        ),
         (TokenType::Eof, "".to_string()),
     ];
     assert_eq!(toks.len(), expected.len(), "token count");
@@ -744,9 +749,7 @@ fn t45____this_is_a_comment_42_cf61a() {
 fn t46____comment_981da2() {
     let src = "// comment";
     let (toks, errs) = scan_tokens(src);
-    let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::Eof, "".to_string()),
-    ];
+    let expected: Vec<(TokenType, String)> = vec![(TokenType::Eof, "".to_string())];
     assert_eq!(toks.len(), expected.len(), "token count");
     for (got, want) in toks.iter().zip(expected.iter()) {
         assert_eq!(got.0, want.0, "kind mismatch");
@@ -964,7 +967,10 @@ fn t60____line1_line2____20f9714() {
     let src = "\"\"\"line1\nline2\"\"\"";
     let (toks, errs) = scan_tokens(src);
     let expected: Vec<(TokenType, String)> = vec![
-        (TokenType::TripleQuoteString, "\"\"\"line1\nline2\"\"\"".to_string()),
+        (
+            TokenType::TripleQuoteString,
+            "\"\"\"line1\nline2\"\"\"".to_string(),
+        ),
         (TokenType::Eof, "".to_string()),
     ];
     assert_eq!(toks.len(), expected.len(), "token count");

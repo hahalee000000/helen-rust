@@ -2,10 +2,10 @@
 //! `init`, `quality`, `watch`, `template`, `replay`, plus session-flag
 //! extraction (`--session`/`--resume-latest`).
 
-use std::path::{Path, PathBuf};
 use helen_core::lexer::Scanner;
 use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
+use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
 // `helen init`
@@ -29,7 +29,10 @@ pub fn init_command() -> i32 {
 
     let config_path = helen_home.join("config.yaml");
     if config_path.exists() {
-        println!("\n✅ Helen is already configured: {}", config_path.display());
+        println!(
+            "\n✅ Helen is already configured: {}",
+            config_path.display()
+        );
         println!("Edit it directly to update settings.");
         return 0;
     }
@@ -107,15 +110,17 @@ pub fn quality_command(argv: &[String]) -> i32 {
                 }
                 let dim = argv[i].clone();
                 let valid = [
-                    "architecture", "code_quality", "security", "test_coverage",
-                    "documentation", "maintainability", "engineering",
+                    "architecture",
+                    "code_quality",
+                    "security",
+                    "test_coverage",
+                    "documentation",
+                    "maintainability",
+                    "engineering",
                 ];
                 if !valid.contains(&dim.as_str()) {
                     eprintln!("Error: invalid dimension '{dim}'");
-                    eprintln!(
-                        "Valid dimensions: {}",
-                        valid.join(", ")
-                    );
+                    eprintln!("Valid dimensions: {}", valid.join(", "));
                     return 2;
                 }
                 dimension = Some(dim);
@@ -165,39 +170,54 @@ pub fn quality_command(argv: &[String]) -> i32 {
 
         // Use the interpreter's quality module (mirrors helen/stdlib/quality.py).
         let mut interp = Interpreter::new();
-        let source_val = helen_interpreter::value::Value::Str(std::rc::Rc::from(source_text.as_str()));
+        let source_val =
+            helen_interpreter::value::Value::Str(std::rc::Rc::from(source_text.as_str()));
         let name_val = helen_interpreter::value::Value::Str(std::rc::Rc::from(file.as_str()));
 
-        let metrics_val =
-            match helen_interpreter::quality::quality_analyze_code(&mut interp, &[source_val.clone(), name_val.clone()]) {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("Error analyzing {file}: {}", e.message);
-                    return 2;
-                }
-            };
-        let security_val = match helen_interpreter::quality::quality_check_security(&mut interp, std::slice::from_ref(&source_val)) {
+        let metrics_val = match helen_interpreter::quality::quality_analyze_code(
+            &mut interp,
+            &[source_val.clone(), name_val.clone()],
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Error analyzing {file}: {}", e.message);
+                return 2;
+            }
+        };
+        let security_val = match helen_interpreter::quality::quality_check_security(
+            &mut interp,
+            std::slice::from_ref(&source_val),
+        ) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Error checking security for {file}: {}", e.message);
                 return 2;
             }
         };
-        let score_val = match helen_interpreter::quality::quality_quality_score(&mut interp, std::slice::from_ref(&source_val)) {
+        let score_val = match helen_interpreter::quality::quality_quality_score(
+            &mut interp,
+            std::slice::from_ref(&source_val),
+        ) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Error scoring {file}: {}", e.message);
                 return 2;
             }
         };
-        let dim_scores_val = match helen_interpreter::quality::quality_dimension_scores(&mut interp, std::slice::from_ref(&source_val)) {
+        let dim_scores_val = match helen_interpreter::quality::quality_dimension_scores(
+            &mut interp,
+            std::slice::from_ref(&source_val),
+        ) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Error computing dimension scores for {file}: {}", e.message);
                 return 2;
             }
         };
-        let report_val = helen_interpreter::quality::quality_quality_report(&mut interp, &[source_val, name_val]);
+        let report_val = helen_interpreter::quality::quality_quality_report(
+            &mut interp,
+            &[source_val, name_val],
+        );
 
         let total_score = match score_val {
             helen_interpreter::value::Value::Float(f) => f,
@@ -211,11 +231,17 @@ pub fn quality_command(argv: &[String]) -> i32 {
         if json_output {
             let metrics = value_to_json(&metrics_val);
             let security = value_to_json(&security_val);
-            let grade = if total_score >= 9.0 { "A" }
-                else if total_score >= 8.0 { "B" }
-                else if total_score >= 7.0 { "C" }
-                else if total_score >= 6.0 { "D" }
-                else { "F" };
+            let grade = if total_score >= 9.0 {
+                "A"
+            } else if total_score >= 8.0 {
+                "B"
+            } else if total_score >= 7.0 {
+                "C"
+            } else if total_score >= 6.0 {
+                "D"
+            } else {
+                "F"
+            };
 
             let mut scores = serde_json::json!({
                 "total": total_score,
@@ -226,13 +252,17 @@ pub fn quality_command(argv: &[String]) -> i32 {
                 let dim_score = match &dim_scores_val {
                     helen_interpreter::value::Value::Map(m) => {
                         let map = m.borrow();
-                        map.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from(dim.as_str())))
-                            .and_then(|v| match v {
-                                helen_interpreter::value::Value::Float(f) => Some(*f),
-                                helen_interpreter::value::Value::Int(b) => b.to_string().parse::<f64>().ok(),
-                                _ => None,
-                            })
-                            .unwrap_or(total_score)
+                        map.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from(
+                            dim.as_str(),
+                        )))
+                        .and_then(|v| match v {
+                            helen_interpreter::value::Value::Float(f) => Some(*f),
+                            helen_interpreter::value::Value::Int(b) => {
+                                b.to_string().parse::<f64>().ok()
+                            }
+                            _ => None,
+                        })
+                        .unwrap_or(total_score)
                     }
                     _ => total_score,
                 };
@@ -255,9 +285,15 @@ pub fn quality_command(argv: &[String]) -> i32 {
 
     if json_output {
         if all_results.len() == 1 {
-            println!("{}", serde_json::to_string_pretty(&all_results[0]).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&all_results[0]).unwrap_or_default()
+            );
         } else {
-            println!("{}", serde_json::to_string_pretty(&all_results).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&all_results).unwrap_or_default()
+            );
         }
     }
 
@@ -311,7 +347,10 @@ pub fn watch_command(file: &str) -> i32 {
     loop {
         let current_mtime = std::fs::metadata(source_path)
             .and_then(|m| m.modified())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).map_err(std::io::Error::other))
+            .and_then(|t| {
+                t.duration_since(std::time::UNIX_EPOCH)
+                    .map_err(std::io::Error::other)
+            })
             .map(|d| d.as_secs_f64())
             .unwrap_or(0.0);
         if current_mtime != last_mtime {
@@ -346,17 +385,30 @@ pub fn watch_command(file: &str) -> i32 {
 /// `crates/helen-rust/templates/`.
 pub fn template_command(argv: &[String]) -> i32 {
     const TEMPLATES: &[(&str, &str)] = &[
-        ("simple_agent", include_str!("../templates/simple_agent.helen")),
-        ("spawn_channel", include_str!("../templates/spawn_channel.helen")),
-        ("spawn_with_transcript", include_str!("../templates/spawn_with_transcript.helen")),
-        ("shared_store", include_str!("../templates/shared_store.helen")),
-        ("context_object", include_str!("../templates/context_object.helen")),
+        (
+            "simple_agent",
+            include_str!("../templates/simple_agent.helen"),
+        ),
+        (
+            "spawn_channel",
+            include_str!("../templates/spawn_channel.helen"),
+        ),
+        (
+            "spawn_with_transcript",
+            include_str!("../templates/spawn_with_transcript.helen"),
+        ),
+        (
+            "shared_store",
+            include_str!("../templates/shared_store.helen"),
+        ),
+        (
+            "context_object",
+            include_str!("../templates/context_object.helen"),
+        ),
         ("pipeline", include_str!("../templates/pipeline.helen")),
     ];
 
-    let list_only = argv.is_empty()
-        || argv[0] == "--list"
-        || argv[0] == "-l";
+    let list_only = argv.is_empty() || argv[0] == "--list" || argv[0] == "-l";
 
     if list_only {
         println!("Available Helen templates:\n");
@@ -364,7 +416,13 @@ pub fn template_command(argv: &[String]) -> i32 {
             let desc = content
                 .lines()
                 .find(|l| l.contains("// Description:"))
-                .map(|l| l.split("// Description:").nth(1).unwrap_or("").trim().to_string())
+                .map(|l| {
+                    l.split("// Description:")
+                        .nth(1)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string()
+                })
                 .unwrap_or_default();
             println!("  {name:<30} - {desc}");
         }
@@ -378,7 +436,14 @@ pub fn template_command(argv: &[String]) -> i32 {
     let template_name = argv[0].as_str();
     let Some((_, content)) = TEMPLATES.iter().find(|(n, _)| *n == template_name) else {
         eprintln!("Error: Template '{template_name}' not found.");
-        eprintln!("Available templates: {}", TEMPLATES.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", "));
+        eprintln!(
+            "Available templates: {}",
+            TEMPLATES
+                .iter()
+                .map(|(n, _)| *n)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         return 1;
     };
 
@@ -395,7 +460,11 @@ pub fn template_command(argv: &[String]) -> i32 {
         }
         println!("✓ Template copied to: {}", output_file.display());
         println!();
-        println!("Edit {} and run with: helen {}", output_file.display(), output_file.display());
+        println!(
+            "Edit {} and run with: helen {}",
+            output_file.display(),
+            output_file.display()
+        );
         return 0;
     }
 
@@ -453,7 +522,9 @@ pub fn replay_command(argv: &[String]) -> i32 {
         let p = PathBuf::from(&sid);
         if p.is_dir() {
             (
-                p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or(sid),
+                p.file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or(sid),
                 Some(p.parent().map(|x| x.to_path_buf()).unwrap_or_default()),
             )
         } else {
@@ -482,14 +553,34 @@ pub fn replay_command(argv: &[String]) -> i32 {
 
     if show_summary {
         let summary = replay.get_summary();
-        let session = summary.get("session_id").and_then(|v| v.as_str()).unwrap_or("");
-        let total = summary.get("total_messages").and_then(|v| v.as_u64()).unwrap_or(0);
-        let roles = summary.get("roles").and_then(|v| v.as_array()).map(|a| {
-            a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(", ")
-        }).unwrap_or_default();
-        let agents = summary.get("agents").and_then(|v| v.as_array()).map(|a| {
-            a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(", ")
-        }).unwrap_or_default();
+        let session = summary
+            .get("session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let total = summary
+            .get("total_messages")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let roles = summary
+            .get("roles")
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
+        let agents = summary
+            .get("agents")
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
         println!("Session: {session}");
         println!("Total messages: {total}");
         println!("Roles: {roles}");
@@ -558,14 +649,12 @@ fn interactive_replay(mut replay: helen_runtime::transcript_replay::TranscriptRe
                     println!("Already at first message");
                 }
             }
-            "j" | "jump" => {
-                match arg.parse::<usize>() {
-                    Ok(index) if replay.jump(index).is_some() => {
-                        println!("{}", replay.format_current());
-                    }
-                    _ => println!("Invalid index: {arg}"),
+            "j" | "jump" => match arg.parse::<usize>() {
+                Ok(index) if replay.jump(index).is_some() => {
+                    println!("{}", replay.format_current());
                 }
-            }
+                _ => println!("Invalid index: {arg}"),
+            },
             "f" | "first" => {
                 replay.first();
                 println!("{}", replay.format_current());
@@ -604,8 +693,20 @@ fn interactive_replay(mut replay: helen_runtime::transcript_replay::TranscriptRe
             }
             "summary" => {
                 let summary = replay.get_summary();
-                println!("Session: {}", summary.get("session_id").and_then(|v| v.as_str()).unwrap_or(""));
-                println!("Total messages: {}", summary.get("total_messages").and_then(|v| v.as_u64()).unwrap_or(0));
+                println!(
+                    "Session: {}",
+                    summary
+                        .get("session_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                );
+                println!(
+                    "Total messages: {}",
+                    summary
+                        .get("total_messages")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0)
+                );
             }
             other => println!("Unknown command: {other}"),
         }
@@ -642,12 +743,15 @@ pub fn extract_session_flags(argv: &[String]) -> (Option<String>, Vec<String>) {
     if resume_latest && session_id.is_none() {
         // Find the most recent session by transcript mtime.
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        let manager = helen_runtime::SessionManager::new(Some(Path::new(&home).join(".helen").join("sessions").as_path()));
+        let manager = helen_runtime::SessionManager::new(Some(
+            Path::new(&home).join(".helen").join("sessions").as_path(),
+        ));
         let sessions = manager.list_sessions();
-        if let Some(latest) = sessions
-            .iter()
-            .max_by(|a, b| a.modified_at.partial_cmp(&b.modified_at).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        if let Some(latest) = sessions.iter().max_by(|a, b| {
+            a.modified_at
+                .partial_cmp(&b.modified_at)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) {
             session_id = Some(latest.session_id.clone());
         }
     }
@@ -685,7 +789,10 @@ pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
         for e in parse_errors {
             let diag =
                 helen_semantic::Diagnostic::new(e.code(), e.message().to_string(), Some(e.span()));
-            eprintln!("{}", crate::formatter::format_error(&diag, Some(&source_lines)));
+            eprintln!(
+                "{}",
+                crate::formatter::format_error(&diag, Some(&source_lines))
+            );
         }
         return 1;
     }

@@ -42,7 +42,11 @@ impl SharedStoreInstance {
 
     /// `get_field` — thread-safe field read.
     pub fn get_field(&self, name: &str) -> Option<Value> {
-        self.fields.lock().expect("mutex poisoned").get(name).cloned()
+        self.fields
+            .lock()
+            .expect("mutex poisoned")
+            .get(name)
+            .cloned()
     }
 
     /// `set_field` — thread-safe field write.

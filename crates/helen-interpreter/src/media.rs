@@ -103,10 +103,7 @@ pub fn media_media(_i: &mut Interpreter, args: &[Value]) -> Result<Value, Except
 }
 
 /// Create a MediaPart from base64 data.
-pub fn media_media_base64(
-    _i: &mut Interpreter,
-    args: &[Value],
-) -> Result<Value, ExceptionValue> {
+pub fn media_media_base64(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let data = match args.first() {
         Some(Value::Str(s)) => s.to_string(),
         _ => {
@@ -250,10 +247,7 @@ pub fn media_media_to_base64(
 }
 
 /// Save MediaPart to a file.
-pub fn media_save_media(
-    _i: &mut Interpreter,
-    args: &[Value],
-) -> Result<Value, ExceptionValue> {
+pub fn media_save_media(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let part = match args.first() {
         Some(Value::MediaPart(mp)) => mp.clone(),
         _ => {
@@ -277,12 +271,20 @@ pub fn media_save_media(
     let base64_data = read_media_as_base64(&part)?;
     let bytes = {
         use base64::Engine;
-        base64::engine::general_purpose::STANDARD.decode(base64_data.as_bytes())
-            .map_err(|e| ExceptionValue::new("ValueError", format!("Failed to decode base64: {}", e), None))?
+        base64::engine::general_purpose::STANDARD
+            .decode(base64_data.as_bytes())
+            .map_err(|e| {
+                ExceptionValue::new(
+                    "ValueError",
+                    format!("Failed to decode base64: {}", e),
+                    None,
+                )
+            })?
     };
 
-    std::fs::write(&path, &bytes)
-        .map_err(|e| ExceptionValue::new("IOError", format!("Failed to write file: {}", e), None))?;
+    std::fs::write(&path, &bytes).map_err(|e| {
+        ExceptionValue::new("IOError", format!("Failed to write file: {}", e), None)
+    })?;
 
     Ok(Value::Str(Rc::from(path.as_str())))
 }
@@ -319,12 +321,10 @@ fn create_media_part(source: &str, media_type: Option<&str>) -> Result<MediaPart
         ("file".to_string(), source.to_string(), Some(mime))
     };
 
-    let mime = mime.unwrap_or_else(|| {
-        match media_type {
-            Some("video") => "video/mp4".to_string(),
-            Some("audio") => "audio/mp3".to_string(),
-            _ => "image/png".to_string(),
-        }
+    let mime = mime.unwrap_or_else(|| match media_type {
+        Some("video") => "video/mp4".to_string(),
+        Some("audio") => "audio/mp3".to_string(),
+        _ => "image/png".to_string(),
     });
 
     let media_type = match media_type {
@@ -371,31 +371,35 @@ fn read_media_as_base64(part: &MediaPart) -> Result<String, ExceptionValue> {
     match part.source.as_str() {
         "base64" => Ok(part.content.clone()),
         "file" => {
-            let mut file = std::fs::File::open(&part.content)
-                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to open file: {}", e), None))?;
+            let mut file = std::fs::File::open(&part.content).map_err(|e| {
+                ExceptionValue::new("IOError", format!("Failed to open file: {}", e), None)
+            })?;
             let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer)
-                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to read file: {}", e), None))?;
+            file.read_to_end(&mut buffer).map_err(|e| {
+                ExceptionValue::new("IOError", format!("Failed to read file: {}", e), None)
+            })?;
             use base64::Engine;
             Ok(base64::engine::general_purpose::STANDARD.encode(&buffer))
         }
         "url" => {
             // Download the URL content (synchronous — mirrors Python's
             // urllib.request.urlopen in helen/stdlib/media.py).
-            let resp = ureq::get(&part.content)
-                .call()
-                .map_err(|e| {
-                    ExceptionValue::new(
-                        "IOError",
-                        format!("Failed to download URL {}: {}", part.content, e),
-                        None,
-                    )
-                })?;
+            let resp = ureq::get(&part.content).call().map_err(|e| {
+                ExceptionValue::new(
+                    "IOError",
+                    format!("Failed to download URL {}: {}", part.content, e),
+                    None,
+                )
+            })?;
             let mut reader = resp.into_reader();
             let mut buffer = Vec::new();
-            reader
-                .read_to_end(&mut buffer)
-                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to read URL response: {}", e), None))?;
+            reader.read_to_end(&mut buffer).map_err(|e| {
+                ExceptionValue::new(
+                    "IOError",
+                    format!("Failed to read URL response: {}", e),
+                    None,
+                )
+            })?;
             use base64::Engine;
             Ok(base64::engine::general_purpose::STANDARD.encode(&buffer))
         }
@@ -427,10 +431,15 @@ fn convert_to_openai(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
             );
 
             let mut image_url_map = HashMap::new();
-            image_url_map.insert(Value::Str(Rc::from("url")), Value::Str(Rc::from(url.as_str())));
+            image_url_map.insert(
+                Value::Str(Rc::from("url")),
+                Value::Str(Rc::from(url.as_str())),
+            );
             map.insert(
                 Value::Str(Rc::from("image_url")),
-                Value::Map(Rc::new(std::cell::RefCell::new(image_url_map.into_iter().collect()))),
+                Value::Map(Rc::new(std::cell::RefCell::new(
+                    image_url_map.into_iter().collect(),
+                ))),
             );
 
             Ok(Some(Value::Map(Rc::new(std::cell::RefCell::new(
@@ -443,27 +452,43 @@ fn convert_to_openai(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
             let b64 = read_media_as_base64(part)?;
             let bytes = {
                 use base64::Engine;
-                base64::engine::general_purpose::STANDARD.decode(b64.as_bytes())
-                    .map_err(|e| ExceptionValue::new("ValueError", format!("Invalid base64 video data: {}", e), None))?
+                base64::engine::general_purpose::STANDARD
+                    .decode(b64.as_bytes())
+                    .map_err(|e| {
+                        ExceptionValue::new(
+                            "ValueError",
+                            format!("Invalid base64 video data: {}", e),
+                            None,
+                        )
+                    })?
             };
             let output_dir = std::env::var("HOME")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|_| std::env::temp_dir())
                 .join(".helen")
                 .join("generated_media");
-            std::fs::create_dir_all(&output_dir)
-                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to create media dir: {}", e), None))?;
+            std::fs::create_dir_all(&output_dir).map_err(|e| {
+                ExceptionValue::new(
+                    "IOError",
+                    format!("Failed to create media dir: {}", e),
+                    None,
+                )
+            })?;
             let ext = match part.mime.as_str() {
                 "video/mp4" => "mp4",
                 _ => "mp4",
             };
             let filename = format!("video_{}.{}", simple_hash(&part.content), ext);
             let output_path = output_dir.join(&filename);
-            std::fs::write(&output_path, bytes)
-                .map_err(|e| ExceptionValue::new("IOError", format!("Failed to save video: {}", e), None))?;
+            std::fs::write(&output_path, bytes).map_err(|e| {
+                ExceptionValue::new("IOError", format!("Failed to save video: {}", e), None)
+            })?;
             let mut map = HashMap::new();
             map.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("text")));
-            map.insert(Value::Str(Rc::from("text")), Value::Str(Rc::from(output_path.to_string_lossy().as_ref())));
+            map.insert(
+                Value::Str(Rc::from("text")),
+                Value::Str(Rc::from(output_path.to_string_lossy().as_ref())),
+            );
             Ok(Some(Value::Map(Rc::new(std::cell::RefCell::new(
                 map.into_iter().collect(),
             )))))
@@ -483,22 +508,38 @@ fn convert_to_openai(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
             };
 
             let mut map = HashMap::new();
-            map.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from(audio_type.as_str())));
+            map.insert(
+                Value::Str(Rc::from("type")),
+                Value::Str(Rc::from(audio_type.as_str())),
+            );
 
             if audio_type == "audio_url" {
                 let mut audio_url_map = HashMap::new();
-                audio_url_map.insert(Value::Str(Rc::from("url")), Value::Str(Rc::from(data.as_str())));
+                audio_url_map.insert(
+                    Value::Str(Rc::from("url")),
+                    Value::Str(Rc::from(data.as_str())),
+                );
                 map.insert(
                     Value::Str(Rc::from("audio_url")),
-                    Value::Map(Rc::new(std::cell::RefCell::new(audio_url_map.into_iter().collect()))),
+                    Value::Map(Rc::new(std::cell::RefCell::new(
+                        audio_url_map.into_iter().collect(),
+                    ))),
                 );
             } else {
                 let mut input_audio_map = HashMap::new();
-                input_audio_map.insert(Value::Str(Rc::from("data")), Value::Str(Rc::from(data.as_str())));
-                input_audio_map.insert(Value::Str(Rc::from("format")), Value::Str(Rc::from(part.mime.as_str())));
+                input_audio_map.insert(
+                    Value::Str(Rc::from("data")),
+                    Value::Str(Rc::from(data.as_str())),
+                );
+                input_audio_map.insert(
+                    Value::Str(Rc::from("format")),
+                    Value::Str(Rc::from(part.mime.as_str())),
+                );
                 map.insert(
                     Value::Str(Rc::from("input_audio")),
-                    Value::Map(Rc::new(std::cell::RefCell::new(input_audio_map.into_iter().collect()))),
+                    Value::Map(Rc::new(std::cell::RefCell::new(
+                        input_audio_map.into_iter().collect(),
+                    ))),
                 );
             }
 
@@ -537,16 +578,29 @@ fn convert_to_claude(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
     let source = if part.source == "url" {
         let mut source_map = HashMap::new();
         source_map.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("url")));
-        source_map.insert(Value::Str(Rc::from("url")), Value::Str(Rc::from(part.content.as_str())));
-        Value::Map(Rc::new(std::cell::RefCell::new(source_map.into_iter().collect())))
+        source_map.insert(
+            Value::Str(Rc::from("url")),
+            Value::Str(Rc::from(part.content.as_str())),
+        );
+        Value::Map(Rc::new(std::cell::RefCell::new(
+            source_map.into_iter().collect(),
+        )))
     } else {
         // base64 or file
         let b64 = read_media_as_base64(part)?;
         let mut source_map = HashMap::new();
         source_map.insert(Value::Str(Rc::from("type")), Value::Str(Rc::from("base64")));
-        source_map.insert(Value::Str(Rc::from("media_type")), Value::Str(Rc::from(part.mime.as_str())));
-        source_map.insert(Value::Str(Rc::from("data")), Value::Str(Rc::from(b64.as_str())));
-        Value::Map(Rc::new(std::cell::RefCell::new(source_map.into_iter().collect())))
+        source_map.insert(
+            Value::Str(Rc::from("media_type")),
+            Value::Str(Rc::from(part.mime.as_str())),
+        );
+        source_map.insert(
+            Value::Str(Rc::from("data")),
+            Value::Str(Rc::from(b64.as_str())),
+        );
+        Value::Map(Rc::new(std::cell::RefCell::new(
+            source_map.into_iter().collect(),
+        )))
     };
 
     map.insert(Value::Str(Rc::from("source")), source);
@@ -560,13 +614,21 @@ fn convert_to_gemini(part: &MediaPart) -> Result<Option<Value>, ExceptionValue> 
     let b64 = read_media_as_base64(part)?;
 
     let mut inline_data = HashMap::new();
-    inline_data.insert(Value::Str(Rc::from("mime_type")), Value::Str(Rc::from(part.mime.as_str())));
-    inline_data.insert(Value::Str(Rc::from("data")), Value::Str(Rc::from(b64.as_str())));
+    inline_data.insert(
+        Value::Str(Rc::from("mime_type")),
+        Value::Str(Rc::from(part.mime.as_str())),
+    );
+    inline_data.insert(
+        Value::Str(Rc::from("data")),
+        Value::Str(Rc::from(b64.as_str())),
+    );
 
     let mut map = HashMap::new();
     map.insert(
         Value::Str(Rc::from("inline_data")),
-        Value::Map(Rc::new(std::cell::RefCell::new(inline_data.into_iter().collect()))),
+        Value::Map(Rc::new(std::cell::RefCell::new(
+            inline_data.into_iter().collect(),
+        ))),
     );
 
     Ok(Some(Value::Map(Rc::new(std::cell::RefCell::new(

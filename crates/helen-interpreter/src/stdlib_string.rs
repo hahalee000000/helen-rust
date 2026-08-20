@@ -10,9 +10,9 @@ use num_traits::ToPrimitive;
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
-use crate::value::Value;
 use crate::stdlib::StdlibExport;
-use crate::stdlib_helpers::{arg_str, arg_int, arg_f64, arg_map, arg_opt_str, py_slice};
+use crate::stdlib_helpers::{arg_f64, arg_int, arg_map, arg_opt_str, arg_str, py_slice};
+use crate::value::Value;
 
 fn str_upper(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
     let s = arg_str(args, 0)?;
@@ -900,4 +900,3 @@ pub static STR_EXPORTS: &[StdlibExport] = &[
         func: str_regex_findall,
     },
 ];
-

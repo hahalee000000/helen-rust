@@ -74,7 +74,10 @@ fn tracker_record_disabled() {
 fn tracker_register_source() {
     let mut t = CoverageTracker::new(100);
     t.set_enabled(true);
-    t.register_source("test.helen", vec!["line1".into(), "line2".into(), "line3".into()]);
+    t.register_source(
+        "test.helen",
+        vec!["line1".into(), "line2".into(), "line3".into()],
+    );
     // Need to also record some data for the file to appear in get_file_report
     t.record_line(Some("test.helen"), 1);
     let report = t.get_file_report("test.helen");

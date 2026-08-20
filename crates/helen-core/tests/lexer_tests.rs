@@ -366,10 +366,7 @@ fn scan_logical_operators() {
     let (toks, errs) = scan("&& || !");
     assert!(errs.is_empty());
     let kinds: Vec<TokenType> = toks.iter().take(3).map(|t| t.0).collect();
-    assert_eq!(
-        kinds,
-        vec![TokenType::And, TokenType::Or, TokenType::Bang]
-    );
+    assert_eq!(kinds, vec![TokenType::And, TokenType::Or, TokenType::Bang]);
 }
 
 #[test]
@@ -377,13 +374,7 @@ fn scan_pipe_and_arrow() {
     let (toks, errs) = scan("|> ->");
     assert!(errs.is_empty());
     let kinds: Vec<TokenType> = toks.iter().take(2).map(|t| t.0).collect();
-    assert_eq!(
-        kinds,
-        vec![
-            TokenType::PipeRight,
-            TokenType::Arrow,
-        ]
-    );
+    assert_eq!(kinds, vec![TokenType::PipeRight, TokenType::Arrow,]);
 }
 
 #[test]
@@ -610,7 +601,8 @@ fn scan_try_catch() {
 
 #[test]
 fn scan_match_expression() {
-    let (toks, errs) = scan("match x { case 1 => \"one\", case 2 => \"two\", default => \"other\" }");
+    let (toks, errs) =
+        scan("match x { case 1 => \"one\", case 2 => \"two\", default => \"other\" }");
     assert!(errs.is_empty());
     assert_eq!(toks[0].0, TokenType::Match);
     // Find case tokens
@@ -731,7 +723,10 @@ fn scan_complex_nested_expression() {
 fn scan_multiple_statements() {
     let (toks, errs) = scan("let x = 1; let y = 2; let z = x + y;");
     assert!(errs.is_empty());
-    assert_eq!(toks.iter().filter(|t| t.0 == TokenType::Semicolon).count(), 3);
+    assert_eq!(
+        toks.iter().filter(|t| t.0 == TokenType::Semicolon).count(),
+        3
+    );
 }
 
 #[test]
@@ -1024,4 +1019,3 @@ fn scan_complex_real_world_code() {
     assert!(errs.is_empty(), "Errors: {:?}", errs);
     assert!(toks.len() > 50);
 }
-

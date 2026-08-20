@@ -29,7 +29,11 @@ fn arg_str(args: &[Value], i: usize) -> Result<String, ExceptionValue> {
         Some(Value::Str(s)) => Ok(s.to_string()),
         Some(other) => Err(ExceptionValue::new(
             "TypeError",
-            format!("Expected string at position {}, got {}", i, other.type_name()),
+            format!(
+                "Expected string at position {}, got {}",
+                i,
+                other.type_name()
+            ),
             None,
         )),
         None => Err(ExceptionValue::new(
@@ -92,7 +96,10 @@ fn load_store(interp: &Interpreter) -> Option<TranscriptStore> {
 
 fn make_error_map(msg: &str) -> Value {
     let mut result = indexmap::IndexMap::new();
-    result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
+    result.insert(
+        Value::Str(Rc::from("status")),
+        Value::Str(Rc::from("error")),
+    );
     result.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from(msg)));
     Value::Map(Rc::new(RefCell::new(result)))
 }
@@ -142,7 +149,11 @@ fn json_to_value(v: &serde_json::Value) -> Value {
 
 /// Get or create the working memory map on the interpreter.
 fn get_working_memory(interp: &Interpreter) -> HashMap<String, Vec<Value>> {
-    interp.working_memory.lock().expect("mutex poisoned").clone()
+    interp
+        .working_memory
+        .lock()
+        .expect("mutex poisoned")
+        .clone()
 }
 
 fn set_working_memory(interp: &Interpreter, wm: HashMap<String, Vec<Value>>) {
@@ -155,18 +166,32 @@ fn set_working_memory(interp: &Interpreter, wm: HashMap<String, Vec<Value>>) {
 
 /// Clear the current conversation context.
 /// Python: `_clear_context()` → clears history and transcript.
-pub fn context_clear_context(_interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_clear_context(
+    _interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     // We can't truly clear a transcript (append-only), but we can
     // record a boundary marker to indicate a fresh start.
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("cleared_messages")), Value::Int(BigInt::from(0)));
-    result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Transcript is append-only; use compress_context() to reduce size")));
+    result.insert(
+        Value::Str(Rc::from("cleared_messages")),
+        Value::Int(BigInt::from(0)),
+    );
+    result.insert(
+        Value::Str(Rc::from("note")),
+        Value::Str(Rc::from(
+            "Transcript is append-only; use compress_context() to reduce size",
+        )),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Return detailed statistics about the current conversation context.
 /// Python: `_context_stats()` → reads from transcript store.
-pub fn context_context_stats(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_context_stats(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match load_store(interp) {
         Some(mut store) => {
             let messages = store.read_view();
@@ -203,33 +228,75 @@ pub fn context_context_stats(interp: &mut Interpreter, _args: &[Value]) -> Resul
             }
 
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("message_count")), Value::Int(BigInt::from(total as i64)));
-            result.insert(Value::Str(Rc::from("total_tokens")), Value::Int(BigInt::from(total_tokens as i64)));
-            result.insert(Value::Str(Rc::from("usage_ratio")), Value::Float(usage_ratio));
-            result.insert(Value::Str(Rc::from("max_tokens")), Value::Int(BigInt::from(max_tokens)));
-            result.insert(Value::Str(Rc::from("by_role")), Value::Map(Rc::new(RefCell::new(by_role_map))));
-            result.insert(Value::Str(Rc::from("compressed_count")), Value::Int(BigInt::from(compressed_count as i64)));
-            result.insert(Value::Str(Rc::from("pinned_count")), Value::Int(BigInt::from(pinned_count as i64)));
+            result.insert(
+                Value::Str(Rc::from("message_count")),
+                Value::Int(BigInt::from(total as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("total_tokens")),
+                Value::Int(BigInt::from(total_tokens as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("usage_ratio")),
+                Value::Float(usage_ratio),
+            );
+            result.insert(
+                Value::Str(Rc::from("max_tokens")),
+                Value::Int(BigInt::from(max_tokens)),
+            );
+            result.insert(
+                Value::Str(Rc::from("by_role")),
+                Value::Map(Rc::new(RefCell::new(by_role_map))),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed_count")),
+                Value::Int(BigInt::from(compressed_count as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("pinned_count")),
+                Value::Int(BigInt::from(pinned_count as i64)),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => {
             // No transcript — return zero stats
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("message_count")), Value::Int(BigInt::from(0)));
-            result.insert(Value::Str(Rc::from("total_tokens")), Value::Int(BigInt::from(0)));
+            result.insert(
+                Value::Str(Rc::from("message_count")),
+                Value::Int(BigInt::from(0)),
+            );
+            result.insert(
+                Value::Str(Rc::from("total_tokens")),
+                Value::Int(BigInt::from(0)),
+            );
             result.insert(Value::Str(Rc::from("usage_ratio")), Value::Float(0.0));
-            result.insert(Value::Str(Rc::from("max_tokens")), Value::Int(BigInt::from(128_000)));
+            result.insert(
+                Value::Str(Rc::from("max_tokens")),
+                Value::Int(BigInt::from(128_000)),
+            );
             let by_role_map = indexmap::IndexMap::new();
-            result.insert(Value::Str(Rc::from("by_role")), Value::Map(Rc::new(RefCell::new(by_role_map))));
-            result.insert(Value::Str(Rc::from("compressed_count")), Value::Int(BigInt::from(0)));
-            result.insert(Value::Str(Rc::from("pinned_count")), Value::Int(BigInt::from(0)));
+            result.insert(
+                Value::Str(Rc::from("by_role")),
+                Value::Map(Rc::new(RefCell::new(by_role_map))),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed_count")),
+                Value::Int(BigInt::from(0)),
+            );
+            result.insert(
+                Value::Str(Rc::from("pinned_count")),
+                Value::Int(BigInt::from(0)),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
     }
 }
 
 /// Return current context usage ratio (0.0 to 1.0+).
-pub fn context_context_usage(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_context_usage(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match load_store(interp) {
         Some(mut store) => {
             let messages = store.read_view();
@@ -242,22 +309,26 @@ pub fn context_context_usage(interp: &mut Interpreter, _args: &[Value]) -> Resul
 }
 
 /// Retrieve a single message by UUID.
-pub fn context_get_message(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_get_message(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let uuid = arg_str(args, 0)?;
     match load_store(interp) {
-        Some(store) => {
-            match store.get(&uuid) {
-                Some(item) => Ok(json_to_value(&item.to_dict())),
-                None => Ok(make_error_map("Message not found")),
-            }
-        }
+        Some(store) => match store.get(&uuid) {
+            Some(item) => Ok(json_to_value(&item.to_dict())),
+            None => Ok(make_error_map("Message not found")),
+        },
         None => Ok(make_error_map("Message not found")),
     }
 }
 
 /// Insert a message into the conversation history.
 /// Python: `_insert_message(role, content, position="end")`.
-pub fn context_insert_message(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_insert_message(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let role = arg_str(args, 0)?;
     let content_str = arg_str_or(args, 1, "");
     let _position = arg_str_or(args, 2, "end");
@@ -267,17 +338,17 @@ pub fn context_insert_message(interp: &mut Interpreter, args: &[Value]) -> Resul
     let mut msg = helen_runtime::transcript::Message::new(
         &role,
         serde_json::Value::String(content_str),
-        vec![],                          // tool_calls
-        None,                            // tool_call_id
-        uuid,                            // uuid
-        None,                            // message_type (set below)
-        0,                               // priority
-        false,                           // compressed
-        false,                           // pinned
-        None,                            // agent_name
-        String::new(),                   // invocation_id
-        String::new(),                   // parent_invocation_id
-        vec![],                          // visible_to_invocation_ids
+        vec![],        // tool_calls
+        None,          // tool_call_id
+        uuid,          // uuid
+        None,          // message_type (set below)
+        0,             // priority
+        false,         // compressed
+        false,         // pinned
+        None,          // agent_name
+        String::new(), // invocation_id
+        String::new(), // parent_invocation_id
+        vec![],        // visible_to_invocation_ids
     );
     msg.message_type = Some(msg.infer_message_type());
 
@@ -285,8 +356,14 @@ pub fn context_insert_message(interp: &mut Interpreter, args: &[Value]) -> Resul
         Some(mut store) => {
             let saved = store.append(&mut msg, true);
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("uuid")), Value::Str(Rc::from(saved.uuid.as_str())));
-            result.insert(Value::Str(Rc::from("role")), Value::Str(Rc::from(role.as_str())));
+            result.insert(
+                Value::Str(Rc::from("uuid")),
+                Value::Str(Rc::from(saved.uuid.as_str())),
+            );
+            result.insert(
+                Value::Str(Rc::from("role")),
+                Value::Str(Rc::from(role.as_str())),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => Ok(make_error_map("TranscriptStore not available")),
@@ -296,32 +373,47 @@ pub fn context_insert_message(interp: &mut Interpreter, args: &[Value]) -> Resul
 /// Delete a message by UUID.
 /// Note: Transcript is append-only; this marks the message as deleted
 /// by returning a status but doesn't actually remove it.
-pub fn context_delete_message(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_delete_message(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let uuid = arg_str(args, 0)?;
     match load_store(interp) {
-        Some(store) => {
-            match store.get(&uuid) {
-                Some(_) => {
-                    let mut result = make_ok_map();
-                    result.insert(Value::Str(Rc::from("deleted")), Value::Str(Rc::from(uuid.as_str())));
-                    result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Transcript is append-only; message marked but not removed")));
-                    Ok(Value::Map(Rc::new(RefCell::new(result))))
-                }
-                None => Ok(make_error_map("Message not found")),
+        Some(store) => match store.get(&uuid) {
+            Some(_) => {
+                let mut result = make_ok_map();
+                result.insert(
+                    Value::Str(Rc::from("deleted")),
+                    Value::Str(Rc::from(uuid.as_str())),
+                );
+                result.insert(
+                    Value::Str(Rc::from("note")),
+                    Value::Str(Rc::from(
+                        "Transcript is append-only; message marked but not removed",
+                    )),
+                );
+                Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
-        }
+            None => Ok(make_error_map("Message not found")),
+        },
         None => Ok(make_error_map("Message not found")),
     }
 }
 
 /// Pin a message (immune to compression).
-pub fn context_pin_message(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_pin_message(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let uuid = arg_str(args, 0)?;
     match load_store(interp) {
         Some(mut store) => {
             if store.update_pinned(&uuid, true) {
                 let mut result = make_ok_map();
-                result.insert(Value::Str(Rc::from("uuid")), Value::Str(Rc::from(uuid.as_str())));
+                result.insert(
+                    Value::Str(Rc::from("uuid")),
+                    Value::Str(Rc::from(uuid.as_str())),
+                );
                 result.insert(Value::Str(Rc::from("pinned")), Value::Bool(true));
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
             } else {
@@ -333,13 +425,19 @@ pub fn context_pin_message(interp: &mut Interpreter, args: &[Value]) -> Result<V
 }
 
 /// Unpin a previously pinned message.
-pub fn context_unpin_message(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_unpin_message(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let uuid = arg_str(args, 0)?;
     match load_store(interp) {
         Some(mut store) => {
             if store.update_pinned(&uuid, false) {
                 let mut result = make_ok_map();
-                result.insert(Value::Str(Rc::from("uuid")), Value::Str(Rc::from(uuid.as_str())));
+                result.insert(
+                    Value::Str(Rc::from("uuid")),
+                    Value::Str(Rc::from(uuid.as_str())),
+                );
                 result.insert(Value::Str(Rc::from("pinned")), Value::Bool(false));
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
             } else {
@@ -351,7 +449,10 @@ pub fn context_unpin_message(interp: &mut Interpreter, args: &[Value]) -> Result
 }
 
 /// List all pinned messages.
-pub fn context_list_pinned_messages(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_list_pinned_messages(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match load_store(interp) {
         Some(mut store) => {
             let messages = store.read_view();
@@ -369,25 +470,43 @@ pub fn context_list_pinned_messages(interp: &mut Interpreter, _args: &[Value]) -
 /// Compress the current conversation context.
 /// Python: `_compress_context(strategy="auto")`.
 /// Implements basic compression strategies using TranscriptStore.
-pub fn context_compress_context(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_compress_context(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let strategy = arg_str_or(args, 0, "auto");
-    
+
     match load_store(interp) {
         Some(mut store) => {
             let messages = store.read_view();
             let original_count = messages.len();
             let original_tokens: usize = messages.iter().map(|m| m.token_count()).sum();
-            
+
             if original_count <= 1 {
                 let mut result = make_ok_map();
-                result.insert(Value::Str(Rc::from("original_messages")), Value::Int(BigInt::from(original_count as i64)));
-                result.insert(Value::Str(Rc::from("compressed_messages")), Value::Int(BigInt::from(original_count as i64)));
-                result.insert(Value::Str(Rc::from("original_tokens")), Value::Int(BigInt::from(original_tokens as i64)));
-                result.insert(Value::Str(Rc::from("compressed_tokens")), Value::Int(BigInt::from(original_tokens as i64)));
-                result.insert(Value::Str(Rc::from("strategy")), Value::Str(Rc::from(strategy.as_str())));
+                result.insert(
+                    Value::Str(Rc::from("original_messages")),
+                    Value::Int(BigInt::from(original_count as i64)),
+                );
+                result.insert(
+                    Value::Str(Rc::from("compressed_messages")),
+                    Value::Int(BigInt::from(original_count as i64)),
+                );
+                result.insert(
+                    Value::Str(Rc::from("original_tokens")),
+                    Value::Int(BigInt::from(original_tokens as i64)),
+                );
+                result.insert(
+                    Value::Str(Rc::from("compressed_tokens")),
+                    Value::Int(BigInt::from(original_tokens as i64)),
+                );
+                result.insert(
+                    Value::Str(Rc::from("strategy")),
+                    Value::Str(Rc::from(strategy.as_str())),
+                );
                 return Ok(Value::Map(Rc::new(RefCell::new(result))));
             }
-            
+
             // Implement basic compression strategies
             let compressed_count = match strategy.as_str() {
                 "none" => {
@@ -421,32 +540,71 @@ pub fn context_compress_context(interp: &mut Interpreter, args: &[Value]) -> Res
                 }
                 _ => {
                     let mut result_map = indexmap::IndexMap::new();
-                    result_map.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("error")));
-                    result_map.insert(Value::Str(Rc::from("error")), Value::Str(Rc::from(format!("Unknown compression strategy: {}", strategy).as_str())));
-                    result_map.insert(Value::Str(Rc::from("original_messages")), Value::Int(BigInt::from(original_count as i64)));
-                    result_map.insert(Value::Str(Rc::from("compressed_messages")), Value::Int(BigInt::from(original_count as i64)));
-                    result_map.insert(Value::Str(Rc::from("original_tokens")), Value::Int(BigInt::from(original_tokens as i64)));
-                    result_map.insert(Value::Str(Rc::from("compressed_tokens")), Value::Int(BigInt::from(original_tokens as i64)));
-                    result_map.insert(Value::Str(Rc::from("strategy")), Value::Str(Rc::from(strategy.as_str())));
+                    result_map.insert(
+                        Value::Str(Rc::from("status")),
+                        Value::Str(Rc::from("error")),
+                    );
+                    result_map.insert(
+                        Value::Str(Rc::from("error")),
+                        Value::Str(Rc::from(
+                            format!("Unknown compression strategy: {}", strategy).as_str(),
+                        )),
+                    );
+                    result_map.insert(
+                        Value::Str(Rc::from("original_messages")),
+                        Value::Int(BigInt::from(original_count as i64)),
+                    );
+                    result_map.insert(
+                        Value::Str(Rc::from("compressed_messages")),
+                        Value::Int(BigInt::from(original_count as i64)),
+                    );
+                    result_map.insert(
+                        Value::Str(Rc::from("original_tokens")),
+                        Value::Int(BigInt::from(original_tokens as i64)),
+                    );
+                    result_map.insert(
+                        Value::Str(Rc::from("compressed_tokens")),
+                        Value::Int(BigInt::from(original_tokens as i64)),
+                    );
+                    result_map.insert(
+                        Value::Str(Rc::from("strategy")),
+                        Value::Str(Rc::from(strategy.as_str())),
+                    );
                     return Ok(Value::Map(Rc::new(RefCell::new(result_map))));
                 }
             };
-            
+
             // Estimate compressed tokens (simplified)
             let compressed_tokens = if compressed_count > 0 {
                 // Assume compressed messages use 10 tokens each
                 let remaining = original_count - compressed_count;
-                (remaining as f64 * (original_tokens as f64 / original_count as f64)) as usize + (compressed_count * 10)
+                (remaining as f64 * (original_tokens as f64 / original_count as f64)) as usize
+                    + (compressed_count * 10)
             } else {
                 original_tokens
             };
-            
+
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("original_messages")), Value::Int(BigInt::from(original_count as i64)));
-            result.insert(Value::Str(Rc::from("compressed_messages")), Value::Int(BigInt::from((original_count - compressed_count) as i64)));
-            result.insert(Value::Str(Rc::from("original_tokens")), Value::Int(BigInt::from(original_tokens as i64)));
-            result.insert(Value::Str(Rc::from("compressed_tokens")), Value::Int(BigInt::from(compressed_tokens as i64)));
-            result.insert(Value::Str(Rc::from("strategy")), Value::Str(Rc::from(strategy.as_str())));
+            result.insert(
+                Value::Str(Rc::from("original_messages")),
+                Value::Int(BigInt::from(original_count as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed_messages")),
+                Value::Int(BigInt::from((original_count - compressed_count) as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("original_tokens")),
+                Value::Int(BigInt::from(original_tokens as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed_tokens")),
+                Value::Int(BigInt::from(compressed_tokens as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("strategy")),
+                Value::Str(Rc::from(strategy.as_str())),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => Ok(make_error_map("No interpreter context available")),
@@ -454,7 +612,10 @@ pub fn context_compress_context(interp: &mut Interpreter, args: &[Value]) -> Res
 }
 
 /// Search context for messages matching a query.
-pub fn context_search_context(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_search_context(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let query = arg_str(args, 0)?;
     let role_filter = arg_str_or(args, 1, "");
     let limit = arg_int_or(args, 2, 20) as usize;
@@ -476,20 +637,32 @@ pub fn context_search_context(interp: &mut Interpreter, args: &[Value]) -> Resul
                 }
             }
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("matches")), Value::List(Rc::new(RefCell::new(matches))));
-            result.insert(Value::Str(Rc::from("query")), Value::Str(Rc::from(query.as_str())));
+            result.insert(
+                Value::Str(Rc::from("matches")),
+                Value::List(Rc::new(RefCell::new(matches))),
+            );
+            result.insert(
+                Value::Str(Rc::from("query")),
+                Value::Str(Rc::from(query.as_str())),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => {
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("matches")), Value::List(Rc::new(RefCell::new(vec![]))));
+            result.insert(
+                Value::Str(Rc::from("matches")),
+                Value::List(Rc::new(RefCell::new(vec![]))),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
     }
 }
 
 /// Get a slice of the conversation history.
-pub fn context_context_slice(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_context_slice(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let start = arg_int_or(args, 0, 0) as usize;
     let end = arg_int_or(args, 1, -1);
     let role_filter = arg_str_or(args, 2, "");
@@ -503,18 +676,34 @@ pub fn context_context_slice(interp: &mut Interpreter, args: &[Value]) -> Result
                 messages.iter().filter(|m| m.role == role_filter).collect()
             };
             let total = filtered.len();
-            let end_idx = if end < 0 { total } else { (end as usize).min(total) };
+            let end_idx = if end < 0 {
+                total
+            } else {
+                (end as usize).min(total)
+            };
             let start_idx = start.min(total);
-            let slice: Vec<Value> = filtered[start_idx..end_idx].iter().map(|m| message_to_value(m)).collect();
+            let slice: Vec<Value> = filtered[start_idx..end_idx]
+                .iter()
+                .map(|m| message_to_value(m))
+                .collect();
 
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("messages")), Value::List(Rc::new(RefCell::new(slice))));
-            result.insert(Value::Str(Rc::from("count")), Value::Int(BigInt::from((end_idx - start_idx) as i64)));
+            result.insert(
+                Value::Str(Rc::from("messages")),
+                Value::List(Rc::new(RefCell::new(slice))),
+            );
+            result.insert(
+                Value::Str(Rc::from("count")),
+                Value::Int(BigInt::from((end_idx - start_idx) as i64)),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => {
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("messages")), Value::List(Rc::new(RefCell::new(vec![]))));
+            result.insert(
+                Value::Str(Rc::from("messages")),
+                Value::List(Rc::new(RefCell::new(vec![]))),
+            );
             result.insert(Value::Str(Rc::from("count")), Value::Int(BigInt::from(0)));
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
@@ -522,7 +711,10 @@ pub fn context_context_slice(interp: &mut Interpreter, args: &[Value]) -> Result
 }
 
 /// Export the current context.
-pub fn context_export_context(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_export_context(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match load_store(interp) {
         Some(store) => {
             let data = store.to_dict();
@@ -535,18 +727,21 @@ pub fn context_export_context(interp: &mut Interpreter, _args: &[Value]) -> Resu
 /// Import context from exported data.
 /// Python: `_import_context(data)`.
 /// Imports messages from a previously exported context.
-pub fn context_import_context(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_import_context(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let data = match args.first() {
         Some(Value::Map(m)) => m.clone(),
         _ => return Ok(make_error_map("Expected map argument for import_context")),
     };
-    
+
     // Extract messages from the data
     let messages = match data.borrow().get(&Value::Str(Rc::from("messages"))) {
         Some(Value::List(list)) => list.clone(),
         _ => return Ok(make_error_map("Expected 'messages' list in import data")),
     };
-    
+
     let mut imported_count = 0;
     match load_store(interp) {
         Some(mut store) => {
@@ -560,7 +755,7 @@ pub fn context_import_context(interp: &mut Interpreter, args: &[Value]) -> Resul
                         Some(Value::Str(s)) => s.to_string(),
                         _ => String::new(),
                     };
-                    
+
                     // Create and append message
                     let uuid = format!("msg_{}", uuid::Uuid::new_v4().simple());
                     let mut msg = helen_runtime::transcript::Message::new(
@@ -579,15 +774,18 @@ pub fn context_import_context(interp: &mut Interpreter, args: &[Value]) -> Resul
                         vec![],
                     );
                     msg.message_type = Some(msg.infer_message_type());
-                    
+
                     if store.append(&mut msg, true).uuid == msg.uuid {
                         imported_count += 1;
                     }
                 }
             }
-            
+
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("imported_messages")), Value::Int(BigInt::from(imported_count as i64)));
+            result.insert(
+                Value::Str(Rc::from("imported_messages")),
+                Value::Int(BigInt::from(imported_count as i64)),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => Ok(make_error_map("TranscriptStore not available")),
@@ -597,7 +795,10 @@ pub fn context_import_context(interp: &mut Interpreter, args: &[Value]) -> Resul
 /// Fork the current context.
 /// Python: `_fork_context()`.
 /// Creates a snapshot of the current context for multi-agent transfer.
-pub fn context_fork_context(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_fork_context(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     match load_store(interp) {
         Some(mut store) => {
             let messages = store.read_view();
@@ -605,13 +806,22 @@ pub fn context_fork_context(interp: &mut Interpreter, _args: &[Value]) -> Result
             for m in &messages {
                 msg_list.push(message_to_value(m));
             }
-            
+
             let mut fork_data = indexmap::IndexMap::new();
             fork_data.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
-            fork_data.insert(Value::Str(Rc::from("messages")), Value::List(Rc::new(RefCell::new(msg_list))));
-            fork_data.insert(Value::Str(Rc::from("message_count")), Value::Int(BigInt::from(messages.len() as i64)));
-            fork_data.insert(Value::Str(Rc::from("forked_at")), Value::Str(Rc::from(chrono::Utc::now().to_rfc3339().as_str())));
-            
+            fork_data.insert(
+                Value::Str(Rc::from("messages")),
+                Value::List(Rc::new(RefCell::new(msg_list))),
+            );
+            fork_data.insert(
+                Value::Str(Rc::from("message_count")),
+                Value::Int(BigInt::from(messages.len() as i64)),
+            );
+            fork_data.insert(
+                Value::Str(Rc::from("forked_at")),
+                Value::Str(Rc::from(chrono::Utc::now().to_rfc3339().as_str())),
+            );
+
             Ok(Value::Map(Rc::new(RefCell::new(fork_data))))
         }
         None => Ok(make_error_map("TranscriptStore not available")),
@@ -621,18 +831,21 @@ pub fn context_fork_context(interp: &mut Interpreter, _args: &[Value]) -> Result
 /// Restore context from a fork.
 /// Python: `_restore_context(fork_data)`.
 /// Restores context from a previously forked snapshot.
-pub fn context_restore_context(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_restore_context(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let fork_data = match args.first() {
         Some(Value::Map(m)) => m.clone(),
         _ => return Ok(make_error_map("Expected map argument for restore_context")),
     };
-    
+
     // Extract messages from the fork data
     let messages = match fork_data.borrow().get(&Value::Str(Rc::from("messages"))) {
         Some(Value::List(list)) => list.clone(),
         _ => return Ok(make_error_map("Expected 'messages' list in fork data")),
     };
-    
+
     let mut restored_count = 0;
     match load_store(interp) {
         Some(mut store) => {
@@ -646,7 +859,7 @@ pub fn context_restore_context(interp: &mut Interpreter, args: &[Value]) -> Resu
                         Some(Value::Str(s)) => s.to_string(),
                         _ => String::new(),
                     };
-                    
+
                     // Create and append message
                     let uuid = format!("msg_{}", uuid::Uuid::new_v4().simple());
                     let mut msg = helen_runtime::transcript::Message::new(
@@ -665,15 +878,18 @@ pub fn context_restore_context(interp: &mut Interpreter, args: &[Value]) -> Resu
                         vec![],
                     );
                     msg.message_type = Some(msg.infer_message_type());
-                    
+
                     if store.append(&mut msg, true).uuid == msg.uuid {
                         restored_count += 1;
                     }
                 }
             }
-            
+
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("restored_messages")), Value::Int(BigInt::from(restored_count as i64)));
+            result.insert(
+                Value::Str(Rc::from("restored_messages")),
+                Value::Int(BigInt::from(restored_count as i64)),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => Ok(make_error_map("TranscriptStore not available")),
@@ -682,7 +898,10 @@ pub fn context_restore_context(interp: &mut Interpreter, args: &[Value]) -> Resu
 
 /// Replace a message's content.
 /// Note: Transcript is append-only; creates a new message with same UUID.
-pub fn context_replace_message(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_replace_message(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let uuid = arg_str(args, 0)?;
     let new_content = arg_str(args, 1)?;
 
@@ -692,8 +911,14 @@ pub fn context_replace_message(interp: &mut Interpreter, args: &[Value]) -> Resu
                 Some(_) => {
                     // Append a replacement message (transcript is append-only)
                     let mut result = make_ok_map();
-                    result.insert(Value::Str(Rc::from("uuid")), Value::Str(Rc::from(uuid.as_str())));
-                    result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Transcript is append-only; original preserved")));
+                    result.insert(
+                        Value::Str(Rc::from("uuid")),
+                        Value::Str(Rc::from(uuid.as_str())),
+                    );
+                    result.insert(
+                        Value::Str(Rc::from("note")),
+                        Value::Str(Rc::from("Transcript is append-only; original preserved")),
+                    );
                     let _ = new_content; // Would need mutable store access
                     Ok(Value::Map(Rc::new(RefCell::new(result))))
                 }
@@ -707,32 +932,61 @@ pub fn context_replace_message(interp: &mut Interpreter, args: &[Value]) -> Resu
 /// Set the context window size.
 /// Python: `_set_context_window(tokens)`.
 /// Sets the maximum token limit for context management.
-pub fn context_set_context_window(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_set_context_window(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let tokens = arg_int_or(args, 0, 128_000);
-    
+
     if tokens <= 0 {
         return Ok(make_error_map("tokens must be a positive integer"));
     }
-    
+
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("max_tokens")), Value::Int(BigInt::from(tokens)));
-    result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Context window setting stored (enforcement requires LLM runtime integration)")));
+    result.insert(
+        Value::Str(Rc::from("max_tokens")),
+        Value::Int(BigInt::from(tokens)),
+    );
+    result.insert(
+        Value::Str(Rc::from("note")),
+        Value::Str(Rc::from(
+            "Context window setting stored (enforcement requires LLM runtime integration)",
+        )),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Get context configuration.
-pub fn context_get_context_config(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_get_context_config(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let mut config = make_ok_map();
-    config.insert(Value::Str(Rc::from("max_tokens")), Value::Int(BigInt::from(128_000)));
-    config.insert(Value::Str(Rc::from("compression_strategy")), Value::Str(Rc::from("auto")));
+    config.insert(
+        Value::Str(Rc::from("max_tokens")),
+        Value::Int(BigInt::from(128_000)),
+    );
+    config.insert(
+        Value::Str(Rc::from("compression_strategy")),
+        Value::Str(Rc::from("auto")),
+    );
     config.insert(Value::Str(Rc::from("cache_aware")), Value::Bool(false));
-    config.insert(Value::Str(Rc::from("working_memory_enabled")), Value::Bool(true));
-    config.insert(Value::Str(Rc::from("session_id")), Value::Str(Rc::from(interp.session_id.as_str())));
+    config.insert(
+        Value::Str(Rc::from("working_memory_enabled")),
+        Value::Bool(true),
+    );
+    config.insert(
+        Value::Str(Rc::from("session_id")),
+        Value::Str(Rc::from(interp.session_id.as_str())),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(config))))
 }
 
 /// Set cache-aware mode.
-pub fn context_set_cache_aware(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_set_cache_aware(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let enabled = arg_bool_or(args, 0, false);
     let mut result = make_ok_map();
     result.insert(Value::Str(Rc::from("cache_aware")), Value::Bool(enabled));
@@ -740,32 +994,44 @@ pub fn context_set_cache_aware(_interp: &mut Interpreter, args: &[Value]) -> Res
 }
 
 /// Set compression strategy.
-pub fn context_set_compression_strategy(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_set_compression_strategy(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let strategy = arg_str_or(args, 0, "auto");
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("compression_strategy")), Value::Str(Rc::from(strategy.as_str())));
+    result.insert(
+        Value::Str(Rc::from("compression_strategy")),
+        Value::Str(Rc::from(strategy.as_str())),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Compress context to a target size.
 /// Python: `_compress_context_target(target, keep_recent=5)`.
 /// Implements selective compression for tool_results or stale_turns.
-pub fn context_compress_context_target(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_compress_context_target(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let target = arg_str(args, 0)?;
     let keep_recent = arg_int_or(args, 1, 5) as usize;
-    
+
     match load_store(interp) {
         Some(mut store) => {
             let messages = store.read_view();
             let initial_tokens: usize = messages.iter().map(|m| m.token_count()).sum();
-            
+
             if target != "tool_results" && target != "stale_turns" {
-                return Ok(make_error_map(&format!("Unknown compression target: {}. Use 'tool_results' or 'stale_turns'.", target)));
+                return Ok(make_error_map(&format!(
+                    "Unknown compression target: {}. Use 'tool_results' or 'stale_turns'.",
+                    target
+                )));
             }
-            
+
             let mut compressed_count = 0;
             let mut kept_count = 0;
-            
+
             if target == "tool_results" {
                 // Compress old tool results, preserve tool_use decisions
                 let tool_result_indices: Vec<usize> = messages
@@ -774,7 +1040,7 @@ pub fn context_compress_context_target(interp: &mut Interpreter, args: &[Value])
                     .filter(|(_, m)| m.role == "tool")
                     .map(|(i, _)| i)
                     .collect();
-                
+
                 for (i, idx) in tool_result_indices.iter().enumerate() {
                     if i < tool_result_indices.len().saturating_sub(keep_recent) {
                         if let Some(msg) = messages.get(*idx) {
@@ -802,15 +1068,27 @@ pub fn context_compress_context_target(interp: &mut Interpreter, args: &[Value])
                     kept_count = messages.len();
                 }
             }
-            
+
             let final_tokens: usize = messages.iter().map(|m| m.token_count()).sum();
             let saved_tokens = initial_tokens.saturating_sub(final_tokens);
-            
+
             let mut result = make_ok_map();
-            result.insert(Value::Str(Rc::from("target")), Value::Str(Rc::from(target.as_str())));
-            result.insert(Value::Str(Rc::from("compressed")), Value::Int(BigInt::from(compressed_count as i64)));
-            result.insert(Value::Str(Rc::from("saved_tokens")), Value::Int(BigInt::from(saved_tokens as i64)));
-            result.insert(Value::Str(Rc::from("kept_messages")), Value::Int(BigInt::from(kept_count as i64)));
+            result.insert(
+                Value::Str(Rc::from("target")),
+                Value::Str(Rc::from(target.as_str())),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed")),
+                Value::Int(BigInt::from(compressed_count as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("saved_tokens")),
+                Value::Int(BigInt::from(saved_tokens as i64)),
+            );
+            result.insert(
+                Value::Str(Rc::from("kept_messages")),
+                Value::Int(BigInt::from(kept_count as i64)),
+            );
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
         None => Ok(make_error_map("No interpreter context available")),
@@ -820,7 +1098,10 @@ pub fn context_compress_context_target(interp: &mut Interpreter, args: &[Value])
 /// Set compression callback.
 /// Python: `_on_compression(callback)`.
 /// Registers a callback to be invoked when compression occurs.
-pub fn context_on_compression(_interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_on_compression(
+    _interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let mut result = make_ok_map();
     result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Compression callback registered (callback invocation requires event system integration)")));
     Ok(Value::Map(Rc::new(RefCell::new(result))))
@@ -829,14 +1110,25 @@ pub fn context_on_compression(_interp: &mut Interpreter, _args: &[Value]) -> Res
 /// Set context overflow callback.
 /// Python: `_on_context_overflow(callback)`.
 /// Registers a callback to be invoked when context overflow is detected.
-pub fn context_on_context_overflow(_interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_on_context_overflow(
+    _interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Overflow callback registered (callback invocation requires event system integration)")));
+    result.insert(
+        Value::Str(Rc::from("note")),
+        Value::Str(Rc::from(
+            "Overflow callback registered (callback invocation requires event system integration)",
+        )),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Set working memory field.
-pub fn context_working_memory_set(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_working_memory_set(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let key = arg_str(args, 0)?;
     let value = args.get(1).cloned().unwrap_or(Value::Null);
 
@@ -845,12 +1137,18 @@ pub fn context_working_memory_set(interp: &mut Interpreter, args: &[Value]) -> R
     set_working_memory(interp, wm);
 
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("key")), Value::Str(Rc::from(key.as_str())));
+    result.insert(
+        Value::Str(Rc::from("key")),
+        Value::Str(Rc::from(key.as_str())),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
 /// Get working memory contents.
-pub fn context_working_memory_get(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_working_memory_get(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let key = arg_str_or(args, 0, "");
     let wm = get_working_memory(interp);
 
@@ -858,17 +1156,29 @@ pub fn context_working_memory_get(interp: &mut Interpreter, args: &[Value]) -> R
         // Return all working memory
         let mut map = indexmap::IndexMap::new();
         for (k, v) in &wm {
-            map.insert(Value::Str(Rc::from(k.as_str())), Value::List(Rc::new(RefCell::new(v.clone()))));
+            map.insert(
+                Value::Str(Rc::from(k.as_str())),
+                Value::List(Rc::new(RefCell::new(v.clone()))),
+            );
         }
         let mut result = make_ok_map();
-        result.insert(Value::Str(Rc::from("data")), Value::Map(Rc::new(RefCell::new(map))));
+        result.insert(
+            Value::Str(Rc::from("data")),
+            Value::Map(Rc::new(RefCell::new(map))),
+        );
         Ok(Value::Map(Rc::new(RefCell::new(result))))
     } else {
         match wm.get(&key) {
             Some(items) => {
                 let mut result = make_ok_map();
-                result.insert(Value::Str(Rc::from("key")), Value::Str(Rc::from(key.as_str())));
-                result.insert(Value::Str(Rc::from("items")), Value::List(Rc::new(RefCell::new(items.clone()))));
+                result.insert(
+                    Value::Str(Rc::from("key")),
+                    Value::Str(Rc::from(key.as_str())),
+                );
+                result.insert(
+                    Value::Str(Rc::from("items")),
+                    Value::List(Rc::new(RefCell::new(items.clone()))),
+                );
                 Ok(Value::Map(Rc::new(RefCell::new(result))))
             }
             None => Ok(make_error_map(&format!("Key not found: {key}"))),
@@ -877,14 +1187,20 @@ pub fn context_working_memory_get(interp: &mut Interpreter, args: &[Value]) -> R
 }
 
 /// Remove a working memory entry.
-pub fn context_working_memory_remove(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_working_memory_remove(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let key = arg_str(args, 0)?;
     let mut wm = get_working_memory(interp);
 
     if wm.remove(&key).is_some() {
         set_working_memory(interp, wm);
         let mut result = make_ok_map();
-        result.insert(Value::Str(Rc::from("key")), Value::Str(Rc::from(key.as_str())));
+        result.insert(
+            Value::Str(Rc::from("key")),
+            Value::Str(Rc::from(key.as_str())),
+        );
         Ok(Value::Map(Rc::new(RefCell::new(result))))
     } else {
         Ok(make_error_map(&format!("Key not found: {key}")))
@@ -892,7 +1208,10 @@ pub fn context_working_memory_remove(interp: &mut Interpreter, args: &[Value]) -
 }
 
 /// Clear all working memory.
-pub fn context_working_memory_clear(interp: &mut Interpreter, _args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_working_memory_clear(
+    interp: &mut Interpreter,
+    _args: &[Value],
+) -> Result<Value, ExceptionValue> {
     set_working_memory(interp, HashMap::new());
     let mut result = make_ok_map();
     result.insert(Value::Str(Rc::from("cleared")), Value::Bool(true));
@@ -900,9 +1219,15 @@ pub fn context_working_memory_clear(interp: &mut Interpreter, _args: &[Value]) -
 }
 
 /// Enable or disable working memory.
-pub fn context_set_working_memory_enabled(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn context_set_working_memory_enabled(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let enabled = arg_bool_or(args, 0, true);
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("working_memory_enabled")), Value::Bool(enabled));
+    result.insert(
+        Value::Str(Rc::from("working_memory_enabled")),
+        Value::Bool(enabled),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }

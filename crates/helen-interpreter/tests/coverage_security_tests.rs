@@ -5,13 +5,13 @@
 //! - Interpreter records line coverage during execution
 //! - quality_check_security ports the Python SecurityAnalyzer
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use helen_interpreter::debug::*;
 use helen_interpreter::interpreter::Interpreter;
 use helen_interpreter::quality::quality_check_security;
 use helen_interpreter::value::Value;
 use num_bigint::BigInt;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn make_interp() -> Interpreter {
     Interpreter::new()
@@ -49,8 +49,8 @@ fn test_coverage_report_text() {
 
 #[test]
 fn test_coverage_records_lines() {
-    use helen_parser::Parser;
     use helen_core::lexer::Scanner;
+    use helen_parser::Parser;
 
     let mut interp = make_interp();
     debug_coverage_on(&mut interp, &[]).unwrap();
@@ -60,7 +60,11 @@ fn test_coverage_records_lines() {
     let tokens = scanner.scan_all();
     let mut parser = Parser::new(tokens);
     let program = parser.parse();
-    assert!(parser.errors().is_empty(), "parse errors: {:?}", parser.errors());
+    assert!(
+        parser.errors().is_empty(),
+        "parse errors: {:?}",
+        parser.errors()
+    );
 
     let _ = interp.interpret(&program).unwrap();
 
@@ -118,7 +122,11 @@ fn test_security_no_issues() {
     let mut interp = make_interp();
     let result = quality_check_security(&mut interp, &[Value::Str("let x = 42\n".into())]).unwrap();
     match &result {
-        Value::List(l) => assert!(l.borrow().is_empty(), "expected no issues, got {:?}", l.borrow()),
+        Value::List(l) => assert!(
+            l.borrow().is_empty(),
+            "expected no issues, got {:?}",
+            l.borrow()
+        ),
         other => panic!("expected list, got {other:?}"),
     }
 }
@@ -126,7 +134,8 @@ fn test_security_no_issues() {
 #[test]
 fn test_security_eval_high() {
     let mut interp = make_interp();
-    let result = quality_check_security(&mut interp, &[Value::Str("eval(\"rm -rf /\")\n".into())]).unwrap();
+    let result =
+        quality_check_security(&mut interp, &[Value::Str("eval(\"rm -rf /\")\n".into())]).unwrap();
     match &result {
         Value::List(l) => {
             let items = l.borrow();
@@ -139,7 +148,9 @@ fn test_security_eval_high() {
                     let pat = m.get(&Value::Str("pattern".into()));
                     assert!(matches!(pat, Some(Value::Str(s)) if s.as_ref() == "eval()"));
                     let line = m.get(&Value::Str("line".into()));
-                    assert!(matches!(line, Some(Value::Int(n)) if *n == num_bigint::BigInt::from(1)));
+                    assert!(
+                        matches!(line, Some(Value::Int(n)) if *n == num_bigint::BigInt::from(1))
+                    );
                 }
                 other => panic!("expected map issue, got {other:?}"),
             }
@@ -214,7 +225,11 @@ fn test_security_ignores_comments() {
     )
     .unwrap();
     match &result {
-        Value::List(l) => assert!(l.borrow().is_empty(), "comment should be ignored: {:?}", l.borrow()),
+        Value::List(l) => assert!(
+            l.borrow().is_empty(),
+            "comment should be ignored: {:?}",
+            l.borrow()
+        ),
         other => panic!("expected list, got {other:?}"),
     }
 }
@@ -252,18 +267,48 @@ fn test_record_replay_roundtrip() {
     // 1. Recording runtime answers "hello" and writes to cassette.
     let rt = MockLlmRuntime::with_act_text("hello");
     rt.enable_recording(path.to_str().unwrap()).unwrap();
-    let resp = rt.act("hi", &[], None, 1.0, 1, None, &[], None, None, false, None).unwrap();
+    let resp = rt
+        .act("hi", &[], None, 1.0, 1, None, &[], None, None, false, None)
+        .unwrap();
     assert_eq!(resp.text(), "hello");
     rt.disable_recording().unwrap();
 
     // 2. A fresh runtime replays the cassette.
     let rt2 = MockLlmRuntime::with_act_text("WRONG");
     rt2.enable_replay(path.to_str().unwrap()).unwrap();
-    let resp2 = rt2.act("anything", &[], None, 1.0, 1, None, &[], None, None, false, None).unwrap();
+    let resp2 = rt2
+        .act(
+            "anything",
+            &[],
+            None,
+            1.0,
+            1,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
     assert_eq!(resp2.text(), "hello");
 
     // 3. Replay exhausts after 1 entry.
-    let err = rt2.act("again", &[], None, 1.0, 1, None, &[], None, None, false, None).unwrap_err();
+    let err = rt2
+        .act(
+            "again",
+            &[],
+            None,
+            1.0,
+            1,
+            None,
+            &[],
+            None,
+            None,
+            false,
+            None,
+        )
+        .unwrap_err();
     assert!(err.message.contains("No more recorded interactions"));
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -327,7 +372,9 @@ fn test_markdown_to_html_headings() {
     let html = data_markdown_to_html(&mut i, &[s(md)]).unwrap();
     assert!(html.python_str().contains("<h1>Hello World</h1>"));
     // Python wraps paragraph content: <p>\n...\n</p>
-    assert!(html.python_str().contains("<p>\nSome <em>text</em> here.\n</p>"));
+    assert!(html
+        .python_str()
+        .contains("<p>\nSome <em>text</em> here.\n</p>"));
 
     let hs = data_markdown_extract_headings(&mut i, &[s(md)]).unwrap();
     let list = match &hs {

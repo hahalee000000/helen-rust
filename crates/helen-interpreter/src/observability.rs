@@ -25,7 +25,11 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
-    pub fn new(function_name: &str, span: Option<&SourceSpan>, args: HashMap<String, String>) -> Self {
+    pub fn new(
+        function_name: &str,
+        span: Option<&SourceSpan>,
+        args: HashMap<String, String>,
+    ) -> Self {
         CallFrame {
             function_name: function_name.to_string(),
             location: Self::format_location(span),
@@ -52,9 +56,17 @@ impl CallFrame {
 
     pub fn to_dict(&self) -> HashMap<String, serde_json::Value> {
         let mut d = HashMap::new();
-        d.insert("function".to_string(), serde_json::Value::String(self.function_name.clone()));
-        d.insert("location".to_string(), serde_json::Value::String(self.location.clone()));
-        let args_map: serde_json::Map<String, serde_json::Value> = self.args.iter()
+        d.insert(
+            "function".to_string(),
+            serde_json::Value::String(self.function_name.clone()),
+        );
+        d.insert(
+            "location".to_string(),
+            serde_json::Value::String(self.location.clone()),
+        );
+        let args_map: serde_json::Map<String, serde_json::Value> = self
+            .args
+            .iter()
             .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
             .collect();
         d.insert("args".to_string(), serde_json::Value::Object(args_map));
@@ -82,7 +94,12 @@ impl CallStackTracker {
         }
     }
 
-    pub fn push(&mut self, function_name: &str, span: Option<&SourceSpan>, args: HashMap<String, String>) {
+    pub fn push(
+        &mut self,
+        function_name: &str,
+        span: Option<&SourceSpan>,
+        args: HashMap<String, String>,
+    ) {
         if !self.enabled {
             return;
         }
@@ -113,8 +130,15 @@ impl CallStackTracker {
         }
         let mut lines = vec!["Traceback (most recent call first):".to_string()];
         for (i, frame) in self.stack.iter().rev().enumerate() {
-            let prefix = if i < self.stack.len() - 1 { "  " } else { "-> " };
-            lines.push(format!("{}{} in {}", prefix, frame.location, frame.function_name));
+            let prefix = if i < self.stack.len() - 1 {
+                "  "
+            } else {
+                "-> "
+            };
+            lines.push(format!(
+                "{}{} in {}",
+                prefix, frame.location, frame.function_name
+            ));
         }
         lines.join("\n")
     }
@@ -152,10 +176,21 @@ impl TraceEntry {
 
     pub fn to_dict(&self) -> HashMap<String, serde_json::Value> {
         let mut d = HashMap::new();
-        d.insert("time".to_string(), serde_json::Value::Number(serde_json::Number::from(self.timestamp as u64)));
-        d.insert("type".to_string(), serde_json::Value::String(self.event_type.clone()));
-        d.insert("location".to_string(), serde_json::Value::String(self.location.clone()));
-        let data_map: serde_json::Map<String, serde_json::Value> = self.data.iter()
+        d.insert(
+            "time".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.timestamp as u64)),
+        );
+        d.insert(
+            "type".to_string(),
+            serde_json::Value::String(self.event_type.clone()),
+        );
+        d.insert(
+            "location".to_string(),
+            serde_json::Value::String(self.location.clone()),
+        );
+        let data_map: serde_json::Map<String, serde_json::Value> = self
+            .data
+            .iter()
             .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
             .collect();
         d.insert("data".to_string(), serde_json::Value::Object(data_map));
@@ -179,7 +214,12 @@ impl ExecutionTracer {
         }
     }
 
-    pub fn trace(&mut self, event_type: &str, span: Option<&SourceSpan>, data: HashMap<String, String>) {
+    pub fn trace(
+        &mut self,
+        event_type: &str,
+        span: Option<&SourceSpan>,
+        data: HashMap<String, String>,
+    ) {
         if !self.enabled {
             return;
         }
@@ -206,9 +246,14 @@ impl ExecutionTracer {
         } else {
             0
         };
-        let mut lines = vec![format!("Execution Trace (last {} entries):", self.entries.len() - start)];
+        let mut lines = vec![format!(
+            "Execution Trace (last {} entries):",
+            self.entries.len() - start
+        )];
         for entry in &self.entries[start..] {
-            let func = entry.data.get("function")
+            let func = entry
+                .data
+                .get("function")
                 .or_else(|| entry.data.get("agent"))
                 .cloned()
                 .unwrap_or_default();
@@ -218,7 +263,10 @@ impl ExecutionTracer {
                     let ret = entry.data.get("return_value").cloned().unwrap_or_default();
                     lines.push(format!("  ← {} return {} → {}", entry.location, func, ret));
                 }
-                _ => lines.push(format!("  [{}] {} {}", entry.event_type, entry.location, func)),
+                _ => lines.push(format!(
+                    "  [{}] {} {}",
+                    entry.event_type, entry.location, func
+                )),
             }
         }
         lines.join("\n")
@@ -299,9 +347,19 @@ impl ErrorSnapshot {
             lines.push("  (empty)".to_string());
         } else {
             for (i, frame) in self.call_stack.iter().rev().enumerate() {
-                let prefix = if i < self.call_stack.len() - 1 { "  " } else { "-> " };
-                let func = frame.get("function").and_then(|v| v.as_str()).unwrap_or("?");
-                let loc = frame.get("location").and_then(|v| v.as_str()).unwrap_or("?");
+                let prefix = if i < self.call_stack.len() - 1 {
+                    "  "
+                } else {
+                    "-> "
+                };
+                let func = frame
+                    .get("function")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?");
+                let loc = frame
+                    .get("location")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?");
                 lines.push(format!("{}{} in {}", prefix, loc, func));
             }
         }
@@ -321,14 +379,16 @@ impl ErrorSnapshot {
             for entry in self.trace.iter().rev().take(20).rev() {
                 let trace_type = entry.get("type").and_then(|v| v.as_str()).unwrap_or("?");
                 let data = entry.get("data").and_then(|v| v.as_object());
-                let func = data.and_then(|d| d.get("function").or_else(|| d.get("agent")))
+                let func = data
+                    .and_then(|d| d.get("function").or_else(|| d.get("agent")))
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 let loc = entry.get("location").and_then(|v| v.as_str()).unwrap_or("");
                 match trace_type {
                     "call" => lines.push(format!("  → {} call {}", loc, func)),
                     "return" => {
-                        let ret = data.and_then(|d| d.get("return_value"))
+                        let ret = data
+                            .and_then(|d| d.get("return_value"))
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
                         lines.push(format!("  ← {} return {} → {}", loc, func, ret));
@@ -344,29 +404,60 @@ impl ErrorSnapshot {
     pub fn to_dict(&self) -> HashMap<String, serde_json::Value> {
         let mut d = HashMap::new();
         let mut error = HashMap::new();
-        error.insert("type".to_string(), serde_json::Value::String(self.error_type.clone()));
-        error.insert("message".to_string(), serde_json::Value::String(self.message.clone()));
-        error.insert("location".to_string(), serde_json::Value::String(self.location.clone()));
-        d.insert("error".to_string(), serde_json::Value::Object(error.into_iter().collect()));
+        error.insert(
+            "type".to_string(),
+            serde_json::Value::String(self.error_type.clone()),
+        );
+        error.insert(
+            "message".to_string(),
+            serde_json::Value::String(self.message.clone()),
+        );
+        error.insert(
+            "location".to_string(),
+            serde_json::Value::String(self.location.clone()),
+        );
+        d.insert(
+            "error".to_string(),
+            serde_json::Value::Object(error.into_iter().collect()),
+        );
 
-        let stack_arr: Vec<serde_json::Value> = self.call_stack.iter()
+        let stack_arr: Vec<serde_json::Value> = self
+            .call_stack
+            .iter()
             .map(|f| serde_json::Value::Object(f.clone().into_iter().collect()))
             .collect();
-        d.insert("call_stack".to_string(), serde_json::Value::Array(stack_arr));
+        d.insert(
+            "call_stack".to_string(),
+            serde_json::Value::Array(stack_arr),
+        );
 
-        let scope_map: serde_json::Map<String, serde_json::Value> = self.scope.iter()
+        let scope_map: serde_json::Map<String, serde_json::Value> = self
+            .scope
+            .iter()
             .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
             .collect();
         d.insert("scope".to_string(), serde_json::Value::Object(scope_map));
 
-        let trace_arr: Vec<serde_json::Value> = self.trace.iter().take(20)
+        let trace_arr: Vec<serde_json::Value> = self
+            .trace
+            .iter()
+            .take(20)
             .map(|e| serde_json::Value::Object(e.clone().into_iter().collect()))
             .collect();
         d.insert("trace".to_string(), serde_json::Value::Array(trace_arr));
 
-        d.insert("timestamp".to_string(), serde_json::Value::Number(serde_json::Number::from(self.timestamp as u64)));
-        d.insert("diagnostic_category".to_string(), serde_json::Value::String(self.diagnostic_category.clone()));
-        d.insert("suggestion".to_string(), serde_json::Value::String(self.suggestion.clone()));
+        d.insert(
+            "timestamp".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.timestamp as u64)),
+        );
+        d.insert(
+            "diagnostic_category".to_string(),
+            serde_json::Value::String(self.diagnostic_category.clone()),
+        );
+        d.insert(
+            "suggestion".to_string(),
+            serde_json::Value::String(self.suggestion.clone()),
+        );
 
         d
     }
@@ -395,19 +486,54 @@ pub struct LLMAuditEntry {
 impl LLMAuditEntry {
     pub fn to_dict(&self) -> HashMap<String, serde_json::Value> {
         let mut d = HashMap::new();
-        d.insert("time".to_string(), serde_json::Value::Number(serde_json::Number::from(self.timestamp as u64)));
-        d.insert("type".to_string(), serde_json::Value::String(self.call_type.clone()));
-        d.insert("agent".to_string(), self.agent_name.as_ref().map(|s| serde_json::Value::String(s.clone())).unwrap_or(serde_json::Value::Null));
-        d.insert("model".to_string(), self.model.as_ref().map(|s| serde_json::Value::String(s.clone())).unwrap_or(serde_json::Value::Null));
-        d.insert("prompt".to_string(), serde_json::Value::String(truncate_str(&self.prompt, 500)));
-        d.insert("tokens_in".to_string(), serde_json::Value::Number(serde_json::Number::from(self.tokens_in)));
-        d.insert("tokens_out".to_string(), serde_json::Value::Number(serde_json::Number::from(self.tokens_out)));
-        d.insert("duration_ms".to_string(), serde_json::Value::Number(serde_json::Number::from(self.duration_ms as u64)));
+        d.insert(
+            "time".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.timestamp as u64)),
+        );
+        d.insert(
+            "type".to_string(),
+            serde_json::Value::String(self.call_type.clone()),
+        );
+        d.insert(
+            "agent".to_string(),
+            self.agent_name
+                .as_ref()
+                .map(|s| serde_json::Value::String(s.clone()))
+                .unwrap_or(serde_json::Value::Null),
+        );
+        d.insert(
+            "model".to_string(),
+            self.model
+                .as_ref()
+                .map(|s| serde_json::Value::String(s.clone()))
+                .unwrap_or(serde_json::Value::Null),
+        );
+        d.insert(
+            "prompt".to_string(),
+            serde_json::Value::String(truncate_str(&self.prompt, 500)),
+        );
+        d.insert(
+            "tokens_in".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.tokens_in)),
+        );
+        d.insert(
+            "tokens_out".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.tokens_out)),
+        );
+        d.insert(
+            "duration_ms".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.duration_ms as u64)),
+        );
         if let Some(ref resp) = self.response {
-            d.insert("response".to_string(), serde_json::Value::String(truncate_str(resp, 500)));
+            d.insert(
+                "response".to_string(),
+                serde_json::Value::String(truncate_str(resp, 500)),
+            );
         }
         if !self.tool_calls.is_empty() {
-            let arr: Vec<serde_json::Value> = self.tool_calls.iter()
+            let arr: Vec<serde_json::Value> = self
+                .tool_calls
+                .iter()
                 .map(|tc| serde_json::Value::Object(tc.clone().into_iter().collect()))
                 .collect();
             d.insert("tool_calls".to_string(), serde_json::Value::Array(arr));

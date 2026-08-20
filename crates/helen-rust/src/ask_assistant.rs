@@ -109,7 +109,13 @@ pub fn format_repl_context_block(
 
     // Recent output
     if !recent_output.is_empty() {
-        let last_15: Vec<&str> = recent_output.iter().rev().take(15).rev().map(|s| s.as_str()).collect();
+        let last_15: Vec<&str> = recent_output
+            .iter()
+            .rev()
+            .take(15)
+            .rev()
+            .map(|s| s.as_str())
+            .collect();
         let joined = last_15.join("\n");
         let truncated = if joined.len() > 2000 {
             format!("{}\n... (truncated)", &joined[joined.len() - 2000..])
@@ -145,11 +151,7 @@ pub fn build_assistant_system_prompt(repl_context: &str) -> String {
 }
 
 /// Build the full assistant prompt: system prompt + REPL context.
-pub fn build_assistant_prompt(
-    interp: &Interpreter,
-    repl_state: &ReplState,
-    cwd: &str,
-) -> String {
+pub fn build_assistant_prompt(interp: &Interpreter, repl_state: &ReplState, cwd: &str) -> String {
     let definitions = interp.list_definitions();
     let repl_block = format_repl_context_block(
         &definitions,
@@ -240,10 +242,7 @@ pub fn dispatch_repl_tool(
             }
         }
         "repl_history" => {
-            let n = args
-                .get("n")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(10) as usize;
+            let n = args.get("n").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
             let n = n.clamp(1, 50);
             let lines: Vec<&str> = repl_state
                 .output_buffer
@@ -260,10 +259,7 @@ pub fn dispatch_repl_tool(
             }
         }
         "repl_read_file" => {
-            let rel_path = args
-                .get("path")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let rel_path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             if rel_path.is_empty() {
                 return "(error: 'path' argument required)".to_string();
             }
@@ -316,13 +312,13 @@ fn run_streaming(
 
     let result = runtime.act_stream(
         prompt,
-        None,  // model
-        0.7,   // temperature
+        None, // model
+        0.7,  // temperature
         Some(system_prompt),
         Some(tools),
-        5,     // max_turns
-        None,  // max_tokens
-        None,  // history
+        5,    // max_turns
+        None, // max_tokens
+        None, // history
         Some(dispatch_fn),
         &mut |event: Value| {
             let etype = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
@@ -368,12 +364,7 @@ fn run_streaming(
 // ---------------------------------------------------------------------------
 
 /// Run a single `:ask` question and print the assistant's response.
-pub fn ask_single(
-    question: &str,
-    interp: &Interpreter,
-    repl_state: &ReplState,
-    cwd: &str,
-) {
+pub fn ask_single(question: &str, interp: &Interpreter, repl_state: &ReplState, cwd: &str) {
     let system_prompt = build_assistant_prompt(interp, repl_state, cwd);
     let repl_tools = build_repl_tools();
 
@@ -392,7 +383,13 @@ pub fn ask_single(
     };
 
     // Try streaming first
-    run_streaming(&mut runtime, question, &system_prompt, &repl_tools, &dispatch_fn);
+    run_streaming(
+        &mut runtime,
+        question,
+        &system_prompt,
+        &repl_tools,
+        &dispatch_fn,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -423,7 +420,10 @@ pub fn run_chat_mode(session_id: &str, cwd: &str) {
     let session_state = ChatSessionState::new();
 
     loop {
-        print!("[{}:ask] >>> ", session_id.chars().take(8).collect::<String>());
+        print!(
+            "[{}:ask] >>> ",
+            session_id.chars().take(8).collect::<String>()
+        );
         if io::stdout().flush().is_err() {
             break;
         }
@@ -465,7 +465,13 @@ pub fn run_chat_mode(session_id: &str, cwd: &str) {
             dispatch_repl_tool(name, args, &interp, &session_state.repl_state, cwd)
         };
 
-        run_streaming(&mut runtime, line, &system_prompt, &repl_tools, &dispatch_fn);
+        run_streaming(
+            &mut runtime,
+            line,
+            &system_prompt,
+            &repl_tools,
+            &dispatch_fn,
+        );
     }
 }
 

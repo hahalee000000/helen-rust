@@ -7,7 +7,6 @@
 pub mod calc;
 pub mod call_tracking;
 pub mod channel;
-pub mod media;
 pub mod compression;
 pub mod config;
 pub mod constants;
@@ -21,6 +20,7 @@ pub mod history;
 pub mod http_llm;
 pub mod llm;
 pub mod mcp;
+pub mod media;
 pub mod memory;
 pub mod model_caps;
 pub mod observability;

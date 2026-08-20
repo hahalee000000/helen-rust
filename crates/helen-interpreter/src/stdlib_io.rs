@@ -10,9 +10,9 @@ use num_traits::ToPrimitive;
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
-use crate::value::Value;
 use crate::stdlib::StdlibExport;
-use crate::stdlib_helpers::{arg_str, arg_f64, arg_bool, arg_opt_str, arg_opt_int};
+use crate::stdlib_helpers::{arg_bool, arg_f64, arg_opt_int, arg_opt_str, arg_str};
+use crate::value::Value;
 
 // std.path
 // ---------------------------------------------------------------------------

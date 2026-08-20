@@ -203,13 +203,19 @@ impl MCPClient {
 
         // Create response channel.
         let (tx, rx): (Sender<Value>, Receiver<Value>) = channel();
-        self.pending.lock().expect("mutex poisoned").insert(request_id, tx);
+        self.pending
+            .lock()
+            .expect("mutex poisoned")
+            .insert(request_id, tx);
 
         // Send request.
         let request_json = serde_json::to_string(&request).expect("serialize request") + "\n";
         let write_result = {
             let stdin = self.stdin.as_mut().ok_or_else(|| {
-                self.pending.lock().expect("mutex poisoned").remove(&request_id);
+                self.pending
+                    .lock()
+                    .expect("mutex poisoned")
+                    .remove(&request_id);
                 MCPError::Server(format!("MCP server '{}' is not running", self.name))
             })?;
             stdin
@@ -217,7 +223,10 @@ impl MCPClient {
                 .and_then(|_| stdin.flush())
         };
         if let Err(e) = write_result {
-            self.pending.lock().expect("mutex poisoned").remove(&request_id);
+            self.pending
+                .lock()
+                .expect("mutex poisoned")
+                .remove(&request_id);
             return Err(MCPError::Server(format!(
                 "Failed to send request to MCP server '{}': {}",
                 self.name, e
@@ -228,14 +237,20 @@ impl MCPClient {
         let response = match rx.recv_timeout(Duration::from_secs(self.timeout)) {
             Ok(r) => r,
             Err(_) => {
-                self.pending.lock().expect("mutex poisoned").remove(&request_id);
+                self.pending
+                    .lock()
+                    .expect("mutex poisoned")
+                    .remove(&request_id);
                 return Err(MCPError::Timeout(format!(
                     "Timeout waiting for response from MCP server '{}'",
                     self.name
                 )));
             }
         };
-        self.pending.lock().expect("mutex poisoned").remove(&request_id);
+        self.pending
+            .lock()
+            .expect("mutex poisoned")
+            .remove(&request_id);
 
         // Check for error.
         if let Some(error) = response.get("error") {

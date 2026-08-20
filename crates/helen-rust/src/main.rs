@@ -324,9 +324,7 @@ fn agent_command() -> i32 {
     println!();
 
     // 1. Check Node.js
-    let node_check = Command::new("node")
-        .arg("--version")
-        .output();
+    let node_check = Command::new("node").arg("--version").output();
     if node_check.is_err() || !node_check.as_ref().expect("as_ref").status.success() {
         eprintln!("❌ Error: Node.js is not installed.");
         eprintln!();
@@ -394,7 +392,9 @@ print("OK")
     } else {
         // Try relative to the binary location
         let exe = std::env::current_exe().ok();
-        let bin_dir = exe.as_ref().and_then(|p| p.parent().map(|p| p.to_path_buf()));
+        let bin_dir = exe
+            .as_ref()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()));
         let candidate = bin_dir
             .as_ref()
             .map(|d| d.join("../helen/agent"))
@@ -412,7 +412,9 @@ print("OK")
         eprintln!("❌ Error: agent directory not found");
         eprintln!("Expected location: {}", agent_dir.display());
         eprintln!();
-        eprintln!("Set HELEN_AGENT_DIR to the agent directory, or run from the helen-rust repo root.");
+        eprintln!(
+            "Set HELEN_AGENT_DIR to the agent directory, or run from the helen-rust repo root."
+        );
         return 1;
     }
 
@@ -604,7 +606,10 @@ fn main() {
             } else {
                 std::env::current_dir().unwrap_or_default().join(path)
             };
-            std::env::set_var("HELEN_TRANSCRIPT_LOG", abs_path.to_string_lossy().to_string());
+            std::env::set_var(
+                "HELEN_TRANSCRIPT_LOG",
+                abs_path.to_string_lossy().to_string(),
+            );
             i += 2;
         } else if argv[i].starts_with("--transcript-log=") {
             let path_str = &argv[i]["--transcript-log=".len()..];
@@ -614,7 +619,10 @@ fn main() {
             } else {
                 std::env::current_dir().unwrap_or_default().join(path)
             };
-            std::env::set_var("HELEN_TRANSCRIPT_LOG", abs_path.to_string_lossy().to_string());
+            std::env::set_var(
+                "HELEN_TRANSCRIPT_LOG",
+                abs_path.to_string_lossy().to_string(),
+            );
             i += 1;
         } else {
             filtered_argv.push(argv[i].clone());
@@ -716,7 +724,8 @@ fn main() {
                 std::process::exit(1);
             }
             // Extract session flags before running
-            let (session_id, _remaining_argv) = helen_rust::cli_commands::extract_session_flags(&argv[1..]);
+            let (session_id, _remaining_argv) =
+                helen_rust::cli_commands::extract_session_flags(&argv[1..]);
             let code = helen_rust::cli_commands::run_command(first, session_id.as_deref());
             std::process::exit(code);
         }

@@ -1,10 +1,10 @@
 //! Tests for native module — NativeHandle, NativeObject trait, python import hook.
 
+use helen_interpreter::exceptions::ExceptionValue;
 use helen_interpreter::native::*;
 use helen_interpreter::value::Value;
-use helen_interpreter::exceptions::ExceptionValue;
-use std::sync::Arc;
 use std::any::Any;
+use std::sync::Arc;
 
 // ── Test NativeObject implementation ────────────────────────────────────
 
@@ -26,7 +26,11 @@ impl NativeObject for TestNativeObj {
         if name == "value" {
             Ok(Value::Int(42.into()))
         } else {
-            Err(ExceptionValue::new("AttributeError", format!("no attr: {name}"), None))
+            Err(ExceptionValue::new(
+                "AttributeError",
+                format!("no attr: {name}"),
+                None,
+            ))
         }
     }
     fn call(&self, args: &[Value], _kwargs: &[(String, Value)]) -> Result<Value, ExceptionValue> {
@@ -50,7 +54,9 @@ impl NativeObject for TestNativeObj {
 
 #[test]
 fn native_handle_type_name() {
-    let obj = TestNativeObj { name: "test".into() };
+    let obj = TestNativeObj {
+        name: "test".into(),
+    };
     let handle = NativeHandle(Arc::new(obj));
     assert_eq!(handle.0.type_name(), "test");
 }
@@ -121,12 +127,17 @@ fn native_handle_get_item_err() {
 fn native_handle_set_item() {
     let obj = TestNativeObj { name: "x".into() };
     let handle = NativeHandle(Arc::new(obj));
-    assert!(handle.0.set_item(&Value::Int(0.into()), &Value::Int(1.into())).is_ok());
+    assert!(handle
+        .0
+        .set_item(&Value::Int(0.into()), &Value::Int(1.into()))
+        .is_ok());
 }
 
 #[test]
 fn native_handle_downcast_ref() {
-    let obj = TestNativeObj { name: "downcast_test".into() };
+    let obj = TestNativeObj {
+        name: "downcast_test".into(),
+    };
     let handle = NativeHandle(Arc::new(obj));
     let downcasted = handle.downcast_ref::<TestNativeObj>();
     assert!(downcasted.is_some());
@@ -140,14 +151,30 @@ fn native_handle_downcast_ref_wrong_type() {
     // Can't downcast to a different type
     struct Other;
     impl NativeObject for Other {
-        fn type_name(&self) -> String { "other".into() }
-        fn python_str(&self) -> String { "".into() }
-        fn python_repr(&self) -> String { "".into() }
-        fn get_attribute(&self, _: &str) -> Result<Value, ExceptionValue> { Ok(Value::Null) }
-        fn call(&self, _: &[Value], _: &[(String, Value)]) -> Result<Value, ExceptionValue> { Ok(Value::Null) }
-        fn get_item(&self, _: &Value) -> Result<Value, ExceptionValue> { Ok(Value::Null) }
-        fn set_item(&self, _: &Value, _: &Value) -> Result<(), ExceptionValue> { Ok(()) }
-        fn as_any(&self) -> &dyn Any { self }
+        fn type_name(&self) -> String {
+            "other".into()
+        }
+        fn python_str(&self) -> String {
+            "".into()
+        }
+        fn python_repr(&self) -> String {
+            "".into()
+        }
+        fn get_attribute(&self, _: &str) -> Result<Value, ExceptionValue> {
+            Ok(Value::Null)
+        }
+        fn call(&self, _: &[Value], _: &[(String, Value)]) -> Result<Value, ExceptionValue> {
+            Ok(Value::Null)
+        }
+        fn get_item(&self, _: &Value) -> Result<Value, ExceptionValue> {
+            Ok(Value::Null)
+        }
+        fn set_item(&self, _: &Value, _: &Value) -> Result<(), ExceptionValue> {
+            Ok(())
+        }
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
     assert!(handle.downcast_ref::<Other>().is_none());
 }
@@ -162,7 +189,9 @@ fn native_handle_debug() {
 
 #[test]
 fn native_handle_clone() {
-    let obj = TestNativeObj { name: "clone_test".into() };
+    let obj = TestNativeObj {
+        name: "clone_test".into(),
+    };
     let handle = NativeHandle(Arc::new(obj));
     let cloned = handle.clone();
     assert_eq!(cloned.0.type_name(), "clone_test");

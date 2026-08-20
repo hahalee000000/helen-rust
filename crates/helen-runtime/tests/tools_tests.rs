@@ -124,7 +124,12 @@ fn get_tool_schemas_all() {
 fn dispatch_tool_read_file_nonexistent() {
     let args = json!({"path": "/nonexistent/file.txt"});
     let result = dispatch_tool("read_file", &args);
-    assert!(result.contains("error") || result.contains("Error") || result.contains("not found") || result.contains("No such"));
+    assert!(
+        result.contains("error")
+            || result.contains("Error")
+            || result.contains("not found")
+            || result.contains("No such")
+    );
 }
 
 #[test]
@@ -138,7 +143,12 @@ fn dispatch_tool_calculate() {
 fn dispatch_tool_unknown() {
     let args = json!({});
     let result = dispatch_tool("nonexistent", &args);
-    assert!(result.contains("error") || result.contains("Error") || result.contains("Unknown") || result.contains("unknown"));
+    assert!(
+        result.contains("error")
+            || result.contains("Error")
+            || result.contains("Unknown")
+            || result.contains("unknown")
+    );
 }
 
 // ── tools_dispatch ──────────────────────────────────────────────────────
@@ -165,7 +175,13 @@ fn tools_dispatch_unknown() {
     let result = tools_dispatch("nonexistent", &args);
     // Unknown tools may return Ok with error message or Err
     if let Ok(msg) = result {
-        assert!(msg.contains("error") || msg.contains("Error") || msg.contains("Unknown") || msg.contains("unknown") || msg.contains("not found"));
+        assert!(
+            msg.contains("error")
+                || msg.contains("Error")
+                || msg.contains("Unknown")
+                || msg.contains("unknown")
+                || msg.contains("not found")
+        );
     }
 }
 

@@ -102,7 +102,12 @@ fn t9_let__router_buf______age_1fb3cf4() {
 fn t10_let__a______let__b_______2a1b29e() {
     let src = "let _a = \"\"\nlet _b = \"\"\nagent AgentA {\n    description \"a\"\n    prompt \"a\"\n    main {\n        _a = \"x\"  // ❌ triggers both read + write scope errors\n    }\n}\nagent AgentB {\n    description \"b\"\n    prompt \"b\"\n    main {\n        _b = \"y\"  // ❌ triggers both read + write scope errors\n    }\n}\n";
     let got = analyze_codes_of(src);
-    let expected: Vec<String> = vec!["E0350".to_string(), "E0350".to_string(), "E0350".to_string(), "E0350".to_string()];
+    let expected: Vec<String> = vec![
+        "E0350".to_string(),
+        "E0350".to_string(),
+        "E0350".to_string(),
+        "E0350".to_string(),
+    ];
     assert_eq!(got, expected, "E-code mismatch");
 }
 
