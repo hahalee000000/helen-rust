@@ -514,28 +514,173 @@ pub fn transcript_get_invocation_tree(interp: &mut Interpreter, args: &[Value]) 
     }
 }
 
-/// Export transcript to JSON string.
+/// Export transcript to file.
+/// Python: `export_transcript(output_path, format="json", session_id="", include_spawned=false)` → writes to file.
+///
+/// Args:
+///   output_path: Path to output file
+///   format: Export format: "json", "markdown", or "text"
+///   session_id: Session to export. If empty, uses current session.
+///   include_spawned: If true, export all spawned sessions recursively.
+///
+/// Returns: output_path on success, empty string on failure.
 pub fn transcript_export_transcript(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let sid = arg_str_or(args, 0, "");
-    let include_compressed = arg_bool_or(args, 1, false);
+    let output_path = arg_str_or(args, 0, "");
+    let format = arg_str_or(args, 1, "json");
+    let sid = arg_str_or(args, 2, "");
+    let include_spawned = arg_bool_or(args, 3, false);
 
-    match load_store(interp, sid) {
-        Some((mut store, _)) => {
-            let data = if include_compressed {
-                store.to_dict()
-            } else {
-                let messages = store.read_view();
-                let items: Vec<serde_json::Value> = messages
-                    .iter()
-                    .map(helen_runtime::transcript::message_to_dict)
-                    .collect();
-                serde_json::json!({ "messages": items })
-            };
-            let json_str = serde_json::to_string_pretty(&data).unwrap_or_else(|_| "[]".to_string());
-            Ok(Value::Str(Rc::from(json_str.as_str())))
-        }
-        None => Ok(Value::Str(Rc::from("[]"))),
+    if output_path.is_empty() {
+        return Ok(Value::Str(Rc::from("")));
     }
+
+    // Collect messages
+    let messages = if include_spawned {
+        // Collect from root + all spawned sessions recursively
+        collect_full_session_messages(interp, sid)
+    } else {
+        // Collect from single session
+        match load_store(interp, sid) {
+            Some((mut store, _)) => {
+                let msgs = store.read_view();
+                msgs.iter()
+                    .map(helen_runtime::transcript::message_to_dict)
+                    .collect()
+            }
+            None => vec![],
+        }
+    };
+
+    if messages.is_empty() {
+        return Ok(Value::Str(Rc::from("")));
+    }
+
+    // Create parent directories
+    let path = std::path::Path::new(output_path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() && std::fs::create_dir_all(parent).is_err() {
+            return Ok(Value::Str(Rc::from("")));
+        }
+    }
+
+    // Write to file based on format
+    let result = match format {
+        "json" => {
+            let json_str = serde_json::to_string_pretty(&messages)
+                .unwrap_or_else(|_| "[]".to_string());
+            std::fs::write(path, json_str)
+        }
+        "markdown" => {
+            let empty_content = serde_json::Value::String(String::new());
+            let mut content = String::from("# Transcript Export\n\n");
+            for msg in &messages {
+                if msg.get("type").and_then(|v| v.as_str()) == Some("message") {
+                    let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    let msg_content = msg.get("content").unwrap_or(&empty_content);
+                    let (text, _) = helen_runtime::transcript::message_text_parts(msg_content);
+                    // Title-case the role
+                    let role_title = if role.is_empty() {
+                        "Unknown".to_string()
+                    } else {
+                        let mut chars = role.chars();
+                        match chars.next() {
+                            None => String::new(),
+                            Some(f) => f.to_uppercase().to_string() + chars.as_str(),
+                        }
+                    };
+                    content.push_str(&format!("## {}\n\n{}\n\n---\n\n", role_title, text));
+                }
+            }
+            std::fs::write(path, content)
+        }
+        "text" => {
+            let empty_content = serde_json::Value::String(String::new());
+            let mut content = String::new();
+            for msg in &messages {
+                if msg.get("type").and_then(|v| v.as_str()) == Some("message") {
+                    let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    let msg_content = msg.get("content").unwrap_or(&empty_content);
+                    let (text, _) = helen_runtime::transcript::message_text_parts(msg_content);
+                    content.push_str(&format!("[{}] {}\n", role, text));
+                }
+            }
+            std::fs::write(path, content)
+        }
+        _ => {
+            // Unknown format
+            return Ok(Value::Str(Rc::from("")));
+        }
+    };
+
+    match result {
+        Ok(_) => Ok(Value::Str(Rc::from(output_path))),
+        Err(_) => Ok(Value::Str(Rc::from(""))),
+    }
+}
+
+/// Collect messages from root session and all spawned sessions recursively.
+/// Tags each message with `session_id` field.
+fn collect_full_session_messages(interp: &Interpreter, session_id: &str) -> Vec<serde_json::Value> {
+    let root_sid = if session_id.is_empty() {
+        &interp.session_id
+    } else {
+        session_id
+    };
+    if root_sid.is_empty() {
+        return vec![];
+    }
+
+    // Collect all session IDs (root + all spawns recursively)
+    let mut all_sids = vec![root_sid.to_string()];
+    let manager = interp.session_manager.lock().expect("mutex poisoned");
+    let all_sessions = manager.list_sessions();
+
+    fn collect_spawns(
+        sid: &str,
+        manager: &helen_runtime::session::SessionManager,
+        all_sessions: &[helen_runtime::session::SessionInfo],
+        collected: &mut Vec<String>,
+    ) {
+        for s in all_sessions {
+            let path = manager.get_session_path(&s.session_id);
+            if !path.exists() {
+                continue;
+            }
+            let backend = JsonlBackend::new(&path);
+            let store = TranscriptStore::load_from_backend(backend, 100);
+            if let Some(meta) = store.read_meta() {
+                if meta.parent_session_id == sid && !collected.contains(&s.session_id) {
+                    collected.push(s.session_id.clone());
+                    collect_spawns(&s.session_id, manager, all_sessions, collected);
+                }
+            }
+        }
+    }
+
+    collect_spawns(root_sid, &manager, &all_sessions, &mut all_sids);
+    drop(manager);
+
+    // Aggregate messages from all sessions, tagged with session_id
+    let mut all_messages = Vec::new();
+    for sid in &all_sids {
+        if let Some((mut store, _)) = load_store(interp, sid) {
+            let msgs = store.read_view();
+            for m in msgs {
+                let mut d = helen_runtime::transcript::message_to_dict(&m);
+                d["session_id"] = serde_json::Value::String(sid.clone());
+                all_messages.push(d);
+            }
+        }
+    }
+
+    // Sort by timestamp (if available)
+    all_messages.sort_by(|a, b| {
+        let ts_a = a.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let ts_b = b.get("timestamp").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        ts_a.partial_cmp(&ts_b).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    all_messages
 }
 
 /// Replay transcript messages.

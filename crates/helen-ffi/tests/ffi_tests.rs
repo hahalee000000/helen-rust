@@ -30,7 +30,7 @@ fn helen_to_python_primitive_roundtrip() {
         assert_eq!(v.bind(py).extract::<i64>().unwrap(), 42);
         // float
         let v = helen_to_python(py, &Value::Float(2.718)).unwrap();
-        assert_eq!(v.bind(py).extract::<f64>().unwrap(), 3.14);
+        assert_eq!(v.bind(py).extract::<f64>().unwrap(), 2.718);
         // str
         let v = helen_to_python(py, &Value::Str("hello".into())).unwrap();
         assert_eq!(v.bind(py).extract::<String>().unwrap(), "hello");

@@ -222,11 +222,42 @@ fn test_get_spawned_sessions_empty() {
 }
 
 #[test]
-fn test_export_transcript_empty_json() {
+fn test_export_transcript_empty_path() {
+    // No args → output_path is "" → returns ""
     let mut interp = make_interp();
     let result = transcript_export_transcript(&mut interp, &[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), Value::Str(Rc::from("[]")));
+    assert_eq!(result.unwrap(), Value::Str(Rc::from("")));
+}
+
+#[test]
+fn test_export_transcript_no_session() {
+    // Valid path but no session → returns ""
+    let mut interp = make_interp();
+    let tmp = std::env::temp_dir().join("helen_test_export_nosession.json");
+    let path_str = tmp.to_str().unwrap();
+    let result = transcript_export_transcript(&mut interp, &[
+        Value::Str(Rc::from(path_str)),
+    ]);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), Value::Str(Rc::from("")));
+    // Clean up if file was created
+    let _ = std::fs::remove_file(&tmp);
+}
+
+#[test]
+fn test_export_transcript_unknown_format() {
+    // Unknown format → returns ""
+    let mut interp = make_interp();
+    let tmp = std::env::temp_dir().join("helen_test_export_badfmt.xyz");
+    let path_str = tmp.to_str().unwrap();
+    let result = transcript_export_transcript(&mut interp, &[
+        Value::Str(Rc::from(path_str)),
+        Value::Str(Rc::from("xml")),
+    ]);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), Value::Str(Rc::from("")));
+    let _ = std::fs::remove_file(&tmp);
 }
 
 #[test]

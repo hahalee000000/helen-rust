@@ -1,0 +1,17 @@
+# Linker configuration for helen-ffi (PyO3 / Python FFI)
+#
+# The uv-managed CPython 3.12 ships libpython3.12.so in a non-standard path.
+# Embed an rpath so test binaries find it at runtime without LD_LIBRARY_PATH.
+#
+# To run FFI tests:
+#   cargo test -p helen-ffi --features python-ffi
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = [
+    "-C", "link-arg=-Wl,-rpath,/home/rxx/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu/lib",
+]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    "-C", "link-arg=-Wl,-rpath,/home/rxx/.local/share/uv/python/cpython-3.12.13-linux-aarch64-gnu/lib",
+]
