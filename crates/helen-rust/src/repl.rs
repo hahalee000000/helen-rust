@@ -7,11 +7,13 @@
 use helen_core::lexer::Scanner;
 use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
+use helen_runtime::http_llm::HttpLLMRuntime;
 use helen_runtime::transcript::{JsonlBackend, TranscriptStore};
 use helen_semantic::SemanticAnalyzer;
 use std::io::Write;
 
 use crate::ask_assistant::{self, ReplState};
+use crate::llm_adapter::HttpLlmAdapter;
 
 /// `_needs_continuation(buffer)` — unclosed braces/parens/brackets, with
 /// string-literal awareness (braces inside strings don't count).
@@ -529,6 +531,15 @@ pub fn repl_command(session_id: Option<&str>) -> i32 {
     if let Some(sid) = session_id {
         interp.session_id = sid.to_string();
     }
+
+    // Set up real LLM runtime from config (so `llm act` works in REPL)
+    let runtime = HttpLLMRuntime::new(None, None, None);
+    if !runtime.api_key.is_empty() && runtime.api_key != "sk-placeholder" {
+        let adapter = HttpLlmAdapter::new(runtime);
+        #[allow(clippy::arc_with_non_send_sync)]
+        interp.set_llm_runtime(std::sync::Arc::new(adapter));
+    }
+
     let mut analyzer = SemanticAnalyzer::new(
         helen_semantic::ErrorReporter::new(),
         &std::env::current_dir()

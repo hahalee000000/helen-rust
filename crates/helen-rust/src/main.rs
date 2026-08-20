@@ -16,6 +16,7 @@
 mod ask_assistant;
 mod docgen;
 mod formatter;
+mod llm_adapter;
 mod repl;
 mod test;
 

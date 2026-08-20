@@ -5,5 +5,6 @@ pub mod cli_commands;
 pub mod cli_utils;
 pub mod docgen;
 pub mod formatter;
+pub mod llm_adapter;
 pub mod repl;
 pub mod test;
