@@ -47,14 +47,33 @@ pub fn config_file() -> PathBuf {
 }
 
 /// Load config from `~/.helen/config.yaml`. Returns defaults on any failure.
-/// Only `key: value` / `key: "quoted"` simple YAML subset is parsed.
+/// Flattens nested `llm:` section to match Python behavior.
 pub fn load_config() -> serde_json::Value {
     let path = config_file();
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
         Err(_) => return serde_json::Value::Object(Default::default()),
     };
-    parse_simple_yaml(&content)
+    let parsed = parse_simple_yaml(&content);
+    
+    // Flatten nested `llm:` section (Python parity)
+    let mut flat = serde_json::Map::new();
+    
+    // Extract llm section if present
+    if let Some(llm) = parsed.get("llm").and_then(|v| v.as_object()) {
+        for (k, v) in llm {
+            flat.insert(k.clone(), v.clone());
+        }
+    }
+    
+    // Copy other top-level keys (transcript, multimodal, etc.)
+    for (k, v) in parsed.as_object().unwrap_or(&serde_json::Map::new()) {
+        if k != "llm" {
+            flat.insert(k.clone(), v.clone());
+        }
+    }
+    
+    serde_json::Value::Object(flat)
 }
 
 /// Parse a simple YAML subset (top-level `key: value` pairs + nested blocks
