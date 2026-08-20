@@ -760,7 +760,7 @@ impl LlmRuntime for HttpLLMRuntime {
 
             use std::io::Read;
             let mut buf = [0u8; 8192];
-            let mut line = String::new();
+            let mut line_bytes: Vec<u8> = Vec::new();
             loop {
                 // Read one byte at a time until \n (SSE lines)
                 let mut byte = [0u8; 1];
@@ -768,6 +768,8 @@ impl LlmRuntime for HttpLLMRuntime {
                     Ok(0) => break,
                     Ok(_) => {
                         if byte[0] == b'\n' {
+                            // Decode accumulated bytes as UTF-8
+                            let line = String::from_utf8_lossy(&line_bytes).to_string();
                             process_sse_line(
                                 &line,
                                 &mut full_text,
@@ -780,9 +782,9 @@ impl LlmRuntime for HttpLLMRuntime {
                                 &mut on_event,
                                 protocol_ref,
                             );
-                            line.clear();
+                            line_bytes.clear();
                         } else {
-                            line.push(byte[0] as char);
+                            line_bytes.push(byte[0]);
                         }
                     }
                     Err(_) => break,
@@ -790,19 +792,22 @@ impl LlmRuntime for HttpLLMRuntime {
                 let _ = &mut buf;
             }
             // Process any trailing line
-            if !line.trim().is_empty() {
-                process_sse_line(
-                    &line,
-                    &mut full_text,
-                    &mut reasoning_chunks,
-                    &mut tool_calls_acc,
-                    &mut usage_info,
-                    &mut finish_reason,
-                    &mut stream_context,
-                    &mut final_message,
-                    &mut on_event,
-                    protocol_ref,
-                );
+            if !line_bytes.is_empty() {
+                let line = String::from_utf8_lossy(&line_bytes).to_string();
+                if !line.trim().is_empty() {
+                    process_sse_line(
+                        &line,
+                        &mut full_text,
+                        &mut reasoning_chunks,
+                        &mut tool_calls_acc,
+                        &mut usage_info,
+                        &mut finish_reason,
+                        &mut stream_context,
+                        &mut final_message,
+                        &mut on_event,
+                        protocol_ref,
+                    );
+                }
             }
 
             // Tool-call handling in streaming: if tool calls accumulated, run them.
