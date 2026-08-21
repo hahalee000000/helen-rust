@@ -5,6 +5,7 @@
 use helen_core::lexer::Scanner;
 use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
@@ -825,7 +826,11 @@ pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
 
     let result = interp.interpret(&program);
     let stdout = interp.stdout.lock().expect("mutex poisoned").clone();
-    print!("{stdout}");
+    // Only print buffer if stdout is not a TTY (piped/captured output)
+    // For TTY, output was already printed incrementally by builtin_print
+    if !std::io::stdout().is_terminal() {
+        print!("{stdout}");
+    }
     match result {
         Ok(_) => 0,
         Err(e) => {

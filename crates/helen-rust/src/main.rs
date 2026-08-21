@@ -102,6 +102,9 @@ fn run_mode(path: &str, mock_llm: bool) {
     }
     let result = interp.interpret(&program);
     let stdout = interp.stdout.lock().expect("mutex poisoned").clone();
+    // This is the --json output mode, so we use run_json to format output.
+    // Note: builtin_print also writes to actual stdout incrementally, but
+    // for --json mode we need the captured buffer for the JSON structure.
     match result {
         Ok(_) => {
             println!("{}", run_json(&stdout, "", 0, &[]));

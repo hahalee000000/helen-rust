@@ -456,8 +456,10 @@ pub fn builtin_multiline_input(
 }
 
 pub fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    use std::io::{IsTerminal, Write};
     let parts: Vec<String> = args.iter().map(|a| a.to_display(true)).collect();
     let result = parts.join(" ");
+    // Write to internal buffer (for capture/testing)
     interp
         .stdout
         .lock()
@@ -468,6 +470,12 @@ pub fn builtin_print(interp: &mut Interpreter, args: &[Value]) -> Result<Value, 
         .lock()
         .expect("stdout mutex poisoned")
         .push('\n');
+    // Also write to actual stdout immediately if it's a TTY (interactive use)
+    // This ensures prompts appear before blocking operations like LLM calls
+    if std::io::stdout().is_terminal() {
+        println!("{}", result);
+        std::io::stdout().flush().ok();
+    }
     Ok(Value::Str(Rc::from(result.as_str())))
 }
 
