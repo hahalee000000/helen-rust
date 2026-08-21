@@ -14,9 +14,9 @@ default = []
 python-ffi = ["dep:pyo3"]
 
 [dependencies]
-helen-interpreter = { path = "../helen-interpreter" }
-helen-runtime = { path = "../helen-runtime" }
-helen-core = { path = "../helen-core" }
+helen-interpreter = { version = "0.1.0", path = "../helen-interpreter" }
+helen-runtime = { version = "0.1.0", path = "../helen-runtime" }
+helen-core = { version = "0.1.0", path = "../helen-core" }
 num-bigint.workspace = true
 indexmap.workspace = true
 serde_json.workspace = true

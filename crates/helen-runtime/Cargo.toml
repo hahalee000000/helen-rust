@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Helen language Rust reimplementation — helen-runtime (M5 LLM runtime)"
 
 [dependencies]
-helen-core = { path = "../helen-core" }
+helen-core = { version = "0.1.0", path = "../helen-core" }
 serde_json.workspace = true
 serde.workspace = true
 regex.workspace = true

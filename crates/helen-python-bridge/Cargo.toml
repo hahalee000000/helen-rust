@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Helen language Rust reimplementation — helen-python-bridge (M11 Python Bridge, Python → Helen)"
+publish = false
 
 # Maturin builds this crate as a PyO3 extension module. The compiled module is
 # installed as `helen_rust._core` (see pyproject.toml `module-name`); the
@@ -25,8 +26,8 @@ extension-module = ["pyo3/extension-module"]
 # auto-initialize: lets `cargo test` run pyo3 code without an external Python
 # process (M10 helen-ffi uses the same setup for its tests).
 pyo3 = { version = "0.23", features = ["auto-initialize"] }
-helen-core = { path = "../helen-core" }
-helen-parser = { path = "../helen-parser" }
-helen-semantic = { path = "../helen-semantic" }
-helen-interpreter = { path = "../helen-interpreter" }
-helen-ffi = { path = "../helen-ffi", features = ["python-ffi"] }
+helen-core = { version = "0.1.0", path = "../helen-core" }
+helen-parser = { version = "0.1.0", path = "../helen-parser" }
+helen-semantic = { version = "0.1.0", path = "../helen-semantic" }
+helen-interpreter = { version = "0.1.0", path = "../helen-interpreter" }
+helen-ffi = { version = "0.1.0", path = "../helen-ffi", features = ["python-ffi"] }

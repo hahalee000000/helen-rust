@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Helen language Rust reimplementation — helen-parser (Pratt parser)"
 
 [dependencies]
-helen-core = { path = "../helen-core" }
+helen-core = { version = "0.1.0", path = "../helen-core" }
 
 [dev-dependencies]
 proptest.workspace = true
