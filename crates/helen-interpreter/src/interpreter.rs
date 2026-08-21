@@ -3161,6 +3161,22 @@ impl Interpreter {
         } else {
             String::new()
         };
+        
+        // Bare form: if prompt is empty and we're inside an agent context,
+        // use the rendered agent prompt as the user message (Python parity).
+        let prompt = if prompt.is_empty() && self.current_agent.is_some() {
+            if let Some(agent) = &self.current_agent {
+                if let Some(prompt_def) = &agent.prompt {
+                    self.render_prompt_template(&prompt_def.content)
+                } else {
+                    prompt
+                }
+            } else {
+                prompt
+            }
+        } else {
+            prompt
+        };
         // Extract agent settings (Python `_get_agent_setting`): model,
         // temperature, max-turns. M5: full signature passthrough.
         let model = self.agent_setting("model");

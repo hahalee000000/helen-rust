@@ -25,9 +25,11 @@ use helen_core::lexer::Scanner;
 use helen_core::tokens::LiteralValue;
 use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
+use helen_runtime::http_llm::HttpLLMRuntime;
 use helen_rust::cli_utils::{
     normalize_stderr, print_help, render_uncaught, run_json, HELEN_VERSION,
 };
+use helen_rust::llm_adapter::HttpLlmAdapter;
 use helen_semantic::{analyze_codes, analyze_messages};
 
 fn run_mode(path: &str, mock_llm: bool) {
@@ -88,6 +90,14 @@ fn run_mode(path: &str, mock_llm: bool) {
         );
         #[allow(clippy::arc_with_non_send_sync)]
         interp.set_llm_runtime(std::sync::Arc::new(mock));
+    } else {
+        // Set up real LLM runtime from config (so `llm act` works)
+        let runtime = HttpLLMRuntime::new(None, None, None);
+        if !runtime.api_key.is_empty() && runtime.api_key != "sk-placeholder" {
+            let adapter = HttpLlmAdapter::new(runtime);
+            #[allow(clippy::arc_with_non_send_sync)]
+            interp.set_llm_runtime(std::sync::Arc::new(adapter));
+        }
     }
     let result = interp.interpret(&program);
     let stdout = interp.stdout.lock().expect("mutex poisoned").clone();

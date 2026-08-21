@@ -814,6 +814,15 @@ pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
         interp.session_id = sid.to_string();
     }
     interp.set_source_file(file);
+    
+    // Set up LLM runtime from config (so `llm act` works)
+    let runtime = helen_runtime::http_llm::HttpLLMRuntime::new(None, None, None);
+    if !runtime.api_key.is_empty() && runtime.api_key != "sk-placeholder" {
+        let adapter = crate::llm_adapter::HttpLlmAdapter::new(runtime);
+        #[allow(clippy::arc_with_non_send_sync)]
+        interp.set_llm_runtime(std::sync::Arc::new(adapter));
+    }
+    
     let result = interp.interpret(&program);
     let stdout = interp.stdout.lock().expect("mutex poisoned").clone();
     print!("{stdout}");
