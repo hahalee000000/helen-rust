@@ -3161,7 +3161,7 @@ impl Interpreter {
         } else {
             String::new()
         };
-        
+
         // Bare form: if prompt is empty and we're inside an agent context,
         // use the rendered agent prompt as the user message (Python parity).
         let prompt = if prompt.is_empty() && self.current_agent.is_some() {
