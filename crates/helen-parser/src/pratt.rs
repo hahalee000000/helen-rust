@@ -1225,8 +1225,7 @@ impl Parser {
 
         self.match_tokens(&[TokenType::Assign]);
 
-        let value: Expr;
-        if self.check(TokenType::String)
+        let value = if self.check(TokenType::String)
             || self.check(TokenType::TripleQuoteString)
             || self.check(TokenType::Number)
         {
@@ -1234,17 +1233,17 @@ impl Parser {
             // in Rust `LiteralValue` already carries the variant, so they collapse.
             self.advance();
             let value_tok = self.previous().clone();
-            value = Expr::Literal(Lit {
+            Expr::Literal(Lit {
                 value: value_tok.literal.clone(),
                 span: value_tok.span(),
-            });
+            })
         } else if self.check(TokenType::True) || self.check(TokenType::False) {
             self.advance();
             let value_tok = self.previous().clone();
-            value = Expr::Literal(Lit {
+            Expr::Literal(Lit {
                 value: LiteralValue::Bool(value_tok.kind == TokenType::True),
                 span: value_tok.span(),
-            });
+            })
         } else if self.check(TokenType::LeftBracket) {
             self.advance();
             let mut items: Vec<LiteralValue> = Vec::new();
@@ -1279,23 +1278,23 @@ impl Parser {
                 })
                 .collect::<Vec<_>>()
                 .join("\u{1e}");
-            value = Expr::Literal(Lit {
+            Expr::Literal(Lit {
                 value: LiteralValue::Str(format!("\u{1f}{joined}\u{1f}")),
                 span,
-            });
+            })
         } else if token_type == TokenType::Tools && self.check(TokenType::Identifier) {
             let name_tok = self.advance().clone();
-            value = Expr::Variable(Variable {
+            Expr::Variable(Variable {
                 name: name_tok.lexeme.clone(),
                 span: name_tok.span(),
-            });
+            })
         } else {
             self.error(&format!("Expected value after '{}'.", start.lexeme));
-            value = Expr::Literal(Lit {
+            Expr::Literal(Lit {
                 value: LiteralValue::Null,
                 span: start.span(),
-            });
-        }
+            })
+        };
 
         let end = self.previous().clone();
         let span = self.make_span_from_token(&start, &end);
