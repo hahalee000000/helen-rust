@@ -22,7 +22,8 @@ cargo install helen-rust
 
 # Verify
 helen --version
-# helen 1.45.0 — Helen Agent Programming Language
+# helen-rust 0.1.0 — Helen Agent Programming Language (Rust)
+> Ported from Python Helen v1.45.0
 
 helen --help
 ```

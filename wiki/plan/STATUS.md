@@ -1,6 +1,6 @@
 # M14 — Project Status & Handover
 
-**Date:** 2026-08-15/16 · **Version:** 1.45.0 · **Branch:** main
+**Date:** 2026-08-15/16 · **Version:** 0.1.0 (ported from Python Helen v1.45.0) · **Branch:** main
 **Milestones:** M0–M14 complete · **Commits:** 45af0f8 → 766e2ca (M12–M14)
 
 ---

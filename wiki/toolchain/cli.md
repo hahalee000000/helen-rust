@@ -2,7 +2,7 @@
 
 # Command-Line Tools (CLI)
 
-> Crate: `crates/helen-rust/src/main.rs` + `cli_utils.rs` | **helen 1.45.0**
+> Crate: `crates/helen-rust/src/main.rs` + `cli_utils.rs` | **helen-rust 0.1.0** (ported from Python Helen v1.45.0)
 
 ---
 

@@ -28,7 +28,7 @@ M0–M8: core→runtime. M9: quality (unwrap 325→140, stdlib split). M10–M11
 ## Test & Quality
 | Metric | Value |
 |---|---|
-| Workspace tests (excl. bridge) | **1628 passed, 0 failed** |
+| Workspace tests (excl. bridge) | **1675 passed, 0 failed** |
 | Tier A differential | 52/52 byte-identical |
 | Tier B pytest | lang 100/100, cli 64/64, ffi 64+1skip, agent 170/172 |
 | Error parity | 70/70 E-code + exit-code match |
@@ -81,5 +81,8 @@ M0–M8: core→runtime. M9: quality (unwrap 325→140, stdlib split). M10–M11
 - Load `debugging` skill before investigating bugs
 en-testing`
 - Load `debugging` skill before investigating bugs
+esting`
+- Load `debugging` skill before investigating bugs
+ skill before investigating bugs
 esting`
 - Load `debugging` skill before investigating bugs

@@ -2,8 +2,12 @@
 
 use helen_interpreter::exceptions::ExceptionValue;
 
-/// The Helen version string (matches Python `helen.__version__`).
-pub const HELEN_VERSION: &str = "1.45.0";
+/// The helen-rust version string (independent from Python Helen versioning).
+/// Ported from Python Helen v1.45.0 — this is the Rust reimplementation.
+pub const HELEN_VERSION: &str = "0.1.0";
+
+/// The Python Helen version this port was based on.
+pub const PYTHON_REFERENCE_VERSION: &str = "1.45.0";
 
 /// Python `reference.py` strips " at <path>:<line>:<col>-<col>" suffixes via
 /// `_SPAN_RE = re.compile(r" at \S+:\d+:\d+-\d+")`. Mirror that regex exactly
@@ -99,7 +103,8 @@ pub fn run_json(stdout: &str, stderr: &str, exit_code: i64, error_classes: &[Str
 }
 
 pub fn print_help() {
-    println!("helen {HELEN_VERSION} — Helen Agent Programming Language");
+    println!("helen {HELEN_VERSION} — Helen Agent Programming Language (Rust)");
+    println!("  Ported from Python Helen v{PYTHON_REFERENCE_VERSION}");
     println!();
     println!("Usage:");
     println!("  helen                          Interactive REPL (default)");
@@ -244,6 +249,7 @@ mod tests {
 
     #[test]
     fn test_helen_version_constant() {
-        assert_eq!(HELEN_VERSION, "1.45.0");
+        assert_eq!(HELEN_VERSION, "0.1.0");
+        assert_eq!(PYTHON_REFERENCE_VERSION, "1.45.0");
     }
 }

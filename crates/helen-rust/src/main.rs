@@ -28,6 +28,7 @@ use helen_parser::Parser;
 use helen_runtime::http_llm::HttpLLMRuntime;
 use helen_rust::cli_utils::{
     normalize_stderr, print_help, render_uncaught, run_json, HELEN_VERSION,
+    PYTHON_REFERENCE_VERSION,
 };
 use helen_rust::llm_adapter::HttpLlmAdapter;
 use helen_semantic::{analyze_codes, analyze_messages};
@@ -657,7 +658,7 @@ fn main() {
             std::process::exit(0);
         }
         "-V" | "--version" => {
-            println!("Helen {HELEN_VERSION}");
+            println!("Helen {HELEN_VERSION} (Rust, ported from Python Helen v{PYTHON_REFERENCE_VERSION})");
             std::process::exit(0);
         }
         "repl" => {

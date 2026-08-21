@@ -1,6 +1,6 @@
 # 版本历史 — helen-rust
 
-> helen-rust v1.45.0 | 从 M0 到 M14 的 Rust 重实现过程。
+> helen-rust v0.1.0 | 从 Python Helen v1.45.0 移植的 Rust 重实现。
 > 完整演进见 `wiki/log.md`；里程碑规划见 `wiki/plan/README.md`。
 
 ---

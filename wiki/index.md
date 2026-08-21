@@ -2,7 +2,7 @@
 
 > **helen-rust** — A complete reimplementation of the Helen Agent Programming
 > Language in Rust.
-> Version: 1.45.0 | Status: feature-parity with the Python reference
+> Version: 0.1.0 | Status: feature-parity with Python Helen v1.45.0
 > (differential-tested) | Install: `cargo install helen-rust` or
 > `pip install helen-rust` | Tests: 685+ Rust tests + 3,860 pytest spec
 > adopted across Tier A/B/C conformance
