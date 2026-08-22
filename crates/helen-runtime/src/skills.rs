@@ -150,8 +150,7 @@ fn load_skill_from_disk(name: &str, root: &Path, include_references: bool) -> Va
                 .map(|rd| rd.flatten().map(|e| e.path()).collect())
                 .unwrap_or_default();
             files.retain(|p| {
-                p.is_file()
-                    && is_ref_file(&p.file_name().unwrap_or_default().to_string_lossy())
+                p.is_file() && is_ref_file(&p.file_name().unwrap_or_default().to_string_lossy())
             });
             files.sort();
             files

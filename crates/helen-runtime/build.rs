@@ -17,8 +17,16 @@ fn main() {
         let out = std::env::var("OUT_DIR").unwrap();
         let dest = Path::new(&out).join("embedded_skills.rs");
         let mut f = fs::File::create(&dest).unwrap();
-        writeln!(f, "pub fn embedded_skill_file(_: &str) -> Option<&'static str> {{ None }}").unwrap();
-        writeln!(f, "pub fn embedded_skill_paths() -> &'static [&'static str] {{ &[] }}").unwrap();
+        writeln!(
+            f,
+            "pub fn embedded_skill_file(_: &str) -> Option<&'static str> {{ None }}"
+        )
+        .unwrap();
+        writeln!(
+            f,
+            "pub fn embedded_skill_paths() -> &'static [&'static str] {{ &[] }}"
+        )
+        .unwrap();
         return;
     }
 
