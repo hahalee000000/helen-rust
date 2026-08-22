@@ -268,8 +268,8 @@ MD must be byte-identical; JSON is order-insensitive identical.
 |---|------|--------|
 | 1 | Coverage gate ≥85% core+parser+interpreter / ≥70% overall | 68.82% overall; stdlib happy-path tests needed |
 | 2 | Full generic-args stdlib surface driver (~278 exports) | exploratory test removed (env panic fixed); would push coverage |
-| 3 | `cargo publish` / PyPI end-to-end | pipeline in place; needs maintainer credentials |
-| 4 | Library crates publishable? | optional per plan; only `helen-rust` + wheel required |
+| 3 | ~~`cargo publish` / PyPI end-to-end~~ | ✅ **DONE** (2026-08-22): 9 crates on crates.io, `helen-rust` on PyPI |
+| 4 | Library crates publishable? | ✅ All 9 crates published to crates.io (v0.1.0) |
 | 5 | `export_transcript` stub in pure batch mode | runtime store + JSONL interop done (D8); session-backed wiring pending |
 | 6 | Python-internal Tier B tests (2) | fail on reference too — accepted carve-out |
 | 7 | Fuzz corpus growth | proptest targets exist; extend strategies as grammar evolves |

@@ -58,7 +58,7 @@ GitHub Release, publishes `helen-rust` to crates.io + wheel to PyPI.
 | D2 | `helen check`/`<file>`/`test`/REPL/LSP feature-complete | ✅ | all verified against the release binary (M12 + this milestone) |
 | D3 | Python FFI examples run unmodified | ✅ | `examples/python_bridge/{math,os}_example.helen` both run, expected output |
 | D4 | Python Bridge: `from translator import TranslatorAgent` | ✅ | 13/13 bridge tests incl. `test_dod_translator_agent` (sync + kwargs) |
-| D5 | `cargo install helen-rust` + `pip install helen-rust` | ✅ | both verified locally |
+| D5 | `cargo install helen-rust` + `pip install helen-rust` | ✅ | **Published** to crates.io + PyPI (v0.1.0, 2026-08-22) |
 | D6 | Benchmarks at parity or better | ✅ | 6 programs: ratio 0.02–0.07× (Rust 15–50× faster); no >2× regression |
 | D7 | `tests/agent` + `tests/runtime` green with Mock LLM | ✅ | Tier B agent 170/172 (2 excluded: Python-internal, fail on reference too); runtime covered via Tier A agent suite |
 | D8 | Transcript/JSONL interoperable Python ↔ Rust | ✅ | `crates/helen-runtime/tests/transcript_interop.rs` (py→rust read; rust→py read via `tests/fixtures/jsonl/check_python.py`); both directions verified |
@@ -94,10 +94,12 @@ GitHub Release, publishes `helen-rust` to crates.io + wheel to PyPI.
 2. **stdlib surface driver** (exploratory, removed): `env` empty-key panic
    fixed in M13; a full generic-args driver for every exported builtin would
    push stdlib coverage toward the gate. ~278 exports available.
-3. **`cargo publish` / PyPI release** not executed end-to-end (no credentials
-   in this environment); pipeline in place, needs maintainer run on tag.
-4. **crates.io metadata**: library crates publishable optionally (plan says
-   "optional"); only `helen-rust` + wheel are required.
+3. ~~**`cargo publish` / PyPI release** not executed end-to-end~~ — ✅ **DONE** (2026-08-22):
+   - **crates.io**: 9 crates published (`helen-core`, `helen-stdlib`, `helen-parser`,
+     `helen-semantic`, `helen-runtime`, `helen-interpreter`, `helen-lsp`, `helen-ffi`,
+     `helen-rust`) — all v0.1.0. Users: `cargo install helen-rust`.
+   - **PyPI**: `helen-rust` v0.1.0 published (maturin wheel + sdist). Users: `pip install helen-rust`.
+4. **crates.io metadata**: library crates published (plan said "optional"; all published for completeness).
 5. **stdlib `export_transcript` stub**: `std.transcript` export path is
    stubbed in pure batch mode (no active session); the runtime transcript
    store + JSONL interop is implemented and tested (D8), but `export_transcript`

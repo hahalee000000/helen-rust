@@ -287,7 +287,7 @@ def start_frontend(frontend_dir: Path, env: dict) -> subprocess.Popen:
 
 
 def check_ports() -> list[int]:
-    """Check if ports 8000 and 5173 are in use. Returns list of occupied ports."""
+    """Check if ports 8001 and 5174 are in use. Returns list of occupied ports."""
     # This is a best-effort check; actual binding will fail if port is taken
     return []
 

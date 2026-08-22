@@ -37,7 +37,17 @@ helen-test/         # conformance harness + golden tests
 
 - [x] Master implementation plan (M0–M14) — `wiki/plan/`
 - [x] Plan review: C1–C18 source-verified corrections + resolved decisions (pytest adoption, in-process Mock LLM driver, num-bigint from M3, string-iteration unsupported, display parity) — 2026-08-15
-- [ ] M0 Workspace setup & conformance harness
-- [ ] M1–M14 Implementation phases
+- [x] M0–M14 Implementation phases — complete
+- [x] Published to **crates.io** (9 crates, v0.1.0) — `cargo install helen-rust`
+- [x] Published to **PyPI** (`helen-rust` v0.1.0) — `pip install helen-rust`
 
+## Installation
+
+```bash
+# CLI binary (Rust)
+cargo install helen-rust
+
+# Python bridge (Python → Helen)
+pip install helen-rust
+```
 See `wiki/plan/README.md` for the roadmap and phase dependencies.

@@ -404,15 +404,27 @@ print("OK")
     let agent_dir = if let Ok(dir) = std::env::var("HELEN_AGENT_DIR") {
         std::path::PathBuf::from(dir)
     } else {
-        // Try relative to the binary location
+        // Try relative to the binary location.
+        // Binary may be at <repo>/target/release/helen (dev) or
+        // <prefix>/bin/helen (installed). Walk up to find helen/agent.
         let exe = std::env::current_exe().ok();
-        let bin_dir = exe
-            .as_ref()
-            .and_then(|p| p.parent().map(|p| p.to_path_buf()));
-        let candidate = bin_dir
-            .as_ref()
-            .map(|d| d.join("../helen/agent"))
-            .filter(|p| p.exists());
+        let mut candidate = None;
+        if let Some(ref bin_path) = exe {
+            let mut dir = bin_path.parent().map(|p| p.to_path_buf());
+            // Walk up at most 4 levels looking for helen/agent
+            for _ in 0..4 {
+                if let Some(ref d) = dir {
+                    let try_path = d.join("helen/agent");
+                    if try_path.exists() {
+                        candidate = Some(try_path);
+                        break;
+                    }
+                    dir = d.parent().map(|p| p.to_path_buf());
+                } else {
+                    break;
+                }
+            }
+        }
         if let Some(d) = candidate {
             d
         } else {

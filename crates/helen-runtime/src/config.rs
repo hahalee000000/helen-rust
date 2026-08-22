@@ -3,7 +3,7 @@
 //! Helen uses `~/.helen/` for API keys, LLM endpoints, skill dirs, sessions.
 
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub const HELEN_HOME: &str = ".helen";
 pub const CONFIG_FILE: &str = "config.yaml";
@@ -144,7 +144,9 @@ fn parse_scalar(v: &str) -> serde_json::Value {
 /// Get list of skill directories in priority order:
 /// 1. <project>/.helen/skills/ (closest ancestor, highest priority)
 /// 2. ~/.helen/skills/ (user-level)
-/// 3. <helen-install>/skills/ (built-in)
+///
+/// Note: bundled skills are embedded at compile time (see `skills.rs`).
+/// This function only returns disk-based directories.
 pub fn get_skill_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
 
@@ -165,12 +167,6 @@ pub fn get_skill_dirs() -> Vec<PathBuf> {
     let helen_skills = get_helen_home().join("skills");
     if helen_skills.exists() && !dirs.contains(&helen_skills) {
         dirs.push(helen_skills);
-    }
-
-    // 3. Built-in skills (bundled with the crate)
-    let builtin = Path::new(env!("CARGO_MANIFEST_DIR")).join("skills");
-    if builtin.exists() && !dirs.contains(&builtin) {
-        dirs.push(builtin);
     }
 
     dirs

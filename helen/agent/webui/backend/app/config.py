@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0"
     DEBUG: bool = False
     HOST: str = "127.0.0.1"
-    PORT: int = 8000
+    PORT: int = 8001
 
     # Helen 配置（默认自动推断，可通过环境变量或 .env 覆盖）
     HELEN_PATH: str = _default_helen_path()

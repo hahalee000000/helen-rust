@@ -32,7 +32,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5174,
     // 仅绑定 loopback,防止局域网可达。
     // WSL2 跨命名空间访问请用 `wsl --exec curl` 或 `netsh interface portproxy`,
     // 不要把 dev server 暴露给 0.0.0.0(否则同网段任意主机可直接执行 Helen 程序)。
@@ -41,7 +41,7 @@ export default defineConfig({
     open: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8001',
         changeOrigin: true,
         ws: true,   // WebSocket 也走同一个代理
       },

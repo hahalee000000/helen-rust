@@ -22,6 +22,7 @@
 - `scripts/sync-corpus.sh` — pull latest `.helen` corpus from `~/helen/` (auto-add new test programs).
 - `scripts/check-parity.sh` — full M13 sweep on a release build.
 - CI release pipeline (`cargo publish -p helen-rust` to crates.io; wheel to PyPI via maturin/GitHub Actions; publishing the library crates optional; binary + wheel on GitHub Releases).
+  - **Status (2026-08-22):** ✅ All 9 crates published to crates.io (v0.1.0). `helen-rust` wheel + sdist published to PyPI (v0.1.0).
 
 ## Task 14.4: Final acceptance checklist (Definition of Done from README §7)
 

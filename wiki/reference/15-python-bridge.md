@@ -12,6 +12,20 @@ The Helen Python Bridge allows Python developers to import and use Helen Agents 
 
 ## Quick Start
 
+### Installation
+
+```bash
+# Option 1: Install CLI from crates.io (recommended)
+cargo install helen-rust
+
+# Option 2: Install Python bridge from PyPI (for Python → Helen integration)
+pip install helen-rust
+
+# Verify
+helen --version
+# helen-rust 0.1.0 — Helen Agent Programming Language (Rust)
+```
+
 ### 1. Create a Helen Agent
 
 Create a `translator.helen` file:
