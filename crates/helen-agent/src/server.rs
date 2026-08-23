@@ -1,6 +1,13 @@
 //! Web server implementation using Axum
 
-use axum::{response::Html, routing::get, Json, Router};
+use axum::{
+    extract::Request,
+    http::{HeaderMap, StatusCode},
+    middleware::{self, Next},
+    response::{Html, IntoResponse},
+    routing::get,
+    Json, Router,
+};
 use rust_embed::RustEmbed;
 use serde_json::json;
 use std::net::SocketAddr;
@@ -9,6 +16,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 use crate::api::sessions::{AppState, AppStateInner};
+use crate::auth::{AuthConfig, AuthManager};
 use crate::session::SessionManager;
 use crate::storage::FileStorage;
 
@@ -92,4 +100,98 @@ async fn index_handler() -> Html<String> {
 /// Health check endpoint
 async fn health_handler() -> Json<serde_json::Value> {
     Json(json!({"status": "ok"}))
+}
+
+/// Auth middleware factory
+fn auth_middleware_factory(auth: Arc<AuthManager>) -> impl Fn(Request, Next) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> + Clone + Send + 'static {
+    move |req: Request, next: Next| {
+        let auth = auth.clone();
+        Box::pin(async move {
+            if auth.is_enabled() {
+                // Check for Authorization header
+                let headers = req.headers();
+                if let Some(auth_header) = headers.get("Authorization") {
+                    if let Ok(auth_str) = auth_header.to_str() {
+                        if auth_str.starts_with("Bearer ") {
+                            let token = &auth_str[7..];
+                            if auth.validate_token(token) {
+                                return next.run(req).await;
+                            }
+                        }
+                    }
+                }
+                
+                // Auth failed
+                return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+            }
+            
+            // Auth disabled, allow access
+            next.run(req).await
+        })
+    }
+}
+
+/// Start the web server with optional authentication
+///
+/// If `auth_token` is Some, authentication is enabled with the given token.
+/// If `auth_token` is None, authentication is disabled.
+pub async fn start_server_with_auth(
+    bind: &str,
+    auth_token: Option<String>,
+) -> Result<Server, Box<dyn std::error::Error>> {
+    // Create session storage directory
+    let session_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("sessions");
+    
+    // Create file storage directory
+    let file_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("files");
+    
+    // Create auth config directory
+    let auth_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("auth");
+    
+    let session_manager = SessionManager::new(session_dir);
+    let file_storage = FileStorage::new(file_dir);
+    
+    let state_inner = AppStateInner {
+        session_manager,
+        file_storage,
+    };
+    let state: AppState = Arc::new(Mutex::new(state_inner));
+
+    // Create auth manager
+    let auth_config = AuthConfig {
+        enabled: auth_token.is_some(),
+        token: auth_token.unwrap_or_default(),
+        config_dir: auth_dir,
+    };
+    let auth_manager = Arc::new(AuthManager::new(auth_config));
+
+    let app: Router<AppState> = Router::new()
+        .route("/", get(index_handler))
+        .route("/health", get(health_handler))
+        .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/chat", crate::websocket::router())
+        .nest("/api/agents", crate::api::agents::router())
+        .nest("/api", crate::api::sessions::router(state.clone()))
+        .nest("/api", crate::api::files::router(state.clone()))
+        .layer(middleware::from_fn(auth_middleware_factory(auth_manager)));
+
+    let app = app.with_state(state);
+
+    let listener = TcpListener::bind(bind).await?;
+    let local_addr = listener.local_addr()?;
+
+    let handle = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    Ok(Server { handle, local_addr })
 }

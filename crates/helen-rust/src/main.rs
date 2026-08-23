@@ -341,6 +341,7 @@ fn agent_command() -> i32 {
     let args: Vec<String> = std::env::args().collect();
     let mut port = 8000u16;
     let mut host = "127.0.0.1".to_string();
+    let mut auth_token: Option<String> = None;
 
     let mut i = 2; // Skip "helen" and "agent"
     while i < args.len() {
@@ -366,6 +367,15 @@ fn agent_command() -> i32 {
                     return 1;
                 }
             }
+            "--auth" => {
+                if i + 1 < args.len() {
+                    auth_token = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    eprintln!("❌ --auth requires a token value");
+                    return 1;
+                }
+            }
             "--help" => {
                 println!("Usage: helen agent [OPTIONS]");
                 println!();
@@ -374,6 +384,7 @@ fn agent_command() -> i32 {
                 println!("Options:");
                 println!("  -p, --port <PORT>    Port to listen on (default: 8000)");
                 println!("  -h, --host <HOST>    Host to bind to (default: 127.0.0.1)");
+                println!("      --auth <TOKEN>   Enable authentication with the given token");
                 println!("      --help           Show this help message");
                 return 0;
             }
@@ -390,6 +401,9 @@ fn agent_command() -> i32 {
     });
 
     println!("🌐 Starting web server on http://{}", addr);
+    if auth_token.is_some() {
+        println!("🔒 Authentication enabled");
+    }
     println!();
     println!("Press Ctrl+C to stop the server.");
     println!();
@@ -397,7 +411,7 @@ fn agent_command() -> i32 {
     // Build and run the async runtime
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        match helen_agent::server::start_server(&addr.to_string()).await {
+        match helen_agent::server::start_server_with_auth(&addr.to_string(), auth_token).await {
             Ok(server) => {
                 println!("✅ Server started successfully");
                 println!("   Open http://{} in your browser", addr);
