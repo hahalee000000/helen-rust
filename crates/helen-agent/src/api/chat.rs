@@ -1,16 +1,18 @@
 //! Chat API endpoints
 //!
-//! Implements read-only endpoints for Phase 2:
+//! Implements endpoints for:
 //! - GET /api/chat/cwd - Get current working directory
 //! - POST /api/chat/cwd - Set current working directory
 //! - GET /api/chat/sessions - List all sessions
 //! - GET /api/chat/sessions/:id/messages - Get messages for a session
+//! - DELETE /api/chat/sessions/:id - Delete a session
+//! - GET /api/chat/status - Chat status (includes is_processing)
 
 use axum::{
     extract::{Multipart, Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -27,6 +29,7 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route("/cwd", post(set_cwd))
         .route("/sessions", get(list_sessions))
         .route("/sessions/:id/messages", get(get_messages))
+        .route("/sessions/:id", delete(delete_session))
         .route("/upload", post(upload_file))
         .route("/uploads/:id/file", get(get_upload_file))
         .with_state(state)
@@ -91,9 +94,12 @@ pub struct Message {
 }
 
 /// GET /api/chat/status
-pub async fn get_status() -> impl IntoResponse {
+pub async fn get_status(State(state): State<AppState>) -> impl IntoResponse {
+    let inner = state.lock().await;
+    let is_processing = inner.stream_registry.is_processing();
+
     Json(serde_json::json!({
-        "is_processing": false,
+        "is_processing": is_processing,
         "version": env!("CARGO_PKG_VERSION")
     }))
 }
@@ -169,6 +175,50 @@ pub async fn get_messages(
     Json(GetMessagesResponse {
         messages: api_messages,
     })
+}
+
+/// DELETE /api/chat/sessions/:id
+///
+/// Delete a session's transcript directory (cascading delete)
+pub async fn delete_session(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> impl IntoResponse {
+    // Validate session_id to prevent path traversal
+    if session_id.contains('/') || session_id.contains('\\') || session_id.contains("..") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Invalid session ID"})),
+        )
+            .into_response();
+    }
+
+    let inner = state.lock().await;
+    let sessions_dir = inner.directory_manager.get_sessions_dir();
+    let session_path = std::path::Path::new(&sessions_dir).join(&session_id);
+
+    // Check if session exists
+    if !session_path.exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "Session not found"})),
+        )
+            .into_response();
+    }
+
+    // Delete the session directory
+    match std::fs::remove_dir_all(&session_path) {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "ok", "message": "Session deleted"})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Failed to delete session: {}", e)})),
+        )
+            .into_response(),
+    }
 }
 
 /// POST /api/chat/upload

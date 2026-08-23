@@ -20,8 +20,10 @@ use crate::api::sessions::{AppState, AppStateInner};
 use crate::auth::{AuthConfig, AuthManager};
 use crate::directory::DirectoryManager;
 use crate::helen_bridge::HelenBridge;
+use crate::hint_injector::HintInjector;
 use crate::session::SessionManager;
 use crate::storage::FileStorage;
+use crate::stream_registry::StreamRegistry;
 use crate::upload::UploadManager;
 
 /// Embedded frontend assets
@@ -74,6 +76,8 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
         directory_manager,
         helen_bridge,
         upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
+        stream_registry: Arc::new(StreamRegistry::new()),
+        hint_injector: Arc::new(HintInjector::new()),
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -82,7 +86,7 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router())
+        .nest("/api/agents", crate::api::agents::router(state.clone()))
         .nest("/api", crate::api::sessions::router(state.clone()))
         .nest("/api", crate::api::files::router(state.clone()))
         .fallback(spa_fallback);
@@ -237,6 +241,8 @@ pub async fn start_server_with_auth(
         directory_manager,
         helen_bridge,
         upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
+        stream_registry: Arc::new(StreamRegistry::new()),
+        hint_injector: Arc::new(HintInjector::new()),
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -253,7 +259,7 @@ pub async fn start_server_with_auth(
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router())
+        .nest("/api/agents", crate::api::agents::router(state.clone()))
         .nest("/api", crate::api::sessions::router(state.clone()))
         .nest("/api", crate::api::files::router(state.clone()))
         .fallback(spa_fallback)
@@ -309,6 +315,8 @@ pub async fn start_server_with_bridge(
         directory_manager,
         helen_bridge,
         upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
+        stream_registry: Arc::new(StreamRegistry::new()),
+        hint_injector: Arc::new(HintInjector::new()),
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -325,7 +333,7 @@ pub async fn start_server_with_bridge(
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router())
+        .nest("/api/agents", crate::api::agents::router(state.clone()))
         .nest("/api", crate::api::sessions::router(state.clone()))
         .nest("/api", crate::api::files::router(state.clone()));
 
