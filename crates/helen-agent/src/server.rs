@@ -35,7 +35,9 @@ impl Server {
 pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(index_handler))
-        .route("/health", get(health_handler));
+        .route("/health", get(health_handler))
+        .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/agents", crate::api::agents::router());
 
     let listener = TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
