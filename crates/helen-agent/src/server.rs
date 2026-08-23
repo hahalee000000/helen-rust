@@ -37,6 +37,7 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
         .route("/", get(index_handler))
         .route("/health", get(health_handler))
         .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router());
 
     let listener = TcpListener::bind(bind).await?;
