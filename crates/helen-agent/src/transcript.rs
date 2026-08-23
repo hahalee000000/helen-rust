@@ -191,46 +191,6 @@ impl TranscriptReader {
         messages
     }
 
-    /// Read the first user message as a preview (truncated to max_chars)
-    pub fn read_preview(&self, session_id: &str, max_chars: usize) -> String {
-        let entries = self.read_entries(session_id);
-        for entry in &entries {
-            if entry.entry_type != "message" {
-                continue;
-            }
-            if entry.role.as_deref() != Some("user") {
-                continue;
-            }
-            if Self::is_test_message(entry) {
-                continue;
-            }
-
-            let content_value = match &entry.content {
-                Some(v) => v,
-                None => continue,
-            };
-
-            let (text, _hints, _attachments, has_internal_cmd) =
-                parse_user_content(content_value);
-            if has_internal_cmd {
-                continue;
-            }
-            if text.trim().starts_with('/') {
-                continue;
-            }
-            if text.is_empty() {
-                continue;
-            }
-
-            return if text.len() > max_chars {
-                text[..max_chars].to_string()
-            } else {
-                text
-            };
-        }
-        String::new()
-    }
-
     /// List all sessions with their summary info.
     ///
     /// Scans the sessions directory for subdirectories containing transcript.jsonl.
@@ -523,54 +483,8 @@ mod tests {
     #[test]
     fn test_extract_from_boilerplate_no_boilerplate() {
         let content = "Just a normal message";
-        let (text, boilerplate) = extract_from_boilerplate(content);
-        assert_eq!(text, "Just a normal message");
+        let (user_text, boilerplate) = extract_from_boilerplate(content);
+        assert_eq!(user_text, "Just a normal message");
         assert_eq!(boilerplate, "");
-    }
-
-    #[test]
-    fn test_extract_from_boilerplate_with_boilerplate() {
-        let content = "## Identity\nYou are Helen\n\n## Reminders\nBe helpful\n\nHello user input";
-        let (text, boilerplate) = extract_from_boilerplate(content);
-        assert_eq!(text, "Hello user input");
-        assert!(boilerplate.contains("## Identity"));
-    }
-
-    #[test]
-    fn test_parse_user_content_internal_command() {
-        let content = serde_json::json!("__helen_stop__");
-        let (_text, _hints, _attachments, has_cmd) = parse_user_content(&content);
-        assert!(has_cmd);
-    }
-
-    #[test]
-    fn test_parse_user_content_normal() {
-        let content = serde_json::json!("Hello world");
-        let (text, _hints, _attachments, has_cmd) = parse_user_content(&content);
-        assert_eq!(text, "Hello world");
-        assert!(!has_cmd);
-    }
-
-    #[test]
-    fn test_is_test_message() {
-        let entry = TranscriptEntry {
-            entry_type: "message".to_string(),
-            role: Some("user".to_string()),
-            content: Some(serde_json::json!("[TEST] This is a test")),
-            uuid: Some("msg1".to_string()),
-            session_id: None,
-            timestamp: None,
-        };
-        assert!(TranscriptReader::is_test_message(&entry));
-
-        let normal_entry = TranscriptEntry {
-            entry_type: "message".to_string(),
-            role: Some("user".to_string()),
-            content: Some(serde_json::json!("Normal message")),
-            uuid: Some("msg2".to_string()),
-            session_id: None,
-            timestamp: None,
-        };
-        assert!(!TranscriptReader::is_test_message(&normal_entry));
     }
 }

@@ -8,7 +8,6 @@ pub mod auth;
 pub mod directory;
 pub mod executor;
 pub mod helen_bridge;
-pub mod hint_injector;
 pub mod server;
 pub mod stream_registry;
 pub mod transcript;

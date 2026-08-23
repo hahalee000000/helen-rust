@@ -138,40 +138,6 @@ fn test_transcript_to_messages_extracts_timestamp() {
 }
 
 #[test]
-fn test_read_session_preview() {
-    let temp = TempDir::new().unwrap();
-    let session_id = "test_session_preview";
-    let sessions_dir = temp.path().join(".helen/sessions");
-    let session_dir = sessions_dir.join(session_id);
-    fs::create_dir_all(&session_dir).unwrap();
-    
-    let transcript_path = session_dir.join("transcript.jsonl");
-    let content = r#"{"type":"message","role":"user","content":"This is a long message that should be truncated","uuid":"msg1"}
-{"type":"message","role":"assistant","content":"Response","uuid":"msg2"}
-"#;
-    fs::write(&transcript_path, content).unwrap();
-    
-    let reader = TranscriptReader::new(sessions_dir);
-    let preview = reader.read_preview(session_id, 20);
-    
-    assert_eq!(preview, "This is a long messa");
-}
-
-#[test]
-fn test_read_session_preview_empty() {
-    let temp = TempDir::new().unwrap();
-    let session_id = "test_session_empty";
-    let sessions_dir = temp.path().join(".helen/sessions");
-    let session_dir = sessions_dir.join(session_id);
-    fs::create_dir_all(&session_dir).unwrap();
-    
-    let reader = TranscriptReader::new(sessions_dir);
-    let preview = reader.read_preview(session_id, 50);
-    
-    assert_eq!(preview, "");
-}
-
-#[test]
 fn test_list_sessions() {
     let temp = TempDir::new().unwrap();
     let sessions_dir = temp.path().join(".helen/sessions");

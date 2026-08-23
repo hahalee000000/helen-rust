@@ -2,12 +2,10 @@
 //!
 //! Tests the underlying logic directly:
 //! - StreamRegistry — track active streams
-//! - HintInjector — queue hints for injection
 //! - Session deletion (transcript cleanup)
 //! - Agent status data
 
 use helen_agent::stream_registry::StreamRegistry;
-use helen_agent::hint_injector::HintInjector;
 use std::sync::Arc;
 use tempfile::TempDir;
 
@@ -49,53 +47,6 @@ fn test_stream_registry_unregister_all() {
 
     assert!(!registry.is_processing());
     assert!(registry.active_sessions().is_empty());
-}
-
-// === HintInjector Integration ===
-
-#[test]
-fn test_hint_injector_concurrent_access() {
-    let injector = Arc::new(HintInjector::new());
-
-    let i1 = injector.clone();
-    let h1 = std::thread::spawn(move || {
-        i1.enqueue("session-1", "Hint A", "client-1");
-        i1.enqueue("session-1", "Hint B", "client-1");
-    });
-
-    let i2 = injector.clone();
-    let h2 = std::thread::spawn(move || {
-        i2.enqueue("session-2", "Hint C", "client-2");
-    });
-
-    h1.join().unwrap();
-    h2.join().unwrap();
-
-    assert_eq!(injector.pending_count("session-1"), 2);
-    assert_eq!(injector.pending_count("session-2"), 1);
-}
-
-#[test]
-fn test_hint_injector_dequeue_order() {
-    let injector = HintInjector::new();
-
-    // Enqueue multiple hints
-    injector.enqueue("s", "first", "c");
-    injector.enqueue("s", "second", "c");
-    injector.enqueue("s", "third", "c");
-
-    // Dequeue should be FIFO
-    assert_eq!(injector.dequeue("s").unwrap().text, "first");
-    assert_eq!(injector.pending_count("s"), 2);
-
-    assert_eq!(injector.dequeue("s").unwrap().text, "second");
-    assert_eq!(injector.pending_count("s"), 1);
-
-    assert_eq!(injector.dequeue("s").unwrap().text, "third");
-    assert_eq!(injector.pending_count("s"), 0);
-
-    // Queue should be empty now
-    assert!(injector.dequeue("s").is_none());
 }
 
 // === Session Deletion ===
