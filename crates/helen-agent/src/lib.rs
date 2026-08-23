@@ -8,6 +8,7 @@ pub mod api;
 pub mod auth;
 pub mod directory;
 pub mod executor;
+pub mod helen_bridge;
 pub mod server;
 pub mod session;
 pub mod storage;

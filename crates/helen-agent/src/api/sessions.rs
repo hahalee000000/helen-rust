@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::directory::DirectoryManager;
+use crate::helen_bridge::HelenBridge;
 use crate::session::SessionManager;
 use crate::storage::FileStorage;
 
@@ -19,6 +20,7 @@ pub struct AppStateInner {
     pub session_manager: SessionManager,
     pub file_storage: FileStorage,
     pub directory_manager: Arc<DirectoryManager>,
+    pub helen_bridge: Arc<HelenBridge>,
 }
 
 /// Shared application state
