@@ -17,9 +17,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::sessions::AppState;
 use crate::transcript::TranscriptReader;
 use crate::upload::UploadManager;
-use super::sessions::AppState;
 
 /// Create chat API router
 pub fn router(state: AppState) -> Router<AppState> {
@@ -285,16 +285,10 @@ pub async fn upload_file(
         Err(e) => {
             let status = match &e {
                 crate::upload::UploadError::UnsupportedMimeType(_) => StatusCode::BAD_REQUEST,
-                crate::upload::UploadError::FileTooLarge { .. } => {
-                    StatusCode::PAYLOAD_TOO_LARGE
-                }
+                crate::upload::UploadError::FileTooLarge { .. } => StatusCode::PAYLOAD_TOO_LARGE,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             };
-            (
-                status,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-                .into_response()
+            (status, Json(serde_json::json!({"error": e.to_string()}))).into_response()
         }
     }
 }
@@ -333,11 +327,7 @@ pub async fn get_upload_file(
                 crate::upload::UploadError::AccessDenied => StatusCode::FORBIDDEN,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             };
-            (
-                status,
-                Json(serde_json::json!({"error": e.to_string()})),
-            )
-                .into_response()
+            (status, Json(serde_json::json!({"error": e.to_string()}))).into_response()
         }
     }
 }

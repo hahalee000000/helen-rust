@@ -82,7 +82,11 @@ impl std::fmt::Display for UploadError {
         match self {
             UploadError::UnsupportedMimeType(t) => write!(f, "Unsupported file type: {}", t),
             UploadError::FileTooLarge { size, max } => {
-                write!(f, "File too large ({} bytes). Max: {} bytes (50MB)", size, max)
+                write!(
+                    f,
+                    "File too large ({} bytes). Max: {} bytes (50MB)",
+                    size, max
+                )
             }
             UploadError::InvalidUploadId(id) => write!(f, "Invalid upload_id: {}", id),
             UploadError::FileNotFound => write!(f, "File not found"),
@@ -393,7 +397,9 @@ mod tests {
     #[test]
     fn test_metadata_json_format() {
         let (_tmp, mgr) = setup();
-        let result = mgr.save_upload("doc.pdf", "application/pdf", b"pdf data").unwrap();
+        let result = mgr
+            .save_upload("doc.pdf", "application/pdf", b"pdf data")
+            .unwrap();
 
         let metadata_path = mgr.upload_dir(&result.upload_id).join("metadata.json");
         let metadata_str = fs::read_to_string(metadata_path).unwrap();

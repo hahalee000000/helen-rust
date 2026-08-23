@@ -27,3 +27,4 @@ venv/
 **/.helen/uploads/
 .helen/webui_token
 .helen/current_session_id
+.codebase-memory/

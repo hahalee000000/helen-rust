@@ -54,7 +54,7 @@ impl DirectoryManager {
         let cwd = self.cwd.lock().unwrap();
         let cwd_str = cwd.clone();
         drop(cwd);
-        
+
         // Verify it still exists; if not, fall back
         if Path::new(&cwd_str).is_dir() {
             cwd_str
@@ -220,7 +220,10 @@ mod tests {
 
     #[test]
     fn test_compute_display_name() {
-        assert_eq!(DirectoryManager::compute_display_name("/home/user/project"), "project");
+        assert_eq!(
+            DirectoryManager::compute_display_name("/home/user/project"),
+            "project"
+        );
         assert_eq!(DirectoryManager::compute_display_name("/"), "/");
     }
 

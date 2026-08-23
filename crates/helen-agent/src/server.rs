@@ -56,7 +56,9 @@ fn build_state() -> AppState {
                 .to_string(),
         )),
         helen_bridge: Arc::new(HelenBridge::new(std::path::PathBuf::from("helen"))),
-        upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
+        upload_manager: Arc::new(UploadManager::new(
+            std::env::current_dir().unwrap_or_default(),
+        )),
         stream_registry: Arc::new(StreamRegistry::new()),
     };
     Arc::new(Mutex::new(state_inner))
@@ -130,7 +132,14 @@ pub async fn start_server_with_auth(
     bind: &str,
     auth_token: Option<String>,
 ) -> Result<Server, Box<dyn std::error::Error>> {
-    start_server_with_options(bind, ServerOptions { auth_token, ..Default::default() }).await
+    start_server_with_options(
+        bind,
+        ServerOptions {
+            auth_token,
+            ..Default::default()
+        },
+    )
+    .await
 }
 
 /// Start the web server with optional authentication and bridge validation

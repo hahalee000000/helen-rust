@@ -13,10 +13,7 @@ fn test_mime_from_path_js() {
 
 #[test]
 fn test_mime_from_path_css() {
-    assert_eq!(
-        helen_agent::server::mime_from_path("style.css"),
-        "text/css"
-    );
+    assert_eq!(helen_agent::server::mime_from_path("style.css"), "text/css");
 }
 
 #[test]
@@ -61,10 +58,7 @@ fn test_mime_from_path_jpeg() {
 
 #[test]
 fn test_mime_from_path_gif() {
-    assert_eq!(
-        helen_agent::server::mime_from_path("anim.gif"),
-        "image/gif"
-    );
+    assert_eq!(helen_agent::server::mime_from_path("anim.gif"), "image/gif");
 }
 
 #[test]
@@ -93,10 +87,7 @@ fn test_mime_from_path_woff2() {
 
 #[test]
 fn test_mime_from_path_ttf() {
-    assert_eq!(
-        helen_agent::server::mime_from_path("font.ttf"),
-        "font/ttf"
-    );
+    assert_eq!(helen_agent::server::mime_from_path("font.ttf"), "font/ttf");
 }
 
 #[test]

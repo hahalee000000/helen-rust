@@ -137,7 +137,6 @@ impl HelenBridge {
             Err(format!("Stream {} not found", stream_id))
         }
     }
-
 }
 
 #[cfg(test)]

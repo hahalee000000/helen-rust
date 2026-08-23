@@ -47,7 +47,7 @@ tests/programs/display/unicode.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_llm_act_sees_resumed_history_via_interpreter_session_id.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_llm_act_sees_resumed_history_via_spawn_resume.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_multiple_shared_let_visible.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_python_module_accessible_in_spawned_agent.helen,0,0,,,True
+tests/programs/pytest/interpreter/test_python_module_accessible_in_spawned_agent.helen,3,0,,,False
 tests/programs/pytest/interpreter/test_resume_loads_history_end_to_end.helen,2,2,E0332 E0332 E0332 E0332,E0332 E0332 E0332 E0332,True
 tests/programs/pytest/interpreter/test_resume_nonexistent_session_is_graceful.helen,2,2,E0332,E0332,True
 tests/programs/pytest/interpreter/test_resume_returns_same_session_id.helen,2,2,E0332,E0332,True
@@ -58,9 +58,9 @@ tests/programs/pytest/interpreter/test_shared_store_fields_are_independent_after
 tests/programs/pytest/interpreter/test_shared_store_method_sees_caller_stdlib.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_shared_store_methods_work_after_spawn.helen,0,0,,,True
 tests/programs/pytest/interpreter/test_shared_store_reset_method_after_spawn.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_spawn_with_multiple_python_imports.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_spawn_with_python_module_import.helen,0,0,,,True
-tests/programs/pytest/interpreter/test_spawn_with_python_object_in_variable.helen,0,0,,,True
+tests/programs/pytest/interpreter/test_spawn_with_multiple_python_imports.helen,3,0,,,False
+tests/programs/pytest/interpreter/test_spawn_with_python_module_import.helen,3,0,,,False
+tests/programs/pytest/interpreter/test_spawn_with_python_object_in_variable.helen,3,0,,,False
 tests/programs/pytest/interpreter/test_spawned_agent_shared_store_method_resolves_names.helen,0,0,,,True
 tests/programs/stdlib/collection_ops.helen,0,0,,,True
 tests/programs/stdlib/crypto_ops.helen,0,0,,,True

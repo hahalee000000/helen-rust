@@ -85,9 +85,15 @@ fn test_upload_manager_multiple_files() {
     let mgr = UploadManager::new(cwd);
 
     // Upload multiple files
-    let result1 = mgr.save_upload("file1.txt", "text/plain", b"content1").unwrap();
-    let result2 = mgr.save_upload("file2.png", "image/png", b"content2").unwrap();
-    let result3 = mgr.save_upload("file3.pdf", "application/pdf", b"content3").unwrap();
+    let result1 = mgr
+        .save_upload("file1.txt", "text/plain", b"content1")
+        .unwrap();
+    let result2 = mgr
+        .save_upload("file2.png", "image/png", b"content2")
+        .unwrap();
+    let result3 = mgr
+        .save_upload("file3.pdf", "application/pdf", b"content3")
+        .unwrap();
 
     // All should have different IDs
     assert_ne!(result1.upload_id, result2.upload_id);

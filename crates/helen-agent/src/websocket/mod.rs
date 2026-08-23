@@ -27,13 +27,8 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
 /// Parsed WebSocket input message
 #[derive(Debug)]
 pub enum WsInput {
-    Send {
-        input: String,
-        session_id: String,
-    },
-    Stop {
-        stream_id: String,
-    },
+    Send { input: String, session_id: String },
+    Stop { stream_id: String },
     Unknown(String),
     InvalidJson,
 }
@@ -45,10 +40,7 @@ pub fn parse_ws_message(text: &str) -> WsInput {
         Err(_) => return WsInput::InvalidJson,
     };
 
-    let msg_type = data
-        .get("type")
-        .and_then(|t| t.as_str())
-        .unwrap_or("");
+    let msg_type = data.get("type").and_then(|t| t.as_str()).unwrap_or("");
 
     match msg_type {
         "send" => {
@@ -208,10 +200,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     stream_registry.unregister(&session_id);
                                 }
                                 Err(err) => {
-                                    if socket
-                                        .send(Message::Text(build_error(&err)))
-                                        .await
-                                        .is_err()
+                                    if socket.send(Message::Text(build_error(&err))).await.is_err()
                                     {
                                         break;
                                     }
@@ -234,10 +223,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     }
                                 }
                                 Err(err) => {
-                                    if socket
-                                        .send(Message::Text(build_error(&err)))
-                                        .await
-                                        .is_err()
+                                    if socket.send(Message::Text(build_error(&err))).await.is_err()
                                     {
                                         break;
                                     }

@@ -71,10 +71,7 @@ impl TranscriptReader {
 
     /// Get the transcript.jsonl path for a session
     pub fn get_transcript_path(&self, session_id: &str) -> Option<PathBuf> {
-        let path = self
-            .sessions_dir
-            .join(session_id)
-            .join("transcript.jsonl");
+        let path = self.sessions_dir.join(session_id).join("transcript.jsonl");
         path.exists().then_some(path)
     }
 
@@ -275,8 +272,7 @@ impl TranscriptReader {
                 None => continue,
             };
 
-            let (text, _hints, _attachments, has_internal_cmd) =
-                parse_user_content(content_value);
+            let (text, _hints, _attachments, has_internal_cmd) = parse_user_content(content_value);
             if has_internal_cmd || text.trim().starts_with('/') || text.is_empty() {
                 continue;
             }
@@ -398,9 +394,7 @@ fn extract_from_boilerplate(content: &str) -> (String, String) {
     let lines: Vec<&str> = content.split('\n').collect();
 
     // Find the last ## heading
-    let last_heading_idx = lines
-        .iter()
-        .rposition(|line| line.starts_with("## "));
+    let last_heading_idx = lines.iter().rposition(|line| line.starts_with("## "));
 
     let last_heading_idx = match last_heading_idx {
         Some(i) => i,

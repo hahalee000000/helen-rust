@@ -407,16 +407,17 @@ async fn test_chat_upload_then_download() {
 
     // Download
     let resp = client
-        .get(format!(
-            "{}/api/chat/uploads/{}/file",
-            base_url, upload_id
-        ))
+        .get(format!("{}/api/chat/uploads/{}/file", base_url, upload_id))
         .send()
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
     assert_eq!(
-        resp.headers().get("content-type").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "text/plain"
     );
     let downloaded = resp.bytes().await.unwrap();
@@ -456,7 +457,12 @@ async fn test_spa_fallback_non_api_route() {
         .unwrap();
     assert_eq!(resp.status(), 200);
 
-    let content_type = resp.headers().get("content-type").unwrap().to_str().unwrap();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(content_type.contains("text/html"));
 }
 
