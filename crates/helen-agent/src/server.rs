@@ -1,10 +1,11 @@
 //! Web server implementation using Axum
 
 use axum::{
-    extract::Request,
-    http::StatusCode,
+    body::Body,
+    extract::{Path, Request},
+    http::{header, StatusCode},
     middleware::{self, Next},
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -69,13 +70,14 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
     let app: Router<AppState> = Router::new()
-        .route("/", get(index_handler))
         .route("/health", get(health_handler))
+        .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router())
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router())
         .nest("/api", crate::api::sessions::router(state.clone()))
-        .nest("/api", crate::api::files::router(state.clone()));
+        .nest("/api", crate::api::files::router(state.clone()))
+        .fallback(spa_fallback);
 
     let app = app.with_state(state);
 
@@ -89,19 +91,60 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
     Ok(Server { handle, local_addr })
 }
 
-/// Index handler — serves the embedded frontend
-async fn index_handler() -> Html<String> {
-    match FrontendAssets::get("index.html") {
-        Some(file) => Html(String::from_utf8_lossy(&file.data).to_string()),
-        None => {
-            Html("<!DOCTYPE html><html><body><h1>Frontend not found</h1></body></html>".to_string())
+/// Health check endpoint
+async fn health_handler() -> Json<serde_json::Value> {
+    Json(json!({"status": "ok"}))
+}
+
+/// Serve embedded static assets (JS, CSS, SVG, etc.)
+async fn static_asset_handler(Path(path): Path<String>) -> impl IntoResponse {
+    match FrontendAssets::get(&path) {
+        Some(file) => {
+            let mime = mime_from_path(&path);
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime)
+                .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+                .body(Body::from(file.data.to_vec()))
+                .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+        }
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// SPA fallback — serve index.html for non-API routes, 404 for API routes
+async fn spa_fallback(req: Request) -> impl IntoResponse {
+    let path = req.uri().path();
+    if path.starts_with("/api/") {
+        // API routes should return 404, not the SPA
+        StatusCode::NOT_FOUND.into_response()
+    } else {
+        // Non-API routes serve the SPA for client-side routing
+        match FrontendAssets::get("index.html") {
+            Some(file) => Html(String::from_utf8_lossy(&file.data).to_string()).into_response(),
+            None => Html("<!DOCTYPE html><html><body><h1>Frontend not found</h1></body></html>".to_string()).into_response(),
         }
     }
 }
 
-/// Health check endpoint
-async fn health_handler() -> Json<serde_json::Value> {
-    Json(json!({"status": "ok"}))
+/// Determine MIME type from file extension
+fn mime_from_path(path: &str) -> &'static str {
+    match path.rsplit('.').next() {
+        Some("js") => "application/javascript",
+        Some("css") => "text/css",
+        Some("html") => "text/html",
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("ico") => "image/x-icon",
+        Some("woff") => "font/woff",
+        Some("woff2") => "font/woff2",
+        Some("ttf") => "font/ttf",
+        Some("json") => "application/json",
+        Some("wasm") => "application/wasm",
+        _ => "application/octet-stream",
+    }
 }
 
 /// Auth middleware factory
@@ -185,13 +228,14 @@ pub async fn start_server_with_auth(
     let auth_manager = Arc::new(AuthManager::new(auth_config));
 
     let app: Router<AppState> = Router::new()
-        .route("/", get(index_handler))
         .route("/health", get(health_handler))
+        .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router())
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router())
         .nest("/api", crate::api::sessions::router(state.clone()))
         .nest("/api", crate::api::files::router(state.clone()))
+        .fallback(spa_fallback)
         .layer(middleware::from_fn(auth_middleware_factory(auth_manager)));
 
     let app = app.with_state(state);
@@ -251,8 +295,8 @@ pub async fn start_server_with_bridge(
     let auth_manager = Arc::new(AuthManager::new(auth_config));
 
     let mut app: Router<AppState> = Router::new()
-        .route("/", get(index_handler))
         .route("/health", get(health_handler))
+        .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router())
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router())
@@ -265,6 +309,7 @@ pub async fn start_server_with_bridge(
     }
 
     let app = app
+        .fallback(spa_fallback)
         .layer(middleware::from_fn(auth_middleware_factory(auth_manager)))
         .with_state(state);
 
