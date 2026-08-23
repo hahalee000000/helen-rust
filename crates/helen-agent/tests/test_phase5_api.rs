@@ -83,5 +83,3 @@ fn test_delete_nonexistent_session() {
     let result = std::fs::remove_dir_all(&session_dir);
     assert!(result.is_err());
 }
-
-
