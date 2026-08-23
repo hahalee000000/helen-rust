@@ -127,7 +127,10 @@ async fn spa_fallback(req: Request) -> impl IntoResponse {
         // Non-API routes serve the SPA for client-side routing
         match FrontendAssets::get("index.html") {
             Some(file) => Html(String::from_utf8_lossy(&file.data).to_string()).into_response(),
-            None => Html("<!DOCTYPE html><html><body><h1>Frontend not found</h1></body></html>".to_string()).into_response(),
+            None => Html(
+                "<!DOCTYPE html><html><body><h1>Frontend not found</h1></body></html>".to_string(),
+            )
+            .into_response(),
         }
     }
 }
