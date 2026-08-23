@@ -330,205 +330,96 @@ fn preflight_config_check() -> Result<(), i32> {
 /// `helen agent` — launch the Helen Web UI (delegates to Python start_webui.py).
 /// Port of `helen/cli/agent_launcher.py::launch_agent`.
 fn agent_command() -> i32 {
-    use std::process::Command;
+    use std::net::SocketAddr;
 
     println!("============================================================");
-    println!("🚀 Helen Programming Assistant");
+    println!("🚀 Helen Programming Assistant (Rust WebUI)");
     println!("============================================================");
     println!();
 
-    // 1. Check Node.js
-    let node_check = Command::new("node").arg("--version").output();
-    if node_check.is_err() || !node_check.as_ref().expect("as_ref").status.success() {
-        eprintln!("❌ Error: Node.js is not installed.");
-        eprintln!();
-        eprintln!("Helen agent requires Node.js 18+ for the frontend.");
-        eprintln!();
-        eprintln!("Install Node.js:");
-        eprintln!("  https://nodejs.org/");
-        eprintln!();
-        eprintln!("Or using a version manager:");
-        eprintln!("  nvm install 18");
-        eprintln!("  nvm use 18");
-        return 1;
-    }
+    // Parse command-line arguments
+    let args: Vec<String> = std::env::args().collect();
+    let mut port = 8000u16;
+    let mut host = "127.0.0.1".to_string();
 
-    // 2. Check Python dependencies
-    let dep_check_script = r#"
-import sys
-missing = []
-for mod, pkg in [("fastapi","fastapi"),("uvicorn","uvicorn"),("websockets","websockets"),("pydantic","pydantic"),("pydantic_settings","pydantic-settings"),("dotenv","python-dotenv"),("multipart","python-multipart")]:
-    try:
-        __import__(mod)
-    except ImportError:
-        missing.append(pkg)
-if missing:
-    print("MISSING:" + ",".join(missing))
-    sys.exit(1)
-print("OK")
-"#;
-    let dep_check = Command::new("python3")
-        .args(["-c", dep_check_script])
-        .output();
-    match dep_check {
-        Ok(output) if output.status.success() => {}
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if let Some(missing_str) = stdout.strip_prefix("MISSING:") {
-                let missing: Vec<&str> = missing_str.trim().split(',').collect();
-                eprintln!("❌ Error: Helen agent requires additional Python packages.");
-                eprintln!();
-                eprintln!("Missing packages:");
-                for pkg in &missing {
-                    eprintln!("  - {pkg}");
-                }
-                eprintln!();
-                eprintln!("Install with:");
-                eprintln!("  pip install helen-lang[agent]");
-                eprintln!();
-                eprintln!("Or install individually:");
-                eprintln!("  pip install {}", missing.join(" "));
-                return 1;
-            }
-            eprintln!("❌ Error: Python dependency check failed.");
-            return 1;
-        }
-        Err(_) => {
-            eprintln!("❌ Error: Python 3 is not installed or not in PATH.");
-            return 1;
-        }
-    }
-
-    // 3. Find agent directory
-    // Priority: HELEN_AGENT_DIR env var > Python package > relative to binary > relative to CWD
-    let agent_dir = if let Ok(dir) = std::env::var("HELEN_AGENT_DIR") {
-        std::path::PathBuf::from(dir)
-    } else {
-        // Try to find agent directory from Python package installation
-        let python_agent_dir = Command::new("python3")
-            .args(["-c", "import helen; from pathlib import Path; print(Path(helen.__file__).parent / 'agent')"])
-            .output()
-            .ok()
-            .and_then(|o| {
-                if o.status.success() {
-                    let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                    let p = std::path::PathBuf::from(path);
-                    if p.exists() { Some(p) } else { None }
+    let mut i = 2; // Skip "helen" and "agent"
+    while i < args.len() {
+        match args[i].as_str() {
+            "--port" | "-p" => {
+                if i + 1 < args.len() {
+                    port = args[i + 1].parse().unwrap_or_else(|_| {
+                        eprintln!("❌ Invalid port number: {}", args[i + 1]);
+                        8000
+                    });
+                    i += 2;
                 } else {
-                    None
-                }
-            });
-
-        if let Some(dir) = python_agent_dir {
-            dir
-        } else {
-            // Try relative to the binary location.
-            // Binary may be at <repo>/target/release/helen (dev) or
-            // <prefix>/bin/helen (installed). Walk up to find helen/agent.
-            let exe = std::env::current_exe().ok();
-            let mut candidate = None;
-            if let Some(ref bin_path) = exe {
-                let mut dir = bin_path.parent().map(|p| p.to_path_buf());
-                // Walk up at most 4 levels looking for helen/agent
-                for _ in 0..4 {
-                    if let Some(ref d) = dir {
-                        let try_path = d.join("helen/agent");
-                        if try_path.exists() {
-                            candidate = Some(try_path);
-                            break;
-                        }
-                        dir = d.parent().map(|p| p.to_path_buf());
-                    } else {
-                        break;
-                    }
+                    eprintln!("❌ --port requires a value");
+                    return 1;
                 }
             }
-            if let Some(d) = candidate {
-                d
-            } else {
-                // Fall back to CWD/helen/agent
-                let cwd = std::env::current_dir().unwrap_or_default();
-                cwd.join("helen/agent")
+            "--host" | "-h" => {
+                if i + 1 < args.len() {
+                    host = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    eprintln!("❌ --host requires a value");
+                    return 1;
+                }
             }
-        }
-    };
-
-    if !agent_dir.exists() {
-        eprintln!("❌ Error: agent directory not found");
-        eprintln!("Expected location: {}", agent_dir.display());
-        eprintln!();
-        eprintln!(
-            "Set HELEN_AGENT_DIR to the agent directory, or run from the helen-rust repo root."
-        );
-        return 1;
-    }
-
-    // 4. Check node_modules
-    let frontend_dir = agent_dir.join("webui/frontend");
-    let node_modules = frontend_dir.join("node_modules");
-    let vite_bin = if cfg!(windows) {
-        node_modules.join(".bin/vite.cmd")
-    } else {
-        node_modules.join(".bin/vite")
-    };
-    if !vite_bin.exists() {
-        eprintln!("⚠️  Frontend dependencies not found");
-        eprintln!();
-        eprintln!("Installing...");
-        let npm_result = Command::new("npm")
-            .arg("install")
-            .current_dir(&frontend_dir)
-            .status();
-        match npm_result {
-            Ok(status) if status.success() => {
-                eprintln!("✅ Frontend dependencies installed");
-                eprintln!();
+            "--help" => {
+                println!("Usage: helen agent [OPTIONS]");
+                println!();
+                println!("Start the Helen programming assistant web UI.");
+                println!();
+                println!("Options:");
+                println!("  -p, --port <PORT>    Port to listen on (default: 8000)");
+                println!("  -h, --host <HOST>    Host to bind to (default: 127.0.0.1)");
+                println!("      --help           Show this help message");
+                return 0;
             }
             _ => {
-                eprintln!("❌ Failed to install frontend dependencies.");
-                eprintln!();
-                eprintln!("Please install manually:");
-                eprintln!("  cd {}", frontend_dir.display());
-                eprintln!("  npm install");
+                eprintln!("❌ Unknown option: {}", args[i]);
                 return 1;
             }
         }
     }
 
-    // 5. Launch start_webui.py
-    let start_script = agent_dir.join("webui/start_webui.py");
-    if !start_script.exists() {
-        eprintln!("❌ Error: start_webui.py not found");
-        eprintln!("Expected: {}", start_script.display());
-        return 1;
-    }
+    let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap_or_else(|_| {
+        eprintln!("❌ Invalid address: {}:{}", host, port);
+        "127.0.0.1:8000".parse().unwrap()
+    });
 
-    let cwd = std::env::current_dir().unwrap_or_default();
-    eprintln!("✅ Starting Helen programming assistant...");
-    eprintln!();
+    println!("🌐 Starting web server on http://{}", addr);
+    println!();
+    println!("Press Ctrl+C to stop the server.");
+    println!();
 
-    let mut child = Command::new("python3")
-        .arg(&start_script)
-        .current_dir(&agent_dir)
-        .env("HELEN_WEBUI_CWD", cwd.to_string_lossy().as_ref())
-        .spawn();
+    // Build and run the async runtime
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        match helen_agent::server::start_server(&addr.to_string()).await {
+            Ok(server) => {
+                println!("✅ Server started successfully");
+                println!("   Open http://{} in your browser", addr);
+                println!();
 
-    match child {
-        Ok(ref mut c) => {
-            // Wait for the child process
-            match c.wait() {
-                Ok(status) => status.code().unwrap_or(1),
-                Err(e) => {
-                    eprintln!("❌ Error waiting for Web UI: {e}");
-                    1
-                }
+                // Wait for shutdown signal
+                tokio::signal::ctrl_c()
+                    .await
+                    .expect("Failed to listen for Ctrl+C");
+
+                println!();
+                println!("🛑 Shutting down...");
+                server.shutdown().await;
+                println!("✅ Server stopped");
+                0
+            }
+            Err(e) => {
+                eprintln!("❌ Failed to start server: {}", e);
+                1
             }
         }
-        Err(e) => {
-            eprintln!("❌ Failed to start Web UI: {e}");
-            1
-        }
-    }
+    })
 }
 
 fn main() {

@@ -19,8 +19,10 @@ helen-interpreter = { version = "0.1.0", path = "../helen-interpreter" }
 helen-runtime = { version = "0.1.0", path = "../helen-runtime" }
 helen-lsp = { version = "0.1.0", path = "../helen-lsp" }
 helen-ffi = { version = "0.1.0", path = "../helen-ffi", optional = true }
+helen-agent = { version = "0.1.0", path = "../helen-agent" }
 serde_json.workspace = true
 chrono.workspace = true
+tokio = { version = "1", features = ["full"] }
 
 [features]
 default = []
