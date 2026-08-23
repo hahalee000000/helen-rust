@@ -148,7 +148,7 @@ async fn spa_fallback(req: Request) -> impl IntoResponse {
 }
 
 /// Determine MIME type from file extension
-fn mime_from_path(path: &str) -> &'static str {
+pub fn mime_from_path(path: &str) -> &'static str {
     match path.rsplit('.').next() {
         Some("js") => "application/javascript",
         Some("css") => "text/css",
