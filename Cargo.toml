@@ -13,6 +13,7 @@ members = [
   "crates/helen-lsp",
   "crates/helen-ffi",             # PyO3, feature-gated; M10
   "crates/helen-python-bridge",   # maturin cdylib; M11
+  "crates/helen-agent",           # WebUI server; M17
 ]
 
 [workspace.package]

@@ -1,0 +1,27 @@
+[package]
+name = "helen-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Helen Agent WebUI — pure Rust web server for Helen agent"
+
+[dependencies]
+helen-core = { path = "../helen-core" }
+helen-parser = { path = "../helen-parser" }
+helen-semantic = { path = "../helen-semantic" }
+helen-interpreter = { path = "../helen-interpreter" }
+helen-runtime = { path = "../helen-runtime" }
+helen-stdlib = { path = "../helen-stdlib" }
+
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rust-embed = "8"
+tower-http = { version = "0.5", features = ["cors", "fs"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio-tungstenite = "0.24"
