@@ -11,9 +11,16 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::session::SessionManager;
+use crate::storage::FileStorage;
+
+/// Combined application state
+pub struct AppStateInner {
+    pub session_manager: SessionManager,
+    pub file_storage: FileStorage,
+}
 
 /// Shared application state
-pub type AppState = Arc<Mutex<SessionManager>>;
+pub type AppState = Arc<Mutex<AppStateInner>>;
 
 /// Create session router
 pub fn router(state: AppState) -> Router<AppState> {
@@ -27,9 +34,9 @@ pub fn router(state: AppState) -> Router<AppState> {
 
 /// Create a new session
 async fn create_session(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let manager = state.lock().await;
-    let session = manager.create_session();
-    let _ = manager.save_session(&session);
+    let inner = state.lock().await;
+    let session = inner.session_manager.create_session();
+    let _ = inner.session_manager.save_session(&session);
     
     Json(json!({
         "id": session.id,
@@ -40,8 +47,8 @@ async fn create_session(State(state): State<AppState>) -> Json<serde_json::Value
 
 /// List all sessions
 async fn list_sessions(State(state): State<AppState>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
-    let manager = state.lock().await;
-    let sessions = manager.list_sessions().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let inner = state.lock().await;
+    let sessions = inner.session_manager.list_sessions().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     let result: Vec<serde_json::Value> = sessions
         .iter()
@@ -63,8 +70,8 @@ async fn get_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let manager = state.lock().await;
-    let session = manager.load_session(&id).map_err(|_| StatusCode::NOT_FOUND)?;
+    let inner = state.lock().await;
+    let session = inner.session_manager.load_session(&id).map_err(|_| StatusCode::NOT_FOUND)?;
     
     Ok(Json(json!({
         "id": session.id,
@@ -79,8 +86,8 @@ async fn delete_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let manager = state.lock().await;
-    manager.delete_session(&id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let inner = state.lock().await;
+    inner.session_manager.delete_session(&id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Json(json!({"status": "deleted"})))
 }
