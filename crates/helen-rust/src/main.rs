@@ -400,37 +400,56 @@ print("OK")
     }
 
     // 3. Find agent directory
-    // Priority: HELEN_AGENT_DIR env var > relative to binary > relative to CWD
+    // Priority: HELEN_AGENT_DIR env var > Python package > relative to binary > relative to CWD
     let agent_dir = if let Ok(dir) = std::env::var("HELEN_AGENT_DIR") {
         std::path::PathBuf::from(dir)
     } else {
-        // Try relative to the binary location.
-        // Binary may be at <repo>/target/release/helen (dev) or
-        // <prefix>/bin/helen (installed). Walk up to find helen/agent.
-        let exe = std::env::current_exe().ok();
-        let mut candidate = None;
-        if let Some(ref bin_path) = exe {
-            let mut dir = bin_path.parent().map(|p| p.to_path_buf());
-            // Walk up at most 4 levels looking for helen/agent
-            for _ in 0..4 {
-                if let Some(ref d) = dir {
-                    let try_path = d.join("helen/agent");
-                    if try_path.exists() {
-                        candidate = Some(try_path);
+        // Try to find agent directory from Python package installation
+        let python_agent_dir = Command::new("python3")
+            .args(["-c", "import helen; from pathlib import Path; print(Path(helen.__file__).parent / 'agent')"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    let p = std::path::PathBuf::from(path);
+                    if p.exists() { Some(p) } else { None }
+                } else {
+                    None
+                }
+            });
+
+        if let Some(dir) = python_agent_dir {
+            dir
+        } else {
+            // Try relative to the binary location.
+            // Binary may be at <repo>/target/release/helen (dev) or
+            // <prefix>/bin/helen (installed). Walk up to find helen/agent.
+            let exe = std::env::current_exe().ok();
+            let mut candidate = None;
+            if let Some(ref bin_path) = exe {
+                let mut dir = bin_path.parent().map(|p| p.to_path_buf());
+                // Walk up at most 4 levels looking for helen/agent
+                for _ in 0..4 {
+                    if let Some(ref d) = dir {
+                        let try_path = d.join("helen/agent");
+                        if try_path.exists() {
+                            candidate = Some(try_path);
+                            break;
+                        }
+                        dir = d.parent().map(|p| p.to_path_buf());
+                    } else {
                         break;
                     }
-                    dir = d.parent().map(|p| p.to_path_buf());
-                } else {
-                    break;
                 }
             }
-        }
-        if let Some(d) = candidate {
-            d
-        } else {
-            // Fall back to CWD/helen/agent
-            let cwd = std::env::current_dir().unwrap_or_default();
-            cwd.join("helen/agent")
+            if let Some(d) = candidate {
+                d
+            } else {
+                // Fall back to CWD/helen/agent
+                let cwd = std::env::current_dir().unwrap_or_default();
+                cwd.join("helen/agent")
+            }
         }
     };
 
