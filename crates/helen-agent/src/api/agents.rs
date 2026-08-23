@@ -2,8 +2,10 @@
 
 use axum::{routing::get, Json, Router};
 
+use super::sessions::AppState;
+
 /// Create agents router
-pub fn router() -> Router {
+pub fn router() -> Router<AppState> {
     Router::new().route("/list", get(list_agents))
 }
 

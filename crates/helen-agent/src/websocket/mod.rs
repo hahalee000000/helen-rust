@@ -7,8 +7,10 @@ use axum::{
     Router,
 };
 
+use crate::api::sessions::AppState;
+
 /// Create WebSocket router
-pub fn router() -> Router {
+pub fn router() -> Router<AppState> {
     Router::new().route("/ws", get(ws_handler))
 }
 

@@ -3,8 +3,10 @@
 use axum::{routing::get, Json, Router};
 use serde_json::json;
 
+use super::sessions::AppState;
+
 /// Create chat router
-pub fn router() -> Router {
+pub fn router() -> Router<AppState> {
     Router::new().route("/status", get(get_status))
 }
 

@@ -4,7 +4,12 @@ use axum::{response::Html, routing::get, Json, Router};
 use rust_embed::RustEmbed;
 use serde_json::json;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
+
+use crate::api::sessions::AppState;
+use crate::session::SessionManager;
 
 /// Embedded frontend assets
 #[derive(RustEmbed)]
@@ -33,12 +38,24 @@ impl Server {
 ///
 /// Returns a Server handle that can be used to shutdown the server.
 pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Error>> {
-    let app = Router::new()
+    // Create session storage directory
+    let session_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("sessions");
+    
+    let session_manager = SessionManager::new(session_dir);
+    let state: AppState = Arc::new(Mutex::new(session_manager));
+
+    let app: Router<AppState> = Router::new()
         .route("/", get(index_handler))
         .route("/health", get(health_handler))
         .nest("/api/chat", crate::api::chat::router())
         .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router());
+        .nest("/api/agents", crate::api::agents::router())
+        .nest("/api", crate::api::sessions::router(state.clone()));
+
+    let app = app.with_state(state);
 
     let listener = TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
