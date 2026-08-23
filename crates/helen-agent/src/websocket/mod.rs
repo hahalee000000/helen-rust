@@ -23,10 +23,26 @@ async fn handle_socket(mut socket: WebSocket) {
         if let Ok(msg) = msg {
             match msg {
                 Message::Text(text) => {
-                    // Echo back for now (will be replaced with Helen execution)
-                    let response = format!("Echo: {}", text);
-                    if socket.send(Message::Text(response)).await.is_err() {
-                        break;
+                    // Parse incoming message
+                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(&text) {
+                        // Return proper JSON response
+                        let response = serde_json::json!({
+                            "type": "response",
+                            "message": format!("Echo: {}", data.get("message").and_then(|m| m.as_str()).unwrap_or(&text)),
+                            "agent": data.get("agent").and_then(|a| a.as_str()).unwrap_or("default")
+                        });
+                        if socket.send(Message::Text(response.to_string())).await.is_err() {
+                            break;
+                        }
+                    } else {
+                        // Invalid JSON, echo as-is
+                        let response = serde_json::json!({
+                            "type": "response",
+                            "message": format!("Echo: {}", text)
+                        });
+                        if socket.send(Message::Text(response.to_string())).await.is_err() {
+                            break;
+                        }
                     }
                 }
                 Message::Close(_) => break,
