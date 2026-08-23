@@ -20,7 +20,6 @@ use crate::api::sessions::{AppState, AppStateInner};
 use crate::auth::{AuthConfig, AuthManager};
 use crate::directory::DirectoryManager;
 use crate::helen_bridge::HelenBridge;
-use crate::hint_injector::HintInjector;
 use crate::stream_registry::StreamRegistry;
 use crate::upload::UploadManager;
 
@@ -59,29 +58,58 @@ fn build_state() -> AppState {
         helen_bridge: Arc::new(HelenBridge::new(std::path::PathBuf::from("helen"))),
         upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
         stream_registry: Arc::new(StreamRegistry::new()),
-        hint_injector: Arc::new(HintInjector::new()),
     };
     Arc::new(Mutex::new(state_inner))
 }
 
-/// Build the base router with all API routes
-fn build_router(state: AppState) -> Router {
-    Router::new()
+/// Server configuration options
+#[derive(Default)]
+pub struct ServerOptions {
+    /// Optional auth token (None = no auth)
+    pub auth_token: Option<String>,
+    /// Enable bridge validation endpoint
+    pub enable_bridge: bool,
+}
+
+/// Start the web server with the given options
+///
+/// Returns a Server handle that can be used to shutdown the server.
+pub async fn start_server_with_options(
+    bind: &str,
+    options: ServerOptions,
+) -> Result<Server, Box<dyn std::error::Error>> {
+    let state = build_state();
+
+    // Build router with common routes
+    let mut app: Router<AppState> = Router::new()
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router(state.clone()))
-        .fallback(spa_fallback)
-        .with_state(state)
-}
+        .nest("/api/agents", crate::api::agents::router(state.clone()));
 
-/// Start the web server on the given bind address
-///
-/// Returns a Server handle that can be used to shutdown the server.
-pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Error>> {
-    let state = build_state();
-    let app = build_router(state);
+    // Add bridge endpoint if enabled
+    if options.enable_bridge {
+        app = app.nest("/api/bridge", crate::api::bridge::router());
+    }
+
+    // Add auth middleware if token is provided
+    if options.auth_token.is_some() {
+        let auth_dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("helen-agent")
+            .join("auth");
+
+        let auth_config = AuthConfig {
+            enabled: true,
+            token: options.auth_token.unwrap_or_default(),
+            config_dir: auth_dir,
+        };
+        let auth_manager = Arc::new(AuthManager::new(auth_config));
+        app = app.layer(middleware::from_fn(auth_middleware_factory(auth_manager)));
+    }
+
+    let app = app.fallback(spa_fallback).with_state(state);
 
     let listener = TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
@@ -91,6 +119,35 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
     });
 
     Ok(Server { handle, local_addr })
+}
+
+/// Start the web server without authentication
+pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Error>> {
+    start_server_with_options(bind, ServerOptions::default()).await
+}
+
+/// Start the web server with optional authentication
+pub async fn start_server_with_auth(
+    bind: &str,
+    auth_token: Option<String>,
+) -> Result<Server, Box<dyn std::error::Error>> {
+    start_server_with_options(bind, ServerOptions { auth_token, ..Default::default() }).await
+}
+
+/// Start the web server with optional authentication and bridge validation
+pub async fn start_server_with_bridge(
+    bind: &str,
+    auth_token: Option<String>,
+    enable_bridge: bool,
+) -> Result<Server, Box<dyn std::error::Error>> {
+    start_server_with_options(
+        bind,
+        ServerOptions {
+            auth_token,
+            enable_bridge,
+        },
+    )
+    .await
 }
 
 /// Health check endpoint
@@ -192,100 +249,4 @@ fn auth_middleware_factory(
             next.run(req).await
         })
     }
-}
-
-/// Start the web server with optional authentication
-///
-/// If `auth_token` is Some, authentication is enabled with the given token.
-/// If `auth_token` is None, authentication is disabled.
-pub async fn start_server_with_auth(
-    bind: &str,
-    auth_token: Option<String>,
-) -> Result<Server, Box<dyn std::error::Error>> {
-    // Create auth config directory
-    let auth_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("auth");
-
-    let state = build_state();
-
-    // Create auth manager
-    let auth_config = AuthConfig {
-        enabled: auth_token.is_some(),
-        token: auth_token.unwrap_or_default(),
-        config_dir: auth_dir,
-    };
-    let auth_manager = Arc::new(AuthManager::new(auth_config));
-
-    let app = Router::new()
-        .route("/health", get(health_handler))
-        .route("/assets/*path", get(static_asset_handler))
-        .nest("/api/chat", crate::api::chat::router(state.clone()))
-        .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router(state.clone()))
-        .fallback(spa_fallback)
-        .layer(middleware::from_fn(auth_middleware_factory(auth_manager)))
-        .with_state(state);
-
-    let listener = TcpListener::bind(bind).await?;
-    let local_addr = listener.local_addr()?;
-
-    let handle = tokio::spawn(async move {
-        axum::serve(listener, app).await.unwrap();
-    });
-
-    Ok(Server { handle, local_addr })
-}
-
-/// Start the web server with optional authentication and bridge validation
-///
-/// If `auth_token` is Some, authentication is enabled with the given token.
-/// If `enable_bridge` is true, the bridge validation endpoint is enabled.
-pub async fn start_server_with_bridge(
-    bind: &str,
-    auth_token: Option<String>,
-    enable_bridge: bool,
-) -> Result<Server, Box<dyn std::error::Error>> {
-    // Create auth config directory
-    let auth_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("auth");
-
-    let state = build_state();
-
-    // Create auth manager
-    let auth_config = AuthConfig {
-        enabled: auth_token.is_some(),
-        token: auth_token.unwrap_or_default(),
-        config_dir: auth_dir,
-    };
-    let auth_manager = Arc::new(AuthManager::new(auth_config));
-
-    let mut app: Router<AppState> = Router::new()
-        .route("/health", get(health_handler))
-        .route("/assets/*path", get(static_asset_handler))
-        .nest("/api/chat", crate::api::chat::router(state.clone()))
-        .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router(state.clone()));
-
-    // Add bridge endpoint if enabled
-    if enable_bridge {
-        app = app.nest("/api/bridge", crate::api::bridge::router());
-    }
-
-    let app = app
-        .fallback(spa_fallback)
-        .layer(middleware::from_fn(auth_middleware_factory(auth_manager)))
-        .with_state(state);
-
-    let listener = TcpListener::bind(bind).await?;
-    let local_addr = listener.local_addr()?;
-
-    let handle = tokio::spawn(async move {
-        axum::serve(listener, app).await.unwrap();
-    });
-
-    Ok(Server { handle, local_addr })
 }

@@ -3,9 +3,6 @@
 //! Starts a real server and exercises every endpoint to maximize code coverage.
 //! Covers: chat API, agents API, server routes, upload API, session management.
 
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
 /// Helper: start a test server and return (base_url, temp_dir_handle)
 async fn start_test_server() -> (String, tempfile::TempDir) {
     let temp = tempfile::TempDir::new().unwrap();

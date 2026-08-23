@@ -8,7 +8,6 @@ use tokio::sync::Mutex;
 
 use crate::directory::DirectoryManager;
 use crate::helen_bridge::HelenBridge;
-use crate::hint_injector::HintInjector;
 use crate::stream_registry::StreamRegistry;
 use crate::upload::UploadManager;
 
@@ -18,7 +17,6 @@ pub struct AppStateInner {
     pub helen_bridge: Arc<HelenBridge>,
     pub upload_manager: Arc<UploadManager>,
     pub stream_registry: Arc<StreamRegistry>,
-    pub hint_injector: Arc<HintInjector>,
 }
 
 /// Shared application state (thread-safe via Arc<Mutex>)

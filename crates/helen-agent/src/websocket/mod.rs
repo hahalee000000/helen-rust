@@ -149,16 +149,21 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             let state_guard = state.lock().await;
                             let cwd = state_guard.directory_manager.get_cwd();
                             let helen_bridge = state_guard.helen_bridge.clone();
+                            let stream_registry = state_guard.stream_registry.clone();
                             drop(state_guard);
 
                             // Start stream
                             match helen_bridge.start_stream(&session_id, &input, &cwd).await {
                                 Ok((stream_id, mut receiver)) => {
+                                    // Register as actively streaming
+                                    stream_registry.register(&session_id);
+
                                     if socket
                                         .send(Message::Text(build_stream_started(&stream_id)))
                                         .await
                                         .is_err()
                                     {
+                                        stream_registry.unregister(&session_id);
                                         break;
                                     }
 
@@ -198,6 +203,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                             Err(_) => break,
                                         }
                                     }
+
+                                    // Unregister after stream ends
+                                    stream_registry.unregister(&session_id);
                                 }
                                 Err(err) => {
                                     if socket

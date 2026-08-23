@@ -195,10 +195,10 @@ pub async fn delete_session(
 
     let inner = state.lock().await;
     let sessions_dir = inner.directory_manager.get_sessions_dir();
-    let session_path = std::path::Path::new(&sessions_dir).join(&session_id);
+    let reader = TranscriptReader::from_path(&sessions_dir);
 
     // Check if session exists
-    if !session_path.exists() {
+    if reader.get_transcript_path(&session_id).is_none() {
         return (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"error": "Session not found"})),
@@ -206,8 +206,8 @@ pub async fn delete_session(
             .into_response();
     }
 
-    // Delete the session directory
-    match std::fs::remove_dir_all(&session_path) {
+    // Delete the session directory via TranscriptReader
+    match reader.delete_session(&session_id) {
         Ok(_) => (
             StatusCode::OK,
             Json(serde_json::json!({"status": "ok", "message": "Session deleted"})),
