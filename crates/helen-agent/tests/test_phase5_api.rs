@@ -84,7 +84,6 @@ fn test_delete_nonexistent_session() {
     assert!(result.is_err());
 }
 
-// === Agent Status ===
 
 #[test]
 fn test_agent_status_data_structure() {

@@ -17,21 +17,3 @@ async fn test_get_chat_status() {
 
     server.shutdown().await;
 }
-
-#[tokio::test]
-async fn test_get_agents_list() {
-    let server = helen_agent::server::start_server("127.0.0.1:0")
-        .await
-        .unwrap();
-    let port = server.local_addr().port();
-
-    let resp = reqwest::get(format!("http://127.0.0.1:{}/api/agents/list", port))
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), 200);
-    let body: Vec<String> = resp.json().await.unwrap();
-    assert!(!body.is_empty());
-
-    server.shutdown().await;
-}

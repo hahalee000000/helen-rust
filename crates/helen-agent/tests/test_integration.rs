@@ -24,17 +24,7 @@ async fn test_full_agent_workflow() {
         .unwrap();
     assert_eq!(resp.status(), 200);
 
-    // 2. Get agents list
-    let resp = client
-        .get(format!("{}/api/agents/list", base_url))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-    let agents: serde_json::Value = resp.json().await.unwrap();
-    assert!(agents.is_array());
-
-    // 3. Connect to WebSocket
+    // 2. Connect to WebSocket
     let ws_url = format!("ws://{}/api/chat/ws", addr);
     let (mut ws, _) = tokio_tungstenite::connect_async(&ws_url).await.unwrap();
 

@@ -1,7 +1,7 @@
 //! Comprehensive API coverage tests
 //!
 //! Starts a real server and exercises every endpoint to maximize code coverage.
-//! Covers: chat API, agents API, server routes, upload API, session management.
+//! Covers: chat API, server routes, upload API, session management.
 
 /// Helper: start a test server and return (base_url, temp_dir_handle)
 async fn start_test_server() -> (String, tempfile::TempDir) {
@@ -421,85 +421,6 @@ async fn test_chat_upload_then_download() {
     );
     let downloaded = resp.bytes().await.unwrap();
     assert_eq!(downloaded.as_ref(), content);
-}
-
-// ============================================================
-// Agents API: GET /api/agents/status
-// ============================================================
-
-#[tokio::test]
-async fn test_agents_status() {
-    let (base_url, _temp) = start_test_server().await;
-    let client = reqwest::Client::new();
-
-    let resp = client
-        .get(format!("{}/api/agents/status", base_url))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-
-    let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body.get("Contractor").is_some());
-    assert!(body.get("TestBuilder").is_some());
-}
-
-// ============================================================
-// Agents API: GET /api/agents/list
-// ============================================================
-
-#[tokio::test]
-async fn test_agents_list() {
-    let (base_url, _temp) = start_test_server().await;
-    let client = reqwest::Client::new();
-
-    let resp = client
-        .get(format!("{}/api/agents/list", base_url))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-
-    let body: Vec<String> = resp.json().await.unwrap();
-    assert!(!body.is_empty());
-    assert!(body.contains(&"Contractor".to_string()));
-}
-
-// ============================================================
-// Agents API: GET /api/agents/:name/status
-// ============================================================
-
-#[tokio::test]
-async fn test_agents_single_status_known() {
-    let (base_url, _temp) = start_test_server().await;
-    let client = reqwest::Client::new();
-
-    let resp = client
-        .get(format!("{}/api/agents/Contractor/status", base_url))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-
-    let body: serde_json::Value = resp.json().await.unwrap();
-    assert_eq!(body["name"], "Contractor");
-    assert_eq!(body["status"], "idle");
-}
-
-#[tokio::test]
-async fn test_agents_single_status_unknown() {
-    let (base_url, _temp) = start_test_server().await;
-    let client = reqwest::Client::new();
-
-    let resp = client
-        .get(format!("{}/api/agents/UnknownAgent/status", base_url))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-
-    let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body.get("error").is_some());
 }
 
 // ============================================================

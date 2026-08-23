@@ -85,8 +85,7 @@ pub async fn start_server_with_options(
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
-        .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router(state.clone()));
+        .nest("/api/chat", crate::websocket::router());
 
     // Add bridge endpoint if enabled
     if options.enable_bridge {
