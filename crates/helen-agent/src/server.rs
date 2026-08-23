@@ -97,8 +97,13 @@ async fn health_handler() -> Json<serde_json::Value> {
 }
 
 /// Serve embedded static assets (JS, CSS, SVG, etc.)
+///
+/// URL pattern: /assets/*path → embedded key: "assets/{path}"
 async fn static_asset_handler(Path(path): Path<String>) -> impl IntoResponse {
-    match FrontendAssets::get(&path) {
+    // rust_embed stores files relative to the folder root (frontend/),
+    // so /assets/foo.js maps to embedded key "assets/foo.js"
+    let embedded_path = format!("assets/{}", path);
+    match FrontendAssets::get(&embedded_path) {
         Some(file) => {
             let mime = mime_from_path(&path);
             Response::builder()
