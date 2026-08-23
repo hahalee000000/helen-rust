@@ -2,10 +2,10 @@
 
 use axum::{
     extract::Request,
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     middleware::{self, Next},
     response::{Html, IntoResponse},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use rust_embed::RustEmbed;
@@ -185,6 +185,78 @@ pub async fn start_server_with_auth(
         .layer(middleware::from_fn(auth_middleware_factory(auth_manager)));
 
     let app = app.with_state(state);
+
+    let listener = TcpListener::bind(bind).await?;
+    let local_addr = listener.local_addr()?;
+
+    let handle = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    Ok(Server { handle, local_addr })
+}
+
+/// Start the web server with optional authentication and bridge validation
+///
+/// If `auth_token` is Some, authentication is enabled with the given token.
+/// If `enable_bridge` is true, the bridge validation endpoint is enabled.
+pub async fn start_server_with_bridge(
+    bind: &str,
+    auth_token: Option<String>,
+    enable_bridge: bool,
+) -> Result<Server, Box<dyn std::error::Error>> {
+    // Create session storage directory
+    let session_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("sessions");
+    
+    // Create file storage directory
+    let file_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("files");
+    
+    // Create auth config directory
+    let auth_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("helen-agent")
+        .join("auth");
+    
+    let session_manager = SessionManager::new(session_dir);
+    let file_storage = FileStorage::new(file_dir);
+    
+    let state_inner = AppStateInner {
+        session_manager,
+        file_storage,
+    };
+    let state: AppState = Arc::new(Mutex::new(state_inner));
+
+    // Create auth manager
+    let auth_config = AuthConfig {
+        enabled: auth_token.is_some(),
+        token: auth_token.unwrap_or_default(),
+        config_dir: auth_dir,
+    };
+    let auth_manager = Arc::new(AuthManager::new(auth_config));
+
+    let mut app: Router<AppState> = Router::new()
+        .route("/", get(index_handler))
+        .route("/health", get(health_handler))
+        .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/chat", crate::websocket::router())
+        .nest("/api/agents", crate::api::agents::router())
+        .nest("/api", crate::api::sessions::router(state.clone()))
+        .nest("/api", crate::api::files::router(state.clone()));
+
+    // Add bridge endpoint if enabled
+    if enable_bridge {
+        app = app.nest("/api/bridge", crate::api::bridge::router());
+    }
+
+    let app = app
+        .layer(middleware::from_fn(auth_middleware_factory(auth_manager)))
+        .with_state(state);
 
     let listener = TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
