@@ -87,11 +87,11 @@ impl SessionManager {
     /// List all saved sessions
     pub fn list_sessions(&self) -> Result<Vec<Session>, std::io::Error> {
         let mut sessions = Vec::new();
-        
+
         for entry in fs::read_dir(&self.storage_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
                 if let Ok(json) = fs::read_to_string(&path) {
                     if let Ok(session) = serde_json::from_str::<Session>(&json) {
@@ -100,10 +100,10 @@ impl SessionManager {
                 }
             }
         }
-        
+
         // Sort by updated_at descending (most recent first)
-        sessions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-        
+        sessions.sort_by_key(|s| std::cmp::Reverse(s.updated_at));
+
         Ok(sessions)
     }
 

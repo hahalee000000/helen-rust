@@ -57,7 +57,7 @@ fn main() {
         for entry in fs::read_dir(&agent_src).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |e| e == "helen") {
+            if path.is_file() && path.extension().is_some_and(|e| e == "helen") {
                 fs::copy(&path, agent_dest.join(entry.file_name())).ok();
             }
         }

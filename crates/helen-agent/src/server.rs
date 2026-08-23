@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     middleware::{self, Next},
     response::{Html, IntoResponse},
-    routing::{get, post},
+    routing::get,
     Json, Router,
 };
 use rust_embed::RustEmbed;
@@ -52,16 +52,16 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("sessions");
-    
+
     // Create file storage directory
     let file_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("files");
-    
+
     let session_manager = SessionManager::new(session_dir);
     let file_storage = FileStorage::new(file_dir);
-    
+
     let state_inner = AppStateInner {
         session_manager,
         file_storage,
@@ -93,7 +93,9 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
 async fn index_handler() -> Html<String> {
     match FrontendAssets::get("index.html") {
         Some(file) => Html(String::from_utf8_lossy(&file.data).to_string()),
-        None => Html("<!DOCTYPE html><html><body><h1>Frontend not found</h1></body></html>".to_string()),
+        None => {
+            Html("<!DOCTYPE html><html><body><h1>Frontend not found</h1></body></html>".to_string())
+        }
     }
 }
 
@@ -103,7 +105,15 @@ async fn health_handler() -> Json<serde_json::Value> {
 }
 
 /// Auth middleware factory
-fn auth_middleware_factory(auth: Arc<AuthManager>) -> impl Fn(Request, Next) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> + Clone + Send + 'static {
+fn auth_middleware_factory(
+    auth: Arc<AuthManager>,
+) -> impl Fn(
+    Request,
+    Next,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>>
+       + Clone
+       + Send
+       + 'static {
     move |req: Request, next: Next| {
         let auth = auth.clone();
         Box::pin(async move {
@@ -113,18 +123,18 @@ fn auth_middleware_factory(auth: Arc<AuthManager>) -> impl Fn(Request, Next) -> 
                 if let Some(auth_header) = headers.get("Authorization") {
                     if let Ok(auth_str) = auth_header.to_str() {
                         if auth_str.starts_with("Bearer ") {
-                            let token = &auth_str[7..];
+                            let token = auth_str.strip_prefix("Bearer ").unwrap_or(auth_str);
                             if auth.validate_token(token) {
                                 return next.run(req).await;
                             }
                         }
                     }
                 }
-                
+
                 // Auth failed
                 return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
             }
-            
+
             // Auth disabled, allow access
             next.run(req).await
         })
@@ -144,22 +154,22 @@ pub async fn start_server_with_auth(
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("sessions");
-    
+
     // Create file storage directory
     let file_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("files");
-    
+
     // Create auth config directory
     let auth_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("auth");
-    
+
     let session_manager = SessionManager::new(session_dir);
     let file_storage = FileStorage::new(file_dir);
-    
+
     let state_inner = AppStateInner {
         session_manager,
         file_storage,
@@ -210,22 +220,22 @@ pub async fn start_server_with_bridge(
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("sessions");
-    
+
     // Create file storage directory
     let file_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("files");
-    
+
     // Create auth config directory
     let auth_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("auth");
-    
+
     let session_manager = SessionManager::new(session_dir);
     let file_storage = FileStorage::new(file_dir);
-    
+
     let state_inner = AppStateInner {
         session_manager,
         file_storage,

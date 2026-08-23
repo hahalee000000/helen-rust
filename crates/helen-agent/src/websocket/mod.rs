@@ -33,7 +33,11 @@ async fn handle_socket(mut socket: WebSocket) {
                             "message": format!("Echo: {}", data.get("message").and_then(|m| m.as_str()).unwrap_or(&text)),
                             "agent": data.get("agent").and_then(|a| a.as_str()).unwrap_or("default")
                         });
-                        if socket.send(Message::Text(response.to_string())).await.is_err() {
+                        if socket
+                            .send(Message::Text(response.to_string()))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     } else {
@@ -42,7 +46,11 @@ async fn handle_socket(mut socket: WebSocket) {
                             "type": "response",
                             "message": format!("Echo: {}", text)
                         });
-                        if socket.send(Message::Text(response.to_string())).await.is_err() {
+                        if socket
+                            .send(Message::Text(response.to_string()))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }

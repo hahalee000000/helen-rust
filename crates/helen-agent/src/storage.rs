@@ -31,10 +31,10 @@ impl FileStorage {
         let file_id = Uuid::new_v4().to_string();
         let file_path = self.storage_dir.join(&file_id);
         let meta_path = self.storage_dir.join(format!("{}.meta", file_id));
-        
+
         // Store file content
         fs::write(&file_path, content)?;
-        
+
         // Store metadata
         let metadata = FileMetadata {
             id: file_id.clone(),
@@ -44,7 +44,7 @@ impl FileStorage {
         };
         let meta_json = serde_json::to_string_pretty(&metadata)?;
         fs::write(&meta_path, meta_json)?;
-        
+
         Ok(file_id)
     }
 
@@ -65,11 +65,11 @@ impl FileStorage {
     /// List all stored files
     pub fn list_files(&self) -> Result<Vec<FileMetadata>, std::io::Error> {
         let mut files = Vec::new();
-        
+
         for entry in fs::read_dir(&self.storage_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.extension().and_then(|s| s.to_str()) == Some("meta") {
                 if let Ok(meta_json) = fs::read_to_string(&path) {
                     if let Ok(metadata) = serde_json::from_str::<FileMetadata>(&meta_json) {
@@ -78,10 +78,10 @@ impl FileStorage {
                 }
             }
         }
-        
+
         // Sort by created_at descending (most recent first)
-        files.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        
+        files.sort_by_key(|f| std::cmp::Reverse(f.created_at));
+
         Ok(files)
     }
 
@@ -89,14 +89,14 @@ impl FileStorage {
     pub fn delete_file(&self, file_id: &str) -> Result<(), std::io::Error> {
         let file_path = self.storage_dir.join(file_id);
         let meta_path = self.storage_dir.join(format!("{}.meta", file_id));
-        
+
         if file_path.exists() {
             fs::remove_file(file_path)?;
         }
         if meta_path.exists() {
             fs::remove_file(meta_path)?;
         }
-        
+
         Ok(())
     }
 }

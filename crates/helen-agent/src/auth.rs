@@ -33,7 +33,7 @@ impl AuthManager {
         if !self.config.enabled {
             return true; // When disabled, all tokens are valid
         }
-        
+
         if self.config.token.is_empty() {
             // Try to load from file
             if let Ok(saved_token) = self.load_token() {
@@ -41,7 +41,7 @@ impl AuthManager {
             }
             return false;
         }
-        
+
         token == self.config.token
     }
 

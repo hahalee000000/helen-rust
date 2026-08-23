@@ -5,7 +5,9 @@ use tokio_tungstenite::tungstenite::Message;
 
 #[tokio::test]
 async fn test_websocket_connects() {
-    let server = helen_agent::server::start_server("127.0.0.1:0").await.unwrap();
+    let server = helen_agent::server::start_server("127.0.0.1:0")
+        .await
+        .unwrap();
     let port = server.local_addr().port();
 
     let url = format!("ws://127.0.0.1:{}/api/chat/ws", port);

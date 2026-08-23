@@ -37,7 +37,7 @@ async fn create_session(State(state): State<AppState>) -> Json<serde_json::Value
     let inner = state.lock().await;
     let session = inner.session_manager.create_session();
     let _ = inner.session_manager.save_session(&session);
-    
+
     Json(json!({
         "id": session.id,
         "created_at": session.created_at,
@@ -46,10 +46,15 @@ async fn create_session(State(state): State<AppState>) -> Json<serde_json::Value
 }
 
 /// List all sessions
-async fn list_sessions(State(state): State<AppState>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+async fn list_sessions(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
     let inner = state.lock().await;
-    let sessions = inner.session_manager.list_sessions().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+    let sessions = inner
+        .session_manager
+        .list_sessions()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     let result: Vec<serde_json::Value> = sessions
         .iter()
         .map(|s| {
@@ -61,7 +66,7 @@ async fn list_sessions(State(state): State<AppState>) -> Result<Json<Vec<serde_j
             })
         })
         .collect();
-    
+
     Ok(Json(result))
 }
 
@@ -71,8 +76,11 @@ async fn get_session(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let inner = state.lock().await;
-    let session = inner.session_manager.load_session(&id).map_err(|_| StatusCode::NOT_FOUND)?;
-    
+    let session = inner
+        .session_manager
+        .load_session(&id)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
     Ok(Json(json!({
         "id": session.id,
         "created_at": session.created_at,
@@ -87,7 +95,10 @@ async fn delete_session(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let inner = state.lock().await;
-    inner.session_manager.delete_session(&id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+    inner
+        .session_manager
+        .delete_session(&id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     Ok(Json(json!({"status": "deleted"})))
 }

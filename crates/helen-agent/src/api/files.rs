@@ -28,10 +28,14 @@ async fn upload_file(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let mut filename = String::new();
     let mut content = Vec::new();
-    
-    while let Some(field) = multipart.next_field().await.map_err(|_| StatusCode::BAD_REQUEST)? {
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+    {
         let name = field.name().unwrap_or("").to_string();
-        
+
         if name == "filename" {
             filename = field.text().await.map_err(|_| StatusCode::BAD_REQUEST)?;
         } else if name == "content" {
@@ -39,14 +43,17 @@ async fn upload_file(
             content = data.to_vec();
         }
     }
-    
+
     if filename.is_empty() || content.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    
+
     let inner = state.lock().await;
-    let file_id = inner.file_storage.store_file(&filename, &content).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+    let file_id = inner
+        .file_storage
+        .store_file(&filename, &content)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     Ok(Json(json!({
         "id": file_id,
         "filename": filename,
@@ -55,10 +62,15 @@ async fn upload_file(
 }
 
 /// List all files
-async fn list_files(State(state): State<AppState>) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+async fn list_files(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
     let inner = state.lock().await;
-    let files = inner.file_storage.list_files().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+    let files = inner
+        .file_storage
+        .list_files()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     let result: Vec<serde_json::Value> = files
         .iter()
         .map(|f| {
@@ -70,7 +82,7 @@ async fn list_files(State(state): State<AppState>) -> Result<Json<Vec<serde_json
             })
         })
         .collect();
-    
+
     Ok(Json(result))
 }
 
@@ -80,8 +92,11 @@ async fn download_file(
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let inner = state.lock().await;
-    let content = inner.file_storage.retrieve_file(&id).map_err(|_| StatusCode::NOT_FOUND)?;
-    
+    let content = inner
+        .file_storage
+        .retrieve_file(&id)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
     Ok(content)
 }
 
@@ -91,7 +106,10 @@ async fn delete_file(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let inner = state.lock().await;
-    inner.file_storage.delete_file(&id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+    inner
+        .file_storage
+        .delete_file(&id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     Ok(Json(json!({"status": "deleted"})))
 }

@@ -2,7 +2,9 @@
 
 #[tokio::test]
 async fn test_serves_index_html() {
-    let server = helen_agent::server::start_server("127.0.0.1:0").await.unwrap();
+    let server = helen_agent::server::start_server("127.0.0.1:0")
+        .await
+        .unwrap();
     let port = server.local_addr().port();
 
     let resp = reqwest::get(format!("http://127.0.0.1:{}/", port))

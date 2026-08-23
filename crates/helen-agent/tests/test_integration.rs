@@ -6,7 +6,9 @@ use tokio_tungstenite::tungstenite::Message;
 #[tokio::test]
 async fn test_full_agent_workflow() {
     // Start server
-    let server = helen_agent::server::start_server("127.0.0.1:0").await.unwrap();
+    let server = helen_agent::server::start_server("127.0.0.1:0")
+        .await
+        .unwrap();
     let addr = server.local_addr();
     let base_url = format!("http://{}", addr);
 
@@ -15,11 +17,19 @@ async fn test_full_agent_workflow() {
 
     // 1. Check health
     let client = reqwest::Client::new();
-    let resp = client.get(&format!("{}/health", base_url)).send().await.unwrap();
+    let resp = client
+        .get(format!("{}/health", base_url))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 200);
 
     // 2. Get agents list
-    let resp = client.get(&format!("{}/api/agents/list", base_url)).send().await.unwrap();
+    let resp = client
+        .get(format!("{}/api/agents/list", base_url))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 200);
     let agents: serde_json::Value = resp.json().await.unwrap();
     assert!(agents.is_array());
