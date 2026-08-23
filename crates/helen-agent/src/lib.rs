@@ -6,8 +6,10 @@
 pub mod agent_files;
 pub mod api;
 pub mod auth;
+pub mod directory;
 pub mod executor;
 pub mod server;
 pub mod session;
 pub mod storage;
+pub mod transcript;
 pub mod websocket;
