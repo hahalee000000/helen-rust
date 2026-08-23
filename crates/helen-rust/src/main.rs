@@ -339,7 +339,7 @@ fn agent_command() -> i32 {
 
     // Parse command-line arguments
     let args: Vec<String> = std::env::args().collect();
-    let mut port = 8000u16;
+    let mut port = 8001u16;
     let mut host = "127.0.0.1".to_string();
     let mut auth_token: Option<String> = None;
 
@@ -350,7 +350,7 @@ fn agent_command() -> i32 {
                 if i + 1 < args.len() {
                     port = args[i + 1].parse().unwrap_or_else(|_| {
                         eprintln!("❌ Invalid port number: {}", args[i + 1]);
-                        8080
+                        8001
                     });
                     i += 2;
                 } else {
@@ -382,7 +382,7 @@ fn agent_command() -> i32 {
                 println!("Start the Helen programming assistant web UI.");
                 println!();
                 println!("Options:");
-                println!("  -p, --port <PORT>    Port to listen on (default: 8000)");
+                println!("  -p, --port <PORT>    Port to listen on (default: 8001)");
                 println!("  -h, --host <HOST>    Host to bind to (default: 127.0.0.1)");
                 println!("      --auth <TOKEN>   Enable authentication with the given token");
                 println!("      --help           Show this help message");
@@ -397,7 +397,7 @@ fn agent_command() -> i32 {
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap_or_else(|_| {
         eprintln!("❌ Invalid address: {}:{}", host, port);
-        "127.0.0.1:8000".parse().unwrap()
+        "127.0.0.1:8001".parse().unwrap()
     });
 
     println!("🌐 Starting web server on http://{}", addr);
