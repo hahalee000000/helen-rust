@@ -84,48 +84,4 @@ fn test_delete_nonexistent_session() {
     assert!(result.is_err());
 }
 
-#[test]
-fn test_agent_status_data_structure() {
-    // Mock agent status data (matching Python implementation)
-    let agent_states: std::collections::HashMap<&str, serde_json::Value> = [
-        (
-            "Contractor",
-            serde_json::json!({"status": "idle", "last_task": null}),
-        ),
-        (
-            "TestBuilder",
-            serde_json::json!({"status": "idle", "last_task": null}),
-        ),
-        (
-            "Implementer",
-            serde_json::json!({"status": "idle", "last_task": null}),
-        ),
-        (
-            "QualityGate",
-            serde_json::json!({"status": "idle", "last_task": null}),
-        ),
-        (
-            "SkillEvaluator",
-            serde_json::json!({"status": "idle", "last_task": null}),
-        ),
-    ]
-    .into_iter()
-    .collect();
 
-    assert_eq!(agent_states.len(), 5);
-    assert!(agent_states.contains_key("Contractor"));
-    assert!(agent_states.contains_key("TestBuilder"));
-}
-
-#[test]
-fn test_agent_list() {
-    let agents = vec![
-        "Contractor",
-        "TestBuilder",
-        "Implementer",
-        "QualityGate",
-        "SkillEvaluator",
-    ];
-    assert_eq!(agents.len(), 5);
-    assert!(agents.contains(&"Contractor"));
-}
