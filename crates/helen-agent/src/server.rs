@@ -22,6 +22,7 @@ use crate::directory::DirectoryManager;
 use crate::helen_bridge::HelenBridge;
 use crate::session::SessionManager;
 use crate::storage::FileStorage;
+use crate::upload::UploadManager;
 
 /// Embedded frontend assets
 #[derive(RustEmbed)]
@@ -72,6 +73,7 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
         file_storage,
         directory_manager,
         helen_bridge,
+        upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -234,6 +236,7 @@ pub async fn start_server_with_auth(
         file_storage,
         directory_manager,
         helen_bridge,
+        upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -305,6 +308,7 @@ pub async fn start_server_with_bridge(
         file_storage,
         directory_manager,
         helen_bridge,
+        upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 

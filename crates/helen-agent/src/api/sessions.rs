@@ -14,6 +14,7 @@ use crate::directory::DirectoryManager;
 use crate::helen_bridge::HelenBridge;
 use crate::session::SessionManager;
 use crate::storage::FileStorage;
+use crate::upload::UploadManager;
 
 /// Combined application state
 pub struct AppStateInner {
@@ -21,6 +22,7 @@ pub struct AppStateInner {
     pub file_storage: FileStorage,
     pub directory_manager: Arc<DirectoryManager>,
     pub helen_bridge: Arc<HelenBridge>,
+    pub upload_manager: Arc<UploadManager>,
 }
 
 /// Shared application state

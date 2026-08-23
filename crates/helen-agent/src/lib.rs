@@ -13,4 +13,5 @@ pub mod server;
 pub mod session;
 pub mod storage;
 pub mod transcript;
+pub mod upload;
 pub mod websocket;
