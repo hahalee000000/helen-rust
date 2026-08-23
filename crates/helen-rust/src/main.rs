@@ -350,7 +350,7 @@ fn agent_command() -> i32 {
                 if i + 1 < args.len() {
                     port = args[i + 1].parse().unwrap_or_else(|_| {
                         eprintln!("❌ Invalid port number: {}", args[i + 1]);
-                        8000
+                        8080
                     });
                     i += 2;
                 } else {
