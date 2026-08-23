@@ -575,7 +575,11 @@ pub async fn get_session_media(
             .into_response();
     }
 
-    if filename.contains('/') || filename.contains('\\') || filename.contains("..") || filename.is_empty() {
+    if filename.contains('/')
+        || filename.contains('\\')
+        || filename.contains("..")
+        || filename.is_empty()
+    {
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({"error": "Invalid filename"})),

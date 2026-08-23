@@ -28,3 +28,11 @@ venv/
 .helen/webui_token
 .helen/current_session_id
 .codebase-memory/
+
+# Frontend (node_modules, build output)
+**/node_modules/
+**/dist/
+**/build/
+
+# Runtime logs
+logs/

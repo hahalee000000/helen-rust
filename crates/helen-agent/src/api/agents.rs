@@ -5,12 +5,7 @@
 //! - GET /api/agents/:name/status - Get specific agent status
 //! - GET /api/agents/list - List all available agents
 
-use axum::{
-    extract::Path,
-    response::IntoResponse,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::Path, response::IntoResponse, routing::get, Json, Router};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -96,9 +91,7 @@ pub async fn get_all_agents_status() -> Json<AgentsStatusResponse> {
 }
 
 /// GET /api/agents/:agent_name/status
-pub async fn get_agent_status(
-    Path(agent_name): Path<String>,
-) -> impl axum::response::IntoResponse {
+pub async fn get_agent_status(Path(agent_name): Path<String>) -> impl axum::response::IntoResponse {
     let states = get_mock_agent_states();
     match states.get(&agent_name) {
         Some(agent_status) => Json(serde_json::json!({

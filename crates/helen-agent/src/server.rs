@@ -166,7 +166,9 @@ async fn health_handler() -> Json<serde_json::Value> {
 }
 
 /// API status endpoint (root level)
-async fn api_status_handler(axum::extract::State(state): axum::extract::State<AppState>) -> Json<serde_json::Value> {
+async fn api_status_handler(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> Json<serde_json::Value> {
     let _inner = state.lock().await;
     let active_connections = 0; // WebSocket connections tracked separately
     Json(json!({
