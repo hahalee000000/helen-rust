@@ -31,7 +31,7 @@ from .agent_wrapper import HelenAgentWrapper, generate_python_classes
 from .function_wrapper import HelenFunctionWrapper, load_helen_functions
 from .decorators import helen_agent, helen_module
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "install_import_hook",

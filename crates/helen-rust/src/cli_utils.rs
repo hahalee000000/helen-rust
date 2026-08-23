@@ -4,7 +4,7 @@ use helen_interpreter::exceptions::ExceptionValue;
 
 /// The helen-rust version string (independent from Python Helen versioning).
 /// Ported from Python Helen v1.45.0 — this is the Rust reimplementation.
-pub const HELEN_VERSION: &str = "0.1.0";
+pub const HELEN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The Python Helen version this port was based on.
 pub const PYTHON_REFERENCE_VERSION: &str = "1.45.0";
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_helen_version_constant() {
-        assert_eq!(HELEN_VERSION, "0.1.0");
+        assert_eq!(HELEN_VERSION, env!("CARGO_PKG_VERSION"));
         assert_eq!(PYTHON_REFERENCE_VERSION, "1.45.0");
     }
 }
