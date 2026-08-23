@@ -18,6 +18,7 @@ use tokio::sync::Mutex;
 
 use crate::api::sessions::{AppState, AppStateInner};
 use crate::auth::{AuthConfig, AuthManager};
+use crate::directory::DirectoryManager;
 use crate::session::SessionManager;
 use crate::storage::FileStorage;
 
@@ -62,17 +63,19 @@ pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Erro
 
     let session_manager = SessionManager::new(session_dir);
     let file_storage = FileStorage::new(file_dir);
+    let directory_manager = Arc::new(DirectoryManager::new(std::env::current_dir().unwrap_or_default().to_string_lossy().to_string()));
 
     let state_inner = AppStateInner {
         session_manager,
         file_storage,
+        directory_manager,
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
     let app: Router<AppState> = Router::new()
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
-        .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router())
         .nest("/api", crate::api::sessions::router(state.clone()))
@@ -220,10 +223,12 @@ pub async fn start_server_with_auth(
 
     let session_manager = SessionManager::new(session_dir);
     let file_storage = FileStorage::new(file_dir);
+    let directory_manager = Arc::new(DirectoryManager::new(std::env::current_dir().unwrap_or_default().to_string_lossy().to_string()));
 
     let state_inner = AppStateInner {
         session_manager,
         file_storage,
+        directory_manager,
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -238,7 +243,7 @@ pub async fn start_server_with_auth(
     let app: Router<AppState> = Router::new()
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
-        .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router())
         .nest("/api", crate::api::sessions::router(state.clone()))
@@ -287,10 +292,12 @@ pub async fn start_server_with_bridge(
 
     let session_manager = SessionManager::new(session_dir);
     let file_storage = FileStorage::new(file_dir);
+    let directory_manager = Arc::new(DirectoryManager::new(std::env::current_dir().unwrap_or_default().to_string_lossy().to_string()));
 
     let state_inner = AppStateInner {
         session_manager,
         file_storage,
+        directory_manager,
     };
     let state: AppState = Arc::new(Mutex::new(state_inner));
 
@@ -305,7 +312,7 @@ pub async fn start_server_with_bridge(
     let mut app: Router<AppState> = Router::new()
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
-        .nest("/api/chat", crate::api::chat::router())
+        .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router())
         .nest("/api", crate::api::sessions::router(state.clone()))
