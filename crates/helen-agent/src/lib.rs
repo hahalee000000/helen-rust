@@ -5,5 +5,6 @@
 
 pub mod agent_files;
 pub mod api;
+pub mod executor;
 pub mod server;
 pub mod websocket;
