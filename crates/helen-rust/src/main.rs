@@ -327,8 +327,9 @@ fn preflight_config_check() -> Result<(), i32> {
     Err(1)
 }
 
-/// `helen agent` — launch the Helen Web UI (delegates to Python start_webui.py).
-/// Port of `helen/cli/agent_launcher.py::launch_agent`.
+/// `helen agent` — launch the Helen Web UI (standalone Rust server).
+/// Serves an embedded React frontend via Axum on port 8001.
+/// Independent from the Python reference implementation's agent.
 fn agent_command() -> i32 {
     use std::net::SocketAddr;
 
