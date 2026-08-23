@@ -16,8 +16,10 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use super::sessions::AppState;
+use crate::server::mime_from_path;
 use crate::transcript::TranscriptReader;
 use crate::upload::UploadManager;
 
@@ -27,8 +29,13 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route("/status", get(get_status))
         .route("/cwd", get(get_cwd))
         .route("/cwd", post(set_cwd))
+        .route("/dir", get(get_directory))
+        .route("/dir", post(set_directory))
+        .route("/dir/messages", get(get_directory_messages))
         .route("/sessions", get(list_sessions))
         .route("/sessions/:id/messages", get(get_messages))
+        .route("/sessions/:id/transcript", get(get_transcript))
+        .route("/sessions/:id/media/:filename", get(get_session_media))
         .route("/sessions/:id", delete(delete_session))
         .route("/upload", post(upload_file))
         .route("/uploads/:id/file", get(get_upload_file))
@@ -329,5 +336,322 @@ pub async fn get_upload_file(
             };
             (status, Json(serde_json::json!({"error": e.to_string()}))).into_response()
         }
+    }
+}
+
+// === Directory endpoints (aliases for /cwd with additional fields) ===
+
+/// Response for GET /api/chat/dir
+#[derive(Serialize)]
+pub struct GetDirectoryResponse {
+    pub cwd: String,
+    pub display_name: String,
+    pub session_id: String,
+    pub helen_session_id: Option<String>,
+}
+
+/// GET /api/chat/dir
+///
+/// Get current working directory information (alias for /cwd with session_id)
+pub async fn get_directory(State(state): State<AppState>) -> impl IntoResponse {
+    let inner = state.lock().await;
+    let cwd = inner.directory_manager.get_cwd();
+    let display_name = inner.directory_manager.get_display_name(Some(cwd.clone()));
+    let session_id = inner.directory_manager.cwd_to_session_id(&cwd);
+
+    // Try to get Helen session ID
+    let helen_session_id = None; // TODO: Query Helen bridge for session ID
+
+    Json(GetDirectoryResponse {
+        cwd,
+        display_name,
+        session_id,
+        helen_session_id,
+    })
+}
+
+/// Request for POST /api/chat/dir
+#[derive(Deserialize)]
+pub struct SetDirectoryRequest {
+    pub path: String,
+}
+
+/// Response for POST /api/chat/dir
+#[derive(Serialize)]
+pub struct SetDirectoryResponse {
+    pub status: String,
+    pub cwd: String,
+    pub display_name: String,
+    pub session_id: String,
+    pub helen_session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// POST /api/chat/dir
+///
+/// Change working directory (alias for /cwd with session_id)
+pub async fn set_directory(
+    State(state): State<AppState>,
+    Json(request): Json<SetDirectoryRequest>,
+) -> impl IntoResponse {
+    let inner = state.lock().await;
+    let result = inner.directory_manager.set_cwd(&request.path);
+
+    let cwd = result.cwd.unwrap_or_default();
+    let session_id = inner.directory_manager.cwd_to_session_id(&cwd);
+    let helen_session_id = None; // TODO: Query Helen bridge for session ID
+
+    Json(SetDirectoryResponse {
+        status: result.status,
+        cwd,
+        display_name: result.display_name.unwrap_or_default(),
+        session_id,
+        helen_session_id,
+        message: result.message,
+    })
+}
+
+/// GET /api/chat/dir/messages
+///
+/// Get message history for current working directory (from transcript)
+pub async fn get_directory_messages(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<MessagesQuery>,
+) -> impl IntoResponse {
+    let inner = state.lock().await;
+    let sessions_dir = inner.directory_manager.get_sessions_dir();
+    let reader = TranscriptReader::from_path(&sessions_dir);
+
+    // Get current session's messages
+    let cwd = inner.directory_manager.get_cwd();
+    let session_id = inner.directory_manager.cwd_to_session_id(&cwd);
+    let messages = reader.to_messages(&session_id);
+
+    let api_messages: Vec<Message> = messages
+        .into_iter()
+        .skip(params.offset.unwrap_or(0))
+        .take(params.limit.unwrap_or(100))
+        .map(|m| Message {
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: m.timestamp,
+            attachments: m.attachments,
+        })
+        .collect();
+
+    Json(api_messages)
+}
+
+/// Query parameters for messages endpoint
+#[derive(Deserialize, Default)]
+pub struct MessagesQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+}
+
+// === Transcript and media endpoints ===
+
+/// GET /api/chat/sessions/:id/transcript
+///
+/// Get raw Helen transcript (complete LLM context record)
+pub async fn get_transcript(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> impl IntoResponse {
+    // Validate session_id to prevent path traversal
+    if session_id.contains('/') || session_id.contains('\\') || session_id.contains("..") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Invalid session ID"})),
+        )
+            .into_response();
+    }
+
+    let inner = state.lock().await;
+    let sessions_dir = inner.directory_manager.get_sessions_dir();
+    let reader = TranscriptReader::from_path(&sessions_dir);
+
+    // Get transcript path
+    let transcript_path = match reader.get_transcript_path(&session_id) {
+        Some(path) => path,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Session not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    // Read transcript file
+    let mut entries = Vec::new();
+    let mut line_num = 0;
+
+    if let Ok(file) = std::fs::File::open(&transcript_path) {
+        use std::io::BufRead;
+        let reader = std::io::BufReader::new(file);
+        for line in reader.lines() {
+            line_num += 1;
+            if let Ok(line) = line {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                match serde_json::from_str::<serde_json::Value>(&line) {
+                    Ok(mut entry) => {
+                        entry["_line"] = serde_json::json!(line_num);
+                        entries.push(entry);
+                    }
+                    Err(e) => {
+                        entries.push(serde_json::json!({
+                            "type": "parse_error",
+                            "line": line_num,
+                            "error": e.to_string(),
+                            "raw": &line[..line.len().min(200)]
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    // Filter out test messages and metadata
+    entries.retain(|e| {
+        if let Some(content) = e.get("content").and_then(|c| c.as_str()) {
+            if content.starts_with("[TEST]") {
+                return false;
+            }
+        }
+        e.get("type").and_then(|t| t.as_str()) != Some("session_meta")
+    });
+
+    // Count roles and tool calls
+    let mut roles: HashMap<String, usize> = HashMap::new();
+    let mut tool_calls_count = 0;
+
+    for e in &entries {
+        if e.get("type").and_then(|t| t.as_str()) == Some("message") {
+            if let Some(role) = e.get("role").and_then(|r| r.as_str()) {
+                *roles.entry(role.to_string()).or_insert(0) += 1;
+            }
+            if let Some(tool_calls) = e.get("tool_calls") {
+                if let Some(arr) = tool_calls.as_array() {
+                    tool_calls_count += arr.len();
+                }
+            } else if let Some(content) = e.get("content").and_then(|c| c.as_str()) {
+                if content.starts_with("Tool calls:") {
+                    // Count function calls in text format
+                    tool_calls_count += content.matches('(').count();
+                }
+            }
+        }
+    }
+
+    Json(serde_json::json!({
+        "session_id": session_id,
+        "file": transcript_path.to_string_lossy(),
+        "total_entries": entries.len(),
+        "roles": roles,
+        "tool_calls_count": tool_calls_count,
+        "entries": entries,
+    }))
+    .into_response()
+}
+
+/// GET /api/chat/sessions/:id/media/:filename
+///
+/// Serve media files (images, audio, etc.) from session attachments
+pub async fn get_session_media(
+    State(state): State<AppState>,
+    Path((session_id, filename)): Path<(String, String)>,
+) -> impl IntoResponse {
+    // Validate session_id and filename to prevent path traversal
+    if session_id.contains('/') || session_id.contains('\\') || session_id.contains("..") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Invalid session ID"})),
+        )
+            .into_response();
+    }
+
+    if filename.contains('/') || filename.contains('\\') || filename.contains("..") || filename.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Invalid filename"})),
+        )
+            .into_response();
+    }
+
+    let inner = state.lock().await;
+    let sessions_dir = inner.directory_manager.get_sessions_dir();
+    let reader = TranscriptReader::from_path(&sessions_dir);
+
+    // Get transcript path to find media directory
+    let transcript_path = match reader.get_transcript_path(&session_id) {
+        Some(path) => path,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Session not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    let media_dir = transcript_path.parent().unwrap().join("media");
+    let media_path = media_dir.join(&filename);
+
+    // Security check: ensure file is within media directory
+    let real_media = match std::fs::canonicalize(&media_path) {
+        Ok(p) => p,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Media file not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    let real_media_dir = match std::fs::canonicalize(&media_dir) {
+        Ok(p) => p,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Media directory not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    if !real_media.starts_with(&real_media_dir) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Access denied"})),
+        )
+            .into_response();
+    }
+
+    if !media_path.exists() || !media_path.is_file() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "Media file not found"})),
+        )
+            .into_response();
+    }
+
+    // Determine MIME type
+    let mime = mime_from_path(&filename);
+
+    // Read and serve file
+    match std::fs::read(&media_path) {
+        Ok(content) => Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, mime)
+            .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .body(axum::body::Body::from(content))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }

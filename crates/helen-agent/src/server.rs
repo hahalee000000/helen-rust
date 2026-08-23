@@ -85,9 +85,11 @@ pub async fn start_server_with_options(
     // Build router with common routes
     let mut app: Router<AppState> = Router::new()
         .route("/health", get(health_handler))
+        .route("/api/status", get(api_status_handler))
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
-        .nest("/api/chat", crate::websocket::router());
+        .nest("/api/chat", crate::websocket::router())
+        .nest("/api/agents", crate::api::agents::router(state.clone()));
 
     // Add bridge endpoint if enabled
     if options.enable_bridge {
@@ -161,6 +163,20 @@ pub async fn start_server_with_bridge(
 /// Health check endpoint
 async fn health_handler() -> Json<serde_json::Value> {
     Json(json!({"status": "ok"}))
+}
+
+/// API status endpoint (root level)
+async fn api_status_handler(axum::extract::State(state): axum::extract::State<AppState>) -> Json<serde_json::Value> {
+    let _inner = state.lock().await;
+    let active_connections = 0; // WebSocket connections tracked separately
+    Json(json!({
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION"),
+        "active_connections": active_connections,
+        "config": {
+            "helen_path": std::env::var("HELEN_PATH").unwrap_or_else(|_| "~/.helen".to_string()),
+        }
+    }))
 }
 
 /// Serve embedded static assets (JS, CSS, SVG, etc.)
