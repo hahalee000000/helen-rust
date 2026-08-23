@@ -138,17 +138,6 @@ impl HelenBridge {
         }
     }
 
-    /// Get list of active stream IDs
-    pub async fn list_streams(&self) -> Vec<String> {
-        let streams = self.streams.lock().await;
-        streams.keys().cloned().collect()
-    }
-
-    /// Check if a stream is active
-    pub async fn is_stream_active(&self, stream_id: &str) -> bool {
-        let streams = self.streams.lock().await;
-        streams.contains_key(stream_id)
-    }
 }
 
 #[cfg(test)]
@@ -161,14 +150,6 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let bridge = HelenBridge::new(temp.path().to_path_buf());
         assert!(bridge.helen_path.exists() || bridge.helen_path.to_str().unwrap().contains("tmp"));
-    }
-
-    #[tokio::test]
-    async fn test_list_streams_empty() {
-        let temp = TempDir::new().unwrap();
-        let bridge = HelenBridge::new(temp.path().to_path_buf());
-        let streams = bridge.list_streams().await;
-        assert!(streams.is_empty());
     }
 
     #[tokio::test]
