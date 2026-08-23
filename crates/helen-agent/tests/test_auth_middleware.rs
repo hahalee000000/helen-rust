@@ -16,7 +16,7 @@ async fn test_auth_required_without_token() {
 
     // Try to access without token - should fail
     let resp = client
-        .get(format!("{}/api/sessions", base_url))
+        .get(format!("{}/api/chat/sessions", base_url))
         .send()
         .await
         .unwrap();
@@ -39,7 +39,7 @@ async fn test_auth_with_valid_token() {
 
     // Access with valid token - should succeed
     let resp = client
-        .get(format!("{}/api/sessions", base_url))
+        .get(format!("{}/api/chat/sessions", base_url))
         .header("Authorization", "Bearer test-token-123")
         .send()
         .await
@@ -63,7 +63,7 @@ async fn test_auth_with_invalid_token() {
 
     // Access with invalid token - should fail
     let resp = client
-        .get(format!("{}/api/sessions", base_url))
+        .get(format!("{}/api/chat/sessions", base_url))
         .header("Authorization", "Bearer wrong-token")
         .send()
         .await
@@ -87,7 +87,7 @@ async fn test_auth_disabled() {
 
     // Access without token when auth is disabled - should succeed
     let resp = client
-        .get(format!("{}/api/sessions", base_url))
+        .get(format!("{}/api/chat/sessions", base_url))
         .send()
         .await
         .unwrap();

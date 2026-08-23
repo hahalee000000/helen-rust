@@ -21,8 +21,6 @@ use crate::auth::{AuthConfig, AuthManager};
 use crate::directory::DirectoryManager;
 use crate::helen_bridge::HelenBridge;
 use crate::hint_injector::HintInjector;
-use crate::session::SessionManager;
-use crate::storage::FileStorage;
 use crate::stream_registry::StreamRegistry;
 use crate::upload::UploadManager;
 
@@ -49,49 +47,41 @@ impl Server {
     }
 }
 
-/// Start the web server on the given bind address
-///
-/// Returns a Server handle that can be used to shutdown the server.
-pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Error>> {
-    // Create session storage directory
-    let session_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("sessions");
-
-    // Create file storage directory
-    let file_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("files");
-
-    let session_manager = SessionManager::new(session_dir);
-    let file_storage = FileStorage::new(file_dir);
-    let directory_manager = Arc::new(DirectoryManager::new(std::env::current_dir().unwrap_or_default().to_string_lossy().to_string()));
-    let helen_bridge = Arc::new(HelenBridge::new(std::path::PathBuf::from("helen")));
-
+/// Build the shared application state
+fn build_state() -> AppState {
     let state_inner = AppStateInner {
-        session_manager,
-        file_storage,
-        directory_manager,
-        helen_bridge,
+        directory_manager: Arc::new(DirectoryManager::new(
+            std::env::current_dir()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+        )),
+        helen_bridge: Arc::new(HelenBridge::new(std::path::PathBuf::from("helen"))),
         upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
         stream_registry: Arc::new(StreamRegistry::new()),
         hint_injector: Arc::new(HintInjector::new()),
     };
-    let state: AppState = Arc::new(Mutex::new(state_inner));
+    Arc::new(Mutex::new(state_inner))
+}
 
-    let app: Router<AppState> = Router::new()
+/// Build the base router with all API routes
+fn build_router(state: AppState) -> Router {
+    Router::new()
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router(state.clone()))
-        .nest("/api", crate::api::sessions::router(state.clone()))
-        .nest("/api", crate::api::files::router(state.clone()))
-        .fallback(spa_fallback);
+        .fallback(spa_fallback)
+        .with_state(state)
+}
 
-    let app = app.with_state(state);
+/// Start the web server on the given bind address
+///
+/// Returns a Server handle that can be used to shutdown the server.
+pub async fn start_server(bind: &str) -> Result<Server, Box<dyn std::error::Error>> {
+    let state = build_state();
+    let app = build_router(state);
 
     let listener = TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
@@ -212,39 +202,13 @@ pub async fn start_server_with_auth(
     bind: &str,
     auth_token: Option<String>,
 ) -> Result<Server, Box<dyn std::error::Error>> {
-    // Create session storage directory
-    let session_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("sessions");
-
-    // Create file storage directory
-    let file_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("files");
-
     // Create auth config directory
     let auth_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("auth");
 
-    let session_manager = SessionManager::new(session_dir);
-    let file_storage = FileStorage::new(file_dir);
-    let directory_manager = Arc::new(DirectoryManager::new(std::env::current_dir().unwrap_or_default().to_string_lossy().to_string()));
-    let helen_bridge = Arc::new(HelenBridge::new(std::path::PathBuf::from("helen")));
-
-    let state_inner = AppStateInner {
-        session_manager,
-        file_storage,
-        directory_manager,
-        helen_bridge,
-        upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
-        stream_registry: Arc::new(StreamRegistry::new()),
-        hint_injector: Arc::new(HintInjector::new()),
-    };
-    let state: AppState = Arc::new(Mutex::new(state_inner));
+    let state = build_state();
 
     // Create auth manager
     let auth_config = AuthConfig {
@@ -254,18 +218,15 @@ pub async fn start_server_with_auth(
     };
     let auth_manager = Arc::new(AuthManager::new(auth_config));
 
-    let app: Router<AppState> = Router::new()
+    let app = Router::new()
         .route("/health", get(health_handler))
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
         .nest("/api/agents", crate::api::agents::router(state.clone()))
-        .nest("/api", crate::api::sessions::router(state.clone()))
-        .nest("/api", crate::api::files::router(state.clone()))
         .fallback(spa_fallback)
-        .layer(middleware::from_fn(auth_middleware_factory(auth_manager)));
-
-    let app = app.with_state(state);
+        .layer(middleware::from_fn(auth_middleware_factory(auth_manager)))
+        .with_state(state);
 
     let listener = TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
@@ -286,39 +247,13 @@ pub async fn start_server_with_bridge(
     auth_token: Option<String>,
     enable_bridge: bool,
 ) -> Result<Server, Box<dyn std::error::Error>> {
-    // Create session storage directory
-    let session_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("sessions");
-
-    // Create file storage directory
-    let file_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("helen-agent")
-        .join("files");
-
     // Create auth config directory
     let auth_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("helen-agent")
         .join("auth");
 
-    let session_manager = SessionManager::new(session_dir);
-    let file_storage = FileStorage::new(file_dir);
-    let directory_manager = Arc::new(DirectoryManager::new(std::env::current_dir().unwrap_or_default().to_string_lossy().to_string()));
-    let helen_bridge = Arc::new(HelenBridge::new(std::path::PathBuf::from("helen")));
-
-    let state_inner = AppStateInner {
-        session_manager,
-        file_storage,
-        directory_manager,
-        helen_bridge,
-        upload_manager: Arc::new(UploadManager::new(std::env::current_dir().unwrap_or_default())),
-        stream_registry: Arc::new(StreamRegistry::new()),
-        hint_injector: Arc::new(HintInjector::new()),
-    };
-    let state: AppState = Arc::new(Mutex::new(state_inner));
+    let state = build_state();
 
     // Create auth manager
     let auth_config = AuthConfig {
@@ -333,9 +268,7 @@ pub async fn start_server_with_bridge(
         .route("/assets/*path", get(static_asset_handler))
         .nest("/api/chat", crate::api::chat::router(state.clone()))
         .nest("/api/chat", crate::websocket::router())
-        .nest("/api/agents", crate::api::agents::router(state.clone()))
-        .nest("/api", crate::api::sessions::router(state.clone()))
-        .nest("/api", crate::api::files::router(state.clone()));
+        .nest("/api/agents", crate::api::agents::router(state.clone()));
 
     // Add bridge endpoint if enabled
     if enable_bridge {
