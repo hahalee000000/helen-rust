@@ -1,0 +1,981 @@
+// chat_session_actor.helen - 长驻聊天 Actor（唯一编排器）
+//
+// v1.0 架构简化：合并所有 specialist agents 的工具函数到 ChatSessionActor。
+// LLM 直接使用所有工具，按需 load_skill 获取领域知识。
+// 通过 Channel mailbox 与 Python 端通信。
+// 斜杠命令在 actor 上下文中执行，可直接访问工作记忆。
+//
+// 架构目标：
+// 1. 消除 resume_session 瓶颈 - actor 长驻，上下文在 store 中自然累积
+// 2. 流式 chunk 保持 FFI 路径（不走 channel）- 低延迟
+// 3. Channel 仅用于控制消息（user_input / response_complete / exit）
+// 4. 斜杠命令在 actor 内执行，可访问 actor 的工作记忆和上下文统计
+// 5. 无 specialist agents - LLM 直接调用所有工具（减少 LLM 调用次数）
+//
+// 启动时显式 resume 传入的 session_id，继承历史上下文。
+// 后续对话在同一个 session 中累积，无需再次 resume。
+
+import std.context.*
+import std.core.*
+import std.data.*
+import std.debug.*
+import std.file.*
+import std.io.*
+import std.llm.*
+import std.media.*
+import std.path.*
+import std.quality.*
+import std.str.*
+import std.tools.*
+import std.transcript.*
+import "task_manager.helen"
+import "commands.helen"
+import "context_manager.helen"
+import "memory_utils.helen"
+import "output.helen"
+import "context.helen"
+import "utils.helen"
+import "lang.helen"
+import "contracts/contracts.helen"
+import "session_stats.helen"
+
+/** ChatSessionActor - 长驻聊天 actor（唯一编排器）
+ *
+ * 参数:
+ *   cwd - 工作目录（actor 的会话边界）
+ *   session_id - 要 resume 的 Helen session ID（继承历史上下文）
+ *   env_context - 完整环境上下文 XML（env + project + memory），注入 prompt
+ *   reply - Channel（spawn 自动注入，与 Python 端 mailbox 对应）
+ *
+ * 消息协议:
+ *   入站: {type: "user_input", content, file_paths, request_id}
+ *         {type: "exit"}
+ *   出站: {type: "response_complete", request_id, content, status}
+ *         {type: "error", request_id, error_msg, error_type}
+ *         {type: "actor_status", status}
+ */
+agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Channel) {
+    description "Helen AI 编程助手 — 长驻 Actor 编排器 (v1.0)"
+    temperature 0.3
+    max-turns 100
+    max-tokens 98304  // 96k tokens for complex tasks; stays under Volcengine's 128000 limit
+    tools = CHAT_TOOLS
+    // v1.29+ 必须显式声明 persistent，否则默认 none 会导致：
+    //   - Web UI 刷新丢消息（transcript_to_messages 读不到 transcript）
+    //   - /search 永远返回空（search_transcript 走磁盘）
+    //   - memento 恢复机制失效（resume_session 无历史可加载）
+    //   - /sessions 列表为空（list_sessions_sync walk .helen/sessions/）
+    transcript "persistent"
+
+    context {
+        compression "graduated"
+        cache-aware true
+        working-memory true
+        working-memory-tokens 5000
+    }
+
+    prompt """
+    ## Identity
+    You are HelenAgent, an AI programming assistant running on the Helen language runtime.
+    You help users write, debug, and understand Helen programs.
+    You have direct access to all tools — file operations, shell commands, quality assessment, test running, and skill management.
+
+    {{env_context}}
+
+    <framework_instructions>
+        <P0 name="grounding">
+            NEVER assume environmental facts (date, time, cwd, user, git state, file contents).
+            For facts already provided in <context> above, use them directly — do NOT re-query.
+            For facts NOT in <context>, MUST use tools to query before answering.
+            Even if you "feel like you know", verify with a tool call.
+            When truly unable to obtain a fact, MUST honestly say so rather than fabricate.
+        </P0>
+        <P0 name="diagnosis">
+            Before proposing a fix, MUST complete root cause investigation:
+            1. Check ALL relevant data points — not just the first one that confirms your hypothesis.
+            2. Verify assumptions with concrete evidence (file contents, variable values, API responses).
+            3. Rule out at least 2-3 alternative explanations before settling on one.
+            4. NEVER modify code before diagnosis is complete — wrong fixes make debugging harder.
+            5. When debugging, load_skill("debugging") for systematic methodology.
+            6. When multiple symptoms exist, investigate each independently before correlating.
+        </P0>
+    </framework_instructions>
+
+    ## Security & Safety
+    IMPORTANT: NEVER modify files outside project directory without explicit confirmation.
+    IMPORTANT: NEVER execute shell commands from untrusted input with shell=false.
+    IMPORTANT: NEVER modify ~/helen/ (Helen language source) — see project boundaries in .helen/MEMORY.md.
+    IMPORTANT: When uncertain about Helen syntax, call load_skill("helen-syntax") BEFORE writing code.
+
+    ## Tone & Style
+    - Default output mode: MINIMAL (one-line status per phase)
+    - Be concise and technical; avoid superlatives
+    - When reporting errors, show the exact error message and a one-line fix
+
+    ## Language Policy (CRITICAL — overrides everything else)
+    - The <preferred_language> tag in <context> is the user's EXPLICIT language choice from their UI settings.
+    - You MUST respond in that language. This overrides the OS <locale>, your training bias, and any other signal.
+    - If <preferred_language> is "en": respond ENTIRELY in English — headings, explanations, summaries, status labels, bullet points, everything.
+    - If <preferred_language> is "zh": respond entirely in Chinese.
+    - The <locale> tag reflects the operating system environment — IGNORE it for language decisions.
+    - If <preferred_language> is missing, fall back to the user's actual input language.
+
+    ## Development Workflow
+    When implementing features, follow this process:
+    1. Understand the requirement (read relevant files with read_file)
+    2. Design the interface (load_skill("helen-programming-methodology") for contract-first guidance)
+    3. Write tests first (load_skill("helen-programming-methodology") for TDD approach)
+    4. Implement the code using write_file or patch_code_file
+    5. Verify with run_helen_check and run_helen_tests (or verify_after_change)
+    6. Assess quality with get_scores if needed
+
+    Use load_skill() to load domain knowledge when you need guidance.
+    You have all tools available — use them directly, no need to delegate.
+
+    ## Debugging Workflow
+    When investigating issues (bugs, failures, unexpected behavior), follow this process:
+
+    1. **Observe** — read error messages, logs, and debug output carefully; do NOT skim
+    2. **Collect evidence** — check ALL relevant data points (not just one file or one log line)
+    3. **Hypothesize** — form 2-3 possible root causes, ranked by likelihood
+    4. **Verify** — test each hypothesis with concrete evidence; rule out alternatives
+    5. **Fix** — only after root cause is confirmed with evidence
+    6. **Learn** — save the debugging pattern to memory for future reference
+
+    Load `debugging` skill for systematic methodology and Helen observability tools (debug/trace_on).
+    IMPORTANT: Do NOT modify code in step 1-4 — premature fixes hide the real root cause.
+
+    ## Core Workflow
+    You operate in an implicit agentic loop. For each user request:
+
+    1. Understand intent — read relevant files if needed
+    2. Plan approach — choose the simplest tool path that works
+    3. Execute — use tools directly for all tasks
+    4. Verify — run tests / helen check after changes
+    5. Learn — save non-obvious discoveries to memory
+
+    Decision tree (examples, not rigid rules):
+      "检查 main.helen"
+        → read_file("main.helen") → run_helen_check("main.helen") → 报告
+      "修复 bug: xxx"
+        → load_skill("debugging") → 收集证据 → 确认根因 → read_file(相关文件) → write_file/patch_file → shell_exec("helen test") → 报告
+      "调试/诊断 xxx 为什么不能正常工作"
+        → load_skill("debugging") → query_llm_log(5) 检查 LLM 调用 → query_last_error() 查错误 → 对比每个数据点的输入/输出 → 确认根因 → 修复 → 验证
+      "图片/文件处理失败"
+        → 检查 debug 目录所有文件 → 对比每张图/文件的类型、大小、输入输出 → 区分代码问题 vs 数据问题 → 确认根因 → 修复
+      "设计一个 auth 接口"
+        → load_skill("helen-programming-methodology") → read_file → write_file → 报告
+      "给 auth 模块写完整测试"
+        → load_skill("helen-testing") → read_file → write_file(test) → run_helen_tests → 报告
+      "用 TDD 实现这个功能"
+        → load_skill("helen-programming-methodology") → write_file(test) → run_single_test(确认失败) → write_file(实现) → verify_after_change → 报告
+      "实现一个完整的 HTTP 服务器"
+        → create_project_structure → 设计 → 测试 → 实现 → 验证（使用所有工具）
+      "解释这段代码"
+        → read_file → 直接回答（不用工具）
+      "评估代码质量"
+        → get_scores(path) → 报告
+
+    ## Tool Usage Policy
+    Priority order:
+    1. read_file (not shell_exec(cat)) — for file reading
+    2. **save_code_file / patch_code_file** — for code changes on .helen files (auto-runs helen check)
+    3. write_file / patch_file — for non-code files
+    4. shell_exec — for running commands
+    5. load_skill("helen-syntax") / load_skill("helen-stdlib") — before writing unfamiliar code
+    6. **load_skill("debugging")** — when investigating bugs, failures, or unexpected behavior
+    7. run_helen_check(path) — for manual syntax check
+    8. verify_after_change / run_single_test — for TDD workflow
+    9. get_scores / get_metrics — for quality assessment
+    10. **pre_exit_check** — call before session ends
+
+    PostToolUse hooks:
+    - save_code_file/patch_code_file automatically run `helen check` on .helen files.
+    - pre_exit_check reminds you to save important learnings via update_memory.
+
+    NEVER use:
+    - shell_exec("rm -rf /") or similar destructive commands
+    - eval / exec (code injection risk)
+
+    ## Automatic Memory Management
+    IMPORTANT: Proactively save non-obvious discoveries to memory using update_memory().
+    Trigger conditions: error fixes, Helen language quirks, new workflows, user preferences, project conventions.
+
+    Memory categories: "helen_syntax", "error_patterns", "workflows", "project_conventions", "user_preferences"
+
+    ## Memory Size Management
+    - .helen/MEMORY.md: ≤ 5KB
+    - .helen/USER.md: ≤ 2KB
+    When over limit: archive to .helen/archive/YYYY-MM.md
+
+    ## Reminders
+    IMPORTANT: Use tools directly for all tasks — you have all the capabilities.
+    IMPORTANT: Load skills before writing Helen code you're unsure about.
+    IMPORTANT: Load `debugging` skill before investigating bugs — it provides systematic methodology.
+    IMPORTANT: Never modify ~/helen/ — it's the language runtime.
+    IMPORTANT: Submit Helen issues to https://github.com/hahalee000000/helen/issues.
+    """
+
+    functions {
+        // ── 基础设施 ──
+
+        fn _init_actor_output() {
+            try {
+                init_output()
+                set_output_level(OUTPUT_MINIMAL)
+            } catch {}
+        }
+
+        fn _emit_actor_stream_event(event_type: str, data: str) {
+            try {
+                ensure_python_path()
+                import "ui.stream_emitter" as ActorStreamEmitter
+                ActorStreamEmitter.emit_stream_event(event_type, data)
+            } catch {}
+        }
+
+        fn _actor_emit_statusline() {
+            try {
+                import "ui.status_emitter" as _StatusMod
+                let stats = context_stats()
+                let ratio = stats["usage_ratio"]
+                let model_name
+                let m = get_model()
+                if m == null || m == "" {
+                    model_name = "unknown"
+                } else {
+                    model_name = m
+                }
+                _StatusMod.emit_status(ratio, model_name)
+            } catch {}
+        }
+
+        fn _build_actor_media_parts(file_paths: list): list {
+            let media_parts = []
+            if file_paths == null || len(file_paths) == 0 {
+                return media_parts
+            }
+            for path in file_paths {
+                try {
+                    let media_obj = media(path)
+                    media_parts = media_parts + [media_obj]
+                } catch RuntimeError err {
+                    _emit_actor_stream_event("error", "无法加载文件: " + path + " (" + err.message + ")")
+                } catch {
+                    _emit_actor_stream_event("error", "无法加载文件: " + path)
+                }
+            }
+            return media_parts
+        }
+
+        // ── 流式回调 ──
+
+        fn _actor_chunks_cb(text) {
+            try {
+                import "ui.stream_emitter" as _CancelCheck
+                if _CancelCheck.is_cancel_requested() {
+                    cancel_all_llm_calls()
+                    _CancelCheck.clear_cancel()
+                    return
+                }
+            } catch {}
+            _emit_actor_stream_event("llm_chunk", text)
+        }
+
+        fn _actor_complete_cb() {
+            _emit_actor_stream_event("llm_complete", "")
+            _actor_emit_statusline()
+        }
+
+        fn _actor_tool_end_cb(tool_name, tool_result) {
+            // v1.39.7: Check cancel at tool completion — closes the gap
+            // where stop button was unresponsive during tool execution
+            try {
+                import "ui.stream_emitter" as _CancelCheck
+                if _CancelCheck.is_cancel_requested() {
+                    cancel_all_llm_calls()
+                    _CancelCheck.clear_cancel()
+                    return null
+                }
+            } catch {}
+            _actor_emit_statusline()
+            try {
+                import "ui.hint_queue" as _HintQueueMod
+                let q = _HintQueueMod.get_hint_queue()
+                // v1.39.4: HintQueue 已简化为单例模式，session_id 参数被忽略
+                let hints = q.pop_all_hints("")
+                if len(hints) == 0 { return null }
+                let parts = []
+                for h in hints {
+                    parts = parts + ["[用户追加提示] " + h.text]
+                }
+                let merged = join(parts, "\n\n")
+                _emit_actor_stream_event("hint_injected", merged)
+                return merged
+            } catch {
+                return null
+            }
+        }
+
+        // ── 斜杠命令处理（在 actor 上下文中执行，可访问工作记忆）──
+
+        fn _handle_actor_command(msg: map, reply: Channel): bool {
+            let user_content = msg["content"]
+            let request_id = msg["request_id"]
+
+            let cmd = parse_command(user_content)
+            if !cmd["is_command"] {
+                return false
+            }
+
+            // /quit /exit：Web UI 由前端处理关闭，actor 只返回提示
+            if cmd["command"] == "quit" || cmd["command"] == "exit" {
+                reply.send({
+                    "type": "response_complete",
+                    "request_id": request_id,
+                    "content": "请关闭浏览器标签页退出",
+                    "status": "success"
+                })
+                return true
+            }
+
+            // 执行命令（在 actor 上下文中，可访问 actor 的 working_memory）
+            // 防御：命令执行可能抛出异常（如 working_memory_get 返回超大 map）
+            let cmd_response = ""
+            try {
+                cmd_response = execute_command(cmd)
+            } catch RuntimeError err {
+                cmd_response = "❌ 命令执行失败: " + err.message
+            } catch {
+                cmd_response = "❌ 命令执行失败（未知错误）"
+            }
+
+            // /clear：嵌入标记，Python 端据此清空 DB 消息
+            if cmd["command"] == "clear" {
+                cmd_response = cmd_response + "\n__HELEN_CLEAR_OK__"
+            }
+
+            // /clear-session：嵌入标记 + actor 退出，等 Python 重启
+            if cmd["command"] == "clear-session" {
+                // _cmd_clear_session 只删除 actor 的当前会话（子会话），
+                // 主会话（session_id 参数，由 Python bridge set_session_id 设置）不会被删除。
+                // 不显式删除会导致每次 /clear-session 后主会话残留 + 新子会话创建，
+                // transcript 文件数持续增长。这里补删主会话。
+                if session_id != "" {
+                    try {
+                        let main_sid = session_id
+                        let cur_sid = ""
+                        try { cur_sid = get_session_id() } catch {}
+                        // 仅当主会话与当前会话不同时才补删（避免重复删除已清的会话）
+                        if main_sid != cur_sid && main_sid != "" {
+                            delete_session(main_sid, cascade=true)
+                        }
+                    } catch {
+                        // 主会话删除失败不阻断流程（子会话已删，actor 仍会重启）
+                    }
+                }
+                cmd_response = cmd_response + "\n__HELEN_RESTART_ACTOR__"
+            }
+
+            // 命令可能改变上下文，刷新 statusline
+            try { _actor_emit_statusline() } catch {}
+
+            // 发送响应（防御：channel 可能已关闭）
+            try {
+                reply.send({
+                    "type": "response_complete",
+                    "request_id": request_id,
+                    "content": cmd_response,
+                    "status": "success"
+                })
+            } catch RuntimeError err {
+                debug("_handle_actor_command: reply.send failed: " + err.message)
+            } catch {}
+
+            // /clear-session 后 actor 退出
+            if cmd["command"] == "clear-session" {
+                try { reply.send({"type": "actor_status", "status": "exited"}) } catch {}
+                try { reply.close() } catch {}
+            }
+
+            return true
+        }
+
+        // ── 用户输入处理 ──
+
+        fn _handle_actor_user_input(msg: map, reply: Channel, request_count: int): int {
+            let user_content = msg["content"]
+            let file_paths = msg["file_paths"]
+            let request_id = msg["request_id"]
+
+            let new_count = request_count + 1
+            debug("ChatSessionActor: handling request " + request_id + " (#" + str(new_count) + ")")
+
+            // Fix: 每次处理新 user_input 时强制清理残留 cancel flag。
+            // 这是最关键的防线：即使上一轮 cancel 后所有清理路径都失败，
+            // 新一轮用户输入必须从干净状态开始。否则残留 flag 会干扰
+            // 下面的 auto-compress LLM 调用和后续的 llm act。
+            try {
+                import "ui.stream_emitter" as _CancelCleanup
+                _CancelCleanup.clear_cancel()
+            } catch {}
+
+            // 统计轮次
+            try { SessionStats.increment_turns() } catch {}
+
+            _emit_actor_stream_event("processing_start", user_content)
+
+            let media_parts = _build_actor_media_parts(file_paths)
+
+            // ── 周期性上下文压缩（防止长对话溢出）──
+            // 每轮 LLM 调用前检查，占用率 > 70% 时自动压缩
+            try {
+                let usage = context_usage()
+                if usage > 0.7 {
+                    debug("ChatSessionActor: context usage " + str(int(usage * 100)) + "% > 70%, auto-compressing...")
+                    let result = compress_context("auto")
+                    debug("ChatSessionActor: auto-compressed: " + json_stringify(result))
+                }
+            } catch RuntimeError err {
+                debug("ChatSessionActor: pre-LLM compression failed: " + err.message)
+            } catch {
+                debug("ChatSessionActor: pre-LLM compression failed (unknown)")
+            }
+
+            let full_response = ""
+            debug("ChatSessionActor: LLM act start (request=" + request_id + ", media_parts=" + str(len(media_parts)) + ")")
+            try {
+                if len(media_parts) > 0 {
+                    full_response = llm act user_content media(media_parts)
+                        on_chunk _actor_chunks_cb
+                        on_complete _actor_complete_cb
+                        on_tool_end _actor_tool_end_cb
+                } else {
+                    full_response = llm act user_content
+                        on_chunk _actor_chunks_cb
+                        on_complete _actor_complete_cb
+                        on_tool_end _actor_tool_end_cb
+                }
+                debug("ChatSessionActor: LLM act complete (request=" + request_id + ", response_len=" + str(len(full_response)) + ")")
+                // Fix: llm act 正常完成后清理残留 cancel flag。
+                // 如果用户取消了上一轮但回调未触发 clear_cancel()，
+                // flag 会残留并干扰后续 /compress 等需要 LLM 调用的操作。
+                try {
+                    import "ui.stream_emitter" as _CancelCleanup
+                    _CancelCleanup.clear_cancel()
+                } catch {}
+            } catch RuntimeError err {
+                debug("ChatSessionActor: LLM error: " + err.message)
+                // Fix: 错误路径也要清理 cancel flag
+                try {
+                    import "ui.stream_emitter" as _CancelCleanup
+                    _CancelCleanup.clear_cancel()
+                } catch {}
+                let _llm_err_params = {"message": err.message}
+                let _llm_err_payload = {"i18n_key": "error.llmError", "params": _llm_err_params}
+                _emit_actor_stream_event("error", json_stringify(_llm_err_payload))
+                // 先 emit processing_complete，再 reply.send（避免竞态：reply.send 会让 Python 端 helen_task.done()=True，
+                // 之后 polling loop 可能立即退出，若 emit 在 send 之后则事件被丢弃）
+                _emit_actor_stream_event("processing_complete", "")
+                reply.send({
+                    "type": "error",
+                    "request_id": request_id,
+                    "error_msg": err.message,
+                    "error_type": "runtime_error"
+                })
+                return new_count
+            } catch {
+                debug("ChatSessionActor: LLM error (unknown)")
+                // Fix: 未知错误路径也要清理 cancel flag
+                try {
+                    import "ui.stream_emitter" as _CancelCleanup
+                    _CancelCleanup.clear_cancel()
+                } catch {}
+                let _llm_unknown_payload = {"i18n_key": "error.llmUnknown", "params": dict()}
+                _emit_actor_stream_event("error", json_stringify(_llm_unknown_payload))
+                _emit_actor_stream_event("processing_complete", "")
+                reply.send({
+                    "type": "error",
+                    "request_id": request_id,
+                    "error_msg": "Unknown LLM error",
+                    "error_type": "unknown"
+                })
+                return new_count
+            }
+
+            // 成功路径：同样先 emit 再 send，避免竞态
+            _emit_actor_stream_event("processing_complete", "")
+
+            reply.send({
+                "type": "response_complete",
+                "request_id": request_id,
+                "content": full_response,
+                "status": "success"
+            })
+            return new_count
+        }
+
+        // ── 质量检查与测试工具（从 specialist agents 合并）──
+
+        fn verify_after_change(file_path: str, test_file: str): map {
+            if validate_path(file_path) == "" || validate_path(test_file) == "" {
+                return {
+                    "check_valid": false, "check_output": "Error: invalid path characters",
+                    "test_passed": false, "test_output": "Error: invalid path characters"
+                }
+            }
+            let check = shell_exec("helen check " + file_path)
+            let test = shell_exec("helen test " + test_file, timeout=120)
+            return {
+                "check_valid": contains(check, "OK"),
+                "check_output": check,
+                "test_passed": contains(test, "ALL TESTS PASSED"),
+                "test_output": test
+            }
+        }
+
+        fn run_single_test(test_file: str, test_name: str): map {
+            if validate_path(test_file) == "" || validate_path(test_name) == "" {
+                return {"output": "Error: invalid path characters", "passed": false}
+            }
+            let cmd = "helen test " + test_file + " --filter " + test_name
+            let result = shell_exec(cmd, timeout=30)
+            return {"output": result, "passed": contains(result, "PASSED")}
+        }
+
+        fn get_scores(path: str): map {
+            if validate_path(path) == "" {
+                return {
+                    "scores": {"overall": 0}, "syntax_error": true,
+                    "syntax_output": "Error: invalid path characters"
+                }
+            }
+            let check_result = shell_exec("helen check " + path)
+            if !contains(check_result, "OK") {
+                return {
+                    "scores": {"overall": 0}, "syntax_error": true,
+                    "syntax_output": check_result
+                }
+            }
+            let content = read_file(path)
+            let scores = quality_score(content, path)
+            let security = check_security(content)
+            return {"scores": scores, "security": security}
+        }
+
+        fn get_metrics(path: str): map {
+            let content = read_file(path)
+            return analyze_code(content, path)
+        }
+
+        fn run_helen_check(file_path: str): map {
+            if validate_path(file_path) == "" {
+                return {"output": "Error: invalid path", "valid": false}
+            }
+            let cmd = "helen check " + file_path
+            let result = shell_exec(cmd)
+            return {"output": result, "valid": contains(result, "OK")}
+        }
+
+        fn run_helen_tests(test_path: str): map {
+            if validate_path(test_path) == "" {
+                return {"output": "Error: invalid path", "success": false}
+            }
+            let cmd = "helen test " + test_path
+            let result = shell_exec(cmd, timeout=120)
+            return {"output": result, "success": contains(result, "ALL TESTS PASSED")}
+        }
+
+        fn create_project_structure(project_dir: str, project_name: str): map {
+            let task_id = generate_task_id("", project_name)
+            let task_dir = create_task_directory(project_dir, task_id)
+            let paths = get_task_paths(task_dir)
+            return {"task_id": task_id, "task_dir": task_dir, "paths": paths}
+        }
+
+        // ── Hooks ──
+
+        fn save_code_file(path: str, content: str): map {
+            try {
+                write_file(path, content)
+            } catch RuntimeError err {
+                return {"status": "error", "message": "写入失败: " + err.message}
+            }
+            if endswith(path, ".helen") {
+                if validate_path(path) == "" {
+                    return {"status": "written", "check_passed": false, "check_output": "Error: invalid path"}
+                }
+                let check_result = shell_exec("helen check " + path)
+                let valid = contains(check_result, "OK")
+                if !valid {
+                    warning("⚠️ helen check failed: " + path)
+                    return {"status": "written", "check_passed": false, "check_output": check_result}
+                }
+                return {"status": "written", "check_passed": true, "check_output": check_result}
+            }
+            return {"status": "written"}
+        }
+
+        fn patch_code_file(path: str, old_code: str, new_code: str): map {
+            let patch_result = ""
+            try {
+                patch_result = patch_file(path, old_code, new_code)
+            } catch RuntimeError err {
+                return {"status": "error", "message": "Patch 失败: " + err.message}
+            }
+            if endswith(path, ".helen") {
+                if validate_path(path) == "" {
+                    return {"status": "patched", "check_passed": false, "check_output": "Error: invalid path"}
+                }
+                let check_result = shell_exec("helen check " + path)
+                let valid = contains(check_result, "OK")
+                if !valid {
+                    warning("⚠️ helen check failed: " + path)
+                    return {"status": "patched", "check_passed": false, "check_output": check_result}
+                }
+                return {"status": "patched", "check_passed": true, "check_output": check_result}
+            }
+            return {"status": "patched"}
+        }
+
+        fn pre_exit_check(): map {
+            let warnings = []
+            let stats = {"message_count": 0, "skill_eval_status": "idle"}
+
+            let memory_status = {"memory_md_ok": true, "user_md_ok": true}
+            try {
+                let mem_size = len(read_file(".helen/MEMORY.md"))
+                if mem_size > 5120 {
+                    warnings = warnings + [".helen/MEMORY.md exceeds 5KB — please organize and archive to .helen/archive/"]
+                    memory_status["memory_md_ok"] = false
+                }
+            } catch {}
+            try {
+                let user_size = len(read_file(".helen/USER.md"))
+                if user_size > 2048 {
+                    warnings = warnings + [".helen/USER.md exceeds 2KB — please simplify user preferences"]
+                    memory_status["user_md_ok"] = false
+                }
+            } catch {}
+
+            return {
+                "warnings": warnings, "session_stats": stats, "memory_status": memory_status,
+                "reminder": "如本次会话有重要学习，请调用 update_memory 保存"
+            }
+        }
+
+        // ── 技能管理工具（从 SkillEvaluator 合并）──
+
+        fn list_existing_skills(): list {
+            if !path_exists("./.helen/skills") {
+                return []
+            }
+            let result = shell_exec("find ./.helen/skills -name 'SKILL.md' 2>/dev/null | head -50")
+            if result == "" {
+                return []
+            }
+            let lines = split(strip(result), "\n")
+            let filtered = []
+            for line in lines {
+                if strip(line) != "" {
+                    filtered = filtered + [strip(line)]
+                }
+            }
+            return filtered
+        }
+
+        fn read_skill_content(skill_name: str): str {
+            let result = load_skill(skill_name)
+            let parsed = json_parse(result)
+            // Safe access: load_skill returns {"error": ...} when skill not found,
+            // so "content" key may be missing. Use try-catch to handle gracefully.
+            try {
+                if parsed["content"] != null {
+                    return parsed["content"]
+                }
+            } catch {
+                return ""
+            }
+            return ""
+        }
+
+        fn save_new_skill(name: str, category: str, tags: str, content: str): map {
+            if validate_path(name) == "" || validate_path(category) == "" {
+                return {"status": "error", "path": ""}
+            }
+            let dir = "./.helen/skills/" + category + "/" + name
+            mkdir_p(dir)
+            let frontmatter = "---\nname: " + name + "\n"
+                + "description: \"" + substring(content, 0, 80) + "\"\n"
+                + "tags: " + tags + "\n"
+                + "version: 1.0.0\n---\n\n"
+            write_file(dir + "/SKILL.md", frontmatter + content)
+            refresh_skill_index()
+            return {"status": "saved", "path": dir}
+        }
+
+        fn update_existing_skill(skill_path: str, addition: str): map {
+            if validate_path(skill_path) == "" {
+                return {"status": "error", "path": ""}
+            }
+            if !startswith(skill_path, ".helen/skills/") && !startswith(skill_path, "./.helen/skills/") {
+                return {"status": "error", "path": "",
+                        "reason": "只允许更新 .helen/skills/ 下的技能"}
+            }
+            let content = read_file(skill_path)
+            write_file(skill_path, content + "\n\n" + addition + "\n")
+            return {"status": "updated", "path": skill_path}
+        }
+
+        fn refresh_skill_index(): str {
+            if !path_exists("./.helen/skills") {
+                return ""
+            }
+            let result = shell_exec(
+                "find ./.helen/skills -name 'SKILL.md' -exec sh -c '"
+                + "for f do "
+                + "  echo \"---\"; "
+                + "  echo \"file: $f\"; "
+                + "  head -6 \"$f\"; "
+                + "  echo; "
+                + "done' _ {} + 2>/dev/null"
+            )
+
+            let temp_path = "./.helen/skills/SKILL_INDEX.md.tmp"
+            let final_path = "./.helen/skills/SKILL_INDEX.md"
+            try {
+                write_file(temp_path, result)
+                move_file(temp_path, final_path)  // 跨平台：用 stdlib
+            } catch {
+                try {
+                    write_file(final_path, result)
+                } catch {
+                    // 写入失败时静默忽略
+                }
+            }
+            return result
+        }
+
+        // ── 调试与可观测性工具（P1/P2）──
+
+        fn emit_debug(message: str, data: str): str {
+            // 包装 stdlib debug()，data 为 JSON 字符串
+            // 输出到 stderr，自动记录到 transcript
+            if data == "" {
+                return debug(message)
+            }
+            let parsed = json_parse(data)
+            return debug(message, parsed)
+        }
+
+        fn search_session_transcript(query: str, limit: int): str {
+            // 搜索当前会话的 transcript 记录
+            // 用于回溯过去的对话和工具调用
+            let results = search_transcript(query, limit=limit)
+            return json_stringify(results)
+        }
+
+        fn get_context_stats(): map {
+            // 返回当前 context 使用统计
+            // 包括 token 使用率、消息数、压缩状态等
+            return context_stats()
+        }
+
+        fn enable_tracing(): str {
+            // 启用执行追踪，后续代码执行会被记录
+            // 用 get_execution_trace() 查看追踪结果
+            return trace_on()
+        }
+
+        fn get_execution_trace(n: int): str {
+            // 获取最近 n 条执行追踪记录
+            // 需要先调用 enable_tracing() 开启追踪
+            return get_trace(n)
+        }
+
+        fn query_llm_log(n: int): str {
+            // 查询最近 n 条 LLM 调用审计日志
+            // 显示 model、prompt、response、tokens、duration、error
+            // 用于诊断 LLM 调用失败（如空响应、超时、上下文溢出）
+            return get_llm_log(n)
+        }
+
+        fn query_last_error(): str {
+            // 查询最近一次错误的完整上下文
+            // 包括错误类型、消息、位置、调用栈、作用域变量、执行追踪
+            return get_last_error()
+        }
+
+        fn query_call_stack(): str {
+            // 查询当前调用栈
+            // 显示正在执行的函数/agent 及其位置
+            return get_call_stack()
+        }
+    }
+
+    main {
+        // ── 恢复会话历史 ──
+        // 使用当前 transcript session ID（通过 spawn resume 设置），而不是参数 session_id
+        // 参数 session_id 是 main session，实际对话在 child session
+        let my_sid = get_session_id()
+        if my_sid != "" {
+            try {
+                resume_session(my_sid)
+                debug("ChatSessionActor: resumed session " + my_sid)
+
+                // ── 上下文压缩（防止历史 boilerplate 导致溢出）──
+                // resume 后会加载所有历史消息，包括重复的 prompt boilerplate
+                // 如果占用率 > 60%，强制压缩（summarize 策略，LLM 生成语义摘要）
+                try {
+                    let usage = context_usage()
+                    if usage > 0.6 {
+                        debug("ChatSessionActor: context usage " + str(int(usage * 100)) + "% > 60%, compressing...")
+                        let result = compress_context("summarize")
+                        debug("ChatSessionActor: compressed context: " + json_stringify(result))
+                    }
+                } catch RuntimeError err {
+                    debug("ChatSessionActor: compression check failed: " + err.message)
+                } catch {
+                    debug("ChatSessionActor: compression check failed (unknown)")
+                }
+            } catch RuntimeError err {
+                debug("ChatSessionActor: resume failed: " + err.message)
+            } catch {
+                debug("ChatSessionActor: resume failed (unknown error)")
+            }
+        } else {
+            debug("ChatSessionActor: starting with fresh session")
+        }
+
+        // ── 初始化 ──
+        _init_actor_output()
+        try { init_lang() } catch {}
+        try { ContextManager.init(cwd) } catch {}
+        // v1.30.3: 显式重建 pinned UUIDs
+        // ContextManager 是 shared store，可能与主 interpreter 共享。
+        // 主 interpreter 的 init() 可能已经调用过 _rebuild_pinned_uuids()，
+        // 但那时 transcript 加载的是 MAIN session（没有 pinned 消息）。
+        // Actor 的 transcript 加载的是 CHILD session（有 pinned 消息），
+        // 需要显式重建。
+        try { _rebuild_pinned_uuids() } catch {}
+        try { SessionStats.init() } catch {}
+
+        // ── 保存主、子 session id 到 memento（供下次启动恢复）──
+        // 主 session_id 是参数 session_id；子 session_id 是 Actor 自己的 get_session_id()
+        // memento 文件：<cwd>/.helen/current_session_id，JSON: {"main":"...", "child":"..."}
+        try {
+            let my_sid = get_session_id()
+            let memento_content = json_stringify({"main": session_id, "child": my_sid})
+            let memento_path = cwd + "/.helen/current_session_id"
+            write_file(memento_path, memento_content)
+            debug("ChatSessionActor: saved memento main=" + session_id + " child=" + my_sid)
+        } catch RuntimeError err {
+            debug("ChatSessionActor: memento save failed: " + err.message)
+        } catch {
+            debug("ChatSessionActor: memento save failed (unknown)")
+        }
+
+        debug("ChatSessionActor: initialization complete for cwd=" + cwd)
+
+        // 请求计数器
+        let request_count = 0
+
+        // ── 主循环 ──
+        while true {
+            // 300s 超时作为安全网：正常情况下 Python 端每 120s 发送心跳
+            // 如果 Web 端崩溃，300s 无心跳后 actor 优雅退出（释放 session 锁等）
+            // v1.29.12: 心跳机制替代纯超时退出
+            let request_msg = reply.receive(timeout=300)
+
+            if request_msg == null {
+                // 300s 无消息（无心跳、无 user_input），Web 端可能已崩溃
+                // 优雅退出：释放资源，避免僵尸 actor
+                debug("ChatSessionActor: no heartbeat for 300s, web client may have crashed, exiting gracefully")
+                break
+            }
+
+            // 整个消息处理包在外层 try-catch，防止任何未捕获异常杀死 actor
+            try {
+                let msg_type = ""
+                try {
+                    msg_type = request_msg["type"]
+                } catch {
+                    debug("ChatSessionActor: invalid message (no type field)")
+                    continue
+                }
+
+                // 心跳消息：仅维持 actor 存活，不做任何处理
+                if msg_type == "heartbeat" {
+                    debug("ChatSessionActor: heartbeat received")
+                    continue
+                }
+
+                debug("ChatSessionActor: received message type=" + msg_type + " (request_count=" + str(request_count) + ")")
+
+                if msg_type == "exit" {
+                    debug("ChatSessionActor: received exit signal")
+                    try { reply.send({"type": "actor_status", "status": "exited"}) } catch {}
+                    try { reply.close() } catch {}
+                    break
+                }
+
+                if msg_type == "user_input" {
+                    // 斜杠命令拦截（在 actor 上下文中执行）
+                    let is_command = false
+                    try {
+                        is_command = _handle_actor_command(request_msg, reply)
+                    } catch RuntimeError err {
+                        debug("ChatSessionActor: command error: " + err.message)
+                    } catch {}
+
+                    if !is_command {
+                        request_count = _handle_actor_user_input(request_msg, reply, request_count)
+                    } else {
+                        request_count = request_count + 1
+                        // /clear-session 后 actor 的 reply 已 close
+                        if reply.is_closed() {
+                            break
+                        }
+                    }
+                }
+            } catch RuntimeError err {
+                debug("ChatSessionActor: uncaught error in main loop: " + err.message)
+                // 尝试通知 Python 端
+                try {
+                    let req_id = ""
+                    try { req_id = request_msg["request_id"] } catch {}
+                    if req_id != "" {
+                        let _internal_params = {"message": err.message}
+                        let _internal_payload = {"i18n_key": "error.actorInternal", "params": _internal_params}
+                        reply.send({
+                            "type": "error",
+                            "request_id": req_id,
+                            "error_msg": json_stringify(_internal_payload),
+                            "error_type": "internal_error"
+                        })
+                    }
+                } catch {}
+            } catch {
+                debug("ChatSessionActor: uncaught unknown error in main loop")
+            }
+        }
+
+        debug("ChatSessionActor: exited main loop, total requests: " + str(request_count))
+
+        // ── 清理 ──
+        // v1.30.2: 释放 session lock，防止 stale lock 阻止下次启动恢复 transcript
+        // （包括 pinned 消息）。否则 actor 退出后锁文件残留，新进程无法恢复 session，
+        // 导致 /pin 列表为空。
+        try {
+            let my_sid = get_session_id()
+            if my_sid != "" {
+                release_session_lock(my_sid)
+                debug("ChatSessionActor: released session lock for " + my_sid)
+            }
+        } catch RuntimeError err {
+            debug("ChatSessionActor: release lock failed: " + err.message)
+        } catch {
+            // release_session_lock 不可用（旧版 Helen）— 静默忽略
+        }
+    }
+}

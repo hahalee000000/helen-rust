@@ -3,6 +3,7 @@
 //! This crate provides a web-based interface for the Helen agent system,
 //! eliminating the need for Python dependencies in production use.
 
+pub mod agent_files;
 pub mod api;
 pub mod server;
 pub mod websocket;

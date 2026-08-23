@@ -1,0 +1,909 @@
+// ═══════════════════════════════════════════════════════════════════
+// Helen Programming Agent - 输出管理器（统一入口）
+// ═══════════════════════════════════════════════════════════════════
+//
+// 输出子系统统一入口，包含：
+//   1. 输出级别常量 + 状态管理（OutputState/LLMStreamState/MinimalModeState）
+//   2. 基础输出函数（status/success/error/warning/info/agent_start/agent_end）
+//   3. LLM 流式输出处理（smart_llm_chunk/complete, chat_llm_chunk/complete）
+//   4. JSON/代码/评分格式化（format_agent_response/preview_code/format_score_bar）
+//
+// 历史：v5.2 拆分为 output_core + llm_stream + output_formatting 三个子模块，
+// P4.3 合并回单一文件（方案 B），减少间接导入层，简化依赖图。
+//
+// 输出级别（Claude Code 风格）：
+//   MINIMAL (0): 简洁模式（默认）— 每阶段单行 ⎿ 状态
+//   NORMAL  (1): 正常模式 — agent 框 + 流式输出 + 工具详情
+//   VERBOSE (2): 详细模式 — NORMAL + debug 日志 + 完整 LLM 响应
+//
+
+import std.core.*
+import std.data.*
+import std.io.*
+import std.llm.*
+import std.str.*
+import std.system.*
+import std.time.*
+import "ui_event_queue.helen"
+
+// ═══════════════════════════════════════════════════════════════════
+// 第 1 部分：输出级别常量 + 状态管理
+// ═══════════════════════════════════════════════════════════════════
+
+// 三档输出模式（Claude Code 风格）
+const OUTPUT_MINIMAL = 0   // 简洁：每阶段单行 ⎿ 状态，LLM 流式最后一行覆盖
+const OUTPUT_NORMAL = 1    // 正常：agent 框 + 流式输出 + 工具详情
+const OUTPUT_VERBOSE = 2   // 详细：NORMAL + debug 日志 + 完整 LLM 响应
+const OUTPUT_RICH = 3      // 富模式：NORMAL + UI 事件发射（供 Rich CLI / Web UI 消费）
+
+// 中文模式名（供 set_output_mode 使用）
+const MODE_MINIMAL = "minimal"
+const MODE_NORMAL = "normal"
+const MODE_VERBOSE = "verbose"
+const MODE_RICH = "rich"
+
+// ── 输出状态管理（使用 shared store 聚合状态） ────────────────
+// 注：Helen v1.17+ 已修复 Issue #35，shared store 可跨模块使用。
+
+// 基本输出状态
+shared store OutputState {
+    let level: int = OUTPUT_MINIMAL      // 当前输出级别
+    let use_colors: bool = true          // 是否使用颜色
+
+    fn set_level(new_level: int) {
+        level = new_level
+    }
+
+    fn get_level(): int {
+        return level
+    }
+
+    fn set_use_colors(enabled: bool) {
+        use_colors = enabled
+    }
+
+    fn is_color_enabled(): bool {
+        return use_colors
+    }
+}
+
+// LLM 流式输出状态
+shared store LLMStreamState {
+    let in_code_block: bool = false      // 是否在代码块中
+    let code_lang: str = ""              // 当前代码语言
+    let chunk_count: int = 0             // 已接收 chunk 计数
+    let response_buffer: str = ""        // 响应缓冲
+
+    fn set_in_code_block(value: bool) { in_code_block = value }
+    fn is_in_code_block(): bool { return in_code_block }
+
+    fn set_code_lang(lang: str) { code_lang = lang }
+    fn get_code_lang(): str { return code_lang }
+
+    fn increment_chunk_count() { chunk_count = chunk_count + 1 }
+    fn get_chunk_count(): int { return chunk_count }
+    fn reset_chunk_count() { chunk_count = 0 }
+
+    fn set_response_buffer(buffer: str) { response_buffer = buffer }
+    fn append_chunk(text: str) { response_buffer = response_buffer + text }
+    fn get_buffer(): str { return response_buffer }
+    fn reset_buffer() { response_buffer = "" }
+
+    fn reset() {
+        in_code_block = false
+        code_lang = ""
+        chunk_count = 0
+        response_buffer = ""
+    }
+}
+
+// MINIMAL 模式显示状态
+shared store MinimalModeState {
+    let lines_shown: int = 0
+    let chars_shown: int = 0
+    let showing_progress: bool = false
+
+    let content_type: str = ""           // "thinking" | "tool_call" | "tool_result"
+    let tool_call_chars: int = 0
+    let tool_result_chars: int = 0
+    let in_tool_call: bool = false
+    let in_tool_result: bool = false
+
+    let thinking_active: bool = false
+    let thinking_agent: str = ""
+    let thinking_start: int = 0
+    let phase_count: int = 0
+
+    fn set_lines_shown(v: int) { lines_shown = v }
+    fn get_lines_shown(): int { return lines_shown }
+    fn increment_lines_shown() { lines_shown = lines_shown + 1 }
+
+    fn set_chars_shown(v: int) { chars_shown = v }
+    fn get_chars_shown(): int { return chars_shown }
+    fn add_chars_shown(n: int) { chars_shown = chars_shown + n }
+
+    fn set_showing_progress(v: bool) { showing_progress = v }
+    fn is_showing_progress(): bool { return showing_progress }
+
+    fn set_content_type(v: str) { content_type = v }
+    fn get_content_type(): str { return content_type }
+
+    fn set_tool_call_chars(v: int) { tool_call_chars = v }
+    fn get_tool_call_chars(): int { return tool_call_chars }
+    fn add_tool_call_chars(n: int) { tool_call_chars = tool_call_chars + n }
+
+    fn set_tool_result_chars(v: int) { tool_result_chars = v }
+    fn get_tool_result_chars(): int { return tool_result_chars }
+    fn add_tool_result_chars(n: int) { tool_result_chars = tool_result_chars + n }
+
+    fn set_in_tool_call(v: bool) { in_tool_call = v }
+    fn is_in_tool_call(): bool { return in_tool_call }
+
+    fn set_in_tool_result(v: bool) { in_tool_result = v }
+    fn is_in_tool_result(): bool { return in_tool_result }
+
+    fn set_thinking_active(v: bool) { thinking_active = v }
+    fn is_thinking_active(): bool { return thinking_active }
+
+    fn set_thinking_agent(v: str) { thinking_agent = v }
+    fn get_thinking_agent(): str { return thinking_agent }
+
+    fn set_thinking_start(v: int) { thinking_start = v }
+    fn get_thinking_start(): int { return thinking_start }
+
+    fn set_phase_count(v: int) { phase_count = v }
+    fn get_phase_count(): int { return phase_count }
+    fn increment_phase_count() { phase_count = phase_count + 1 }
+
+    fn reset_display() {
+        lines_shown = 0
+        chars_shown = 0
+        showing_progress = false
+        content_type = ""
+        tool_call_chars = 0
+        tool_result_chars = 0
+        in_tool_call = false
+        in_tool_result = false
+    }
+}
+
+// ANSI 颜色代码（使用高亮色 90-97 系列，黑底终端更清晰）
+const COLOR_RESET = "\x1b[0m"
+const COLOR_BOLD = "\x1b[1m"
+const COLOR_DIM = "\x1b[2m"
+const COLOR_RED = "\x1b[91m"
+const COLOR_GREEN = "\x1b[92m"
+const COLOR_YELLOW = "\x1b[93m"
+const COLOR_BLUE = "\x1b[94m"
+const COLOR_CYAN = "\x1b[96m"
+
+// ── 辅助函数 ────────────────────────────────────────────────────
+
+/** 获取带颜色的文本（如果启用颜色） */
+fn _colorize(text: str, color: str): str {
+    if OutputState.is_color_enabled() {
+        return color + text + COLOR_RESET
+    }
+    return text
+}
+
+/** 检查是否应该输出（基于当前级别） */
+fn _should_output(required_level: int): bool {
+    return OutputState.get_level() >= required_level
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 第 2 部分：输出级别控制 + 基础输出函数
+// ═══════════════════════════════════════════════════════════════════
+
+/** 设置输出级别（整数） */
+fn set_output_level(level: int) {
+    OutputState.set_level(level)
+}
+
+/** 设置输出模式（字符串："minimal" / "normal" / "verbose" / "rich"）。
+ *  返回: true 表示切换成功，false 表示未知模式名。 */
+fn set_output_mode(new_mode: str): bool {
+    if new_mode == MODE_MINIMAL {
+        OutputState.set_level(OUTPUT_MINIMAL)
+        return true
+    }
+    if new_mode == MODE_NORMAL {
+        OutputState.set_level(OUTPUT_NORMAL)
+        return true
+    }
+    if new_mode == MODE_VERBOSE {
+        OutputState.set_level(OUTPUT_VERBOSE)
+        return true
+    }
+    if new_mode == MODE_RICH {
+        OutputState.set_level(OUTPUT_RICH)
+        return true
+    }
+    return false
+}
+
+/** 获取当前输出级别 */
+fn get_output_level(): int {
+    return OutputState.get_level()
+}
+
+/** 获取当前输出模式名称 */
+fn get_output_mode(): str {
+    let level = OutputState.get_level()
+    if level <= OUTPUT_MINIMAL { return MODE_MINIMAL }
+    if level == OUTPUT_NORMAL { return MODE_NORMAL }
+    if level == OUTPUT_VERBOSE { return MODE_VERBOSE }
+    if level >= OUTPUT_RICH { return MODE_RICH }
+    return MODE_MINIMAL
+}
+
+// ── 类型化输出函数 ──────────────────────────────────────────────
+
+/** 系统状态消息（NORMAL 级别） */
+fn status(msg: str) {
+    if _should_output(OUTPUT_NORMAL) {
+        stream_print(_colorize("⚙️  ", COLOR_CYAN) + msg + "\n")
+        ui_emit_status(msg, "info")
+    }
+}
+
+/** 成功消息（NORMAL 级别） */
+fn success(msg: str) {
+    if _should_output(OUTPUT_NORMAL) {
+        stream_print(_colorize("✅ ", COLOR_GREEN) + _colorize(msg, COLOR_BOLD) + "\n")
+    }
+}
+
+/** 错误消息（MINIMAL 级别 - 总是显示） */
+fn error(msg: str) {
+    if _should_output(OUTPUT_MINIMAL) {
+        stream_print(_colorize("❌ ", COLOR_RED) + _colorize(msg, COLOR_BOLD) + "\n")
+    }
+}
+
+/** 警告消息（NORMAL 级别） */
+fn warning(msg: str) {
+    if _should_output(OUTPUT_NORMAL) {
+        stream_print(_colorize("⚠️  ", COLOR_YELLOW) + msg + "\n")
+    }
+}
+
+/** 信息消息（VERBOSE 级别） */
+fn info(msg: str) {
+    if _should_output(OUTPUT_VERBOSE) {
+        stream_print(_colorize("ℹ️  ", COLOR_BLUE) + msg + "\n")
+    }
+}
+
+// ── 阶段/分隔线 ─────────────────────────────────────────────────
+
+/** 阶段开始 */
+fn phase_start(phase_name: str) {
+    if _should_output(OUTPUT_NORMAL) {
+        stream_print("\n" + _colorize("  " + phase_name, COLOR_BOLD + COLOR_CYAN) + "\n")
+    }
+}
+
+// ── Agent 输出 ──────────────────────────────────────────────────
+
+/** Agent 输出开始。 */
+fn agent_start(agent_name: str) {
+    if OutputState.get_level() <= OUTPUT_MINIMAL {
+        MinimalModeState.set_thinking_active(true)
+        MinimalModeState.set_thinking_agent(agent_name)
+        MinimalModeState.set_thinking_start(0)
+        stream_print(_colorize("⎿  ", COLOR_DIM) + _colorize(agent_name, COLOR_CYAN) + " 执行中...        \r")
+        return
+    }
+    if _should_output(OUTPUT_NORMAL) {
+        stream_print("\n" + _colorize("┌─ ", COLOR_BLUE) + _colorize(agent_name, COLOR_BOLD) + " ")
+        let line = "────────────────────────────────────────\n"
+        stream_print(_colorize(line, COLOR_DIM))
+        ui_emit_agent_start(agent_name)
+    }
+}
+
+/** Agent 输出结束。 */
+fn agent_end(agent_name: str) {
+    if OutputState.get_level() <= OUTPUT_MINIMAL {
+        let elapsed = ""
+        try {
+            let ts_now = int(time())  // 跨平台：用 stdlib time()
+            if MinimalModeState.get_thinking_start() > 0 {
+                elapsed = " (" + str(ts_now - MinimalModeState.get_thinking_start()) + "s)"
+            }
+        } catch {}
+        stream_print("\r" + _colorize("⎿  ", COLOR_DIM) + _colorize("✓", COLOR_GREEN) + " " + agent_name + elapsed + "          \n")
+        MinimalModeState.set_thinking_active(false)
+        MinimalModeState.set_thinking_agent("")
+        return
+    }
+    if _should_output(OUTPUT_NORMAL) {
+        let line = "└────────────────────────────────────────\n\n"
+        stream_print(_colorize(line, COLOR_DIM))
+        ui_emit_agent_end(agent_name, 0)
+    }
+}
+
+// ── 统计信息 ────────────────────────────────────────────────────
+
+/** 统计消息（NORMAL 级别） */
+fn stat(label: str, value: str) {
+    if _should_output(OUTPUT_NORMAL) {
+        stream_print("  " + _colorize(label + ":", COLOR_DIM) + " " + _colorize(value, COLOR_BOLD) + "\n")
+    }
+}
+
+// ── 空行/间距 ───────────────────────────────────────────────────
+
+/** 打印空行 */
+fn newline(n: int = 1) {
+    let i = 0
+    while i < n {
+        stream_print("\n")
+        i = i + 1
+    }
+}
+
+// ── 工具函数 ────────────────────────────────────────────────────
+
+/** 检查终端是否支持颜色 */
+fn detect_color_support(): bool {
+    // 跨平台：用 env_get() 代替 echo $TERM
+    let term = env_get("TERM", "")
+    if contains(term, "xterm") || contains(term, "256color") || contains(term, "screen") {
+        return true
+    }
+    let no_color = env_get("NO_COLOR", "")
+    if no_color != "" {
+        return false
+    }
+    // Windows 终端通常支持颜色
+    if platform() == "windows" {
+        return true
+    }
+    return true
+}
+
+/** 初始化输出管理器（检测颜色支持等） */
+fn init_output() {
+    OutputState.set_use_colors(detect_color_support())
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 第 3 部分：LLM 流式输出处理
+// ═══════════════════════════════════════════════════════════════════
+
+/** 截断字符串到指定长度，超出部分显示为 "...(+N chars)" */
+fn _truncate(s: str, max_len: int): str {
+    if len(s) <= max_len {
+        return s
+    }
+    let remaining = len(s) - max_len
+    return substring(s, 0, max_len) + "...(+" + str(remaining) + " chars)"
+}
+
+/** 重置 LLM 智能输出状态（在新一轮 LLM 输出前调用） */
+fn reset_llm_output_state() {
+    LLMStreamState.set_in_code_block(false)
+    LLMStreamState.set_code_lang("")
+    LLMStreamState.reset_chunk_count()
+    LLMStreamState.reset_buffer()
+}
+
+/** 智能处理 LLM 流式输出 chunk（实时输出 + 格式化）
+ *  使用方法：llm act "..." on_chunk smart_llm_chunk
+ *  注意：在 LLM 输出开始前应调用 reset_llm_output_state() 重置状态 */
+fn smart_llm_chunk(text: str) {
+    LLMStreamState.append_chunk(text)
+    LLMStreamState.increment_chunk_count()
+
+
+    let display_chunk = replace(text, "\\n", "\n")
+
+    // MINIMAL 模式
+    if OutputState.get_level() <= OUTPUT_MINIMAL {
+        if contains(display_chunk, "🔧") {
+            MinimalModeState.set_in_tool_call(true)
+            MinimalModeState.set_in_tool_result(false)
+            MinimalModeState.set_tool_call_chars(0)
+            let to_show = display_chunk
+            if len(to_show) > 150 { to_show = substring(to_show, 0, 150) }
+            stream_print("\n" + _colorize("⎿  ", COLOR_DIM) + _colorize(to_show, COLOR_DIM) + "\n")
+            MinimalModeState.set_tool_call_chars(len(to_show))
+            if contains(display_chunk, "\n") {
+                MinimalModeState.set_in_tool_call(false)
+                MinimalModeState.set_tool_call_chars(0)
+            }
+            return
+        }
+        if contains(display_chunk, "✅") {
+            MinimalModeState.set_in_tool_result(true)
+            MinimalModeState.set_in_tool_call(false)
+            MinimalModeState.set_tool_result_chars(0)
+            let to_show = display_chunk
+            if len(to_show) > 150 { to_show = substring(to_show, 0, 150) }
+            stream_print("\n" + _colorize("⎿  ", COLOR_DIM) + _colorize(to_show, COLOR_DIM) + "\n")
+            MinimalModeState.set_tool_result_chars(len(to_show))
+            if contains(display_chunk, "\n") {
+                MinimalModeState.set_in_tool_result(false)
+                MinimalModeState.set_tool_result_chars(0)
+            }
+            return
+        }
+        if MinimalModeState.is_in_tool_call() {
+            if MinimalModeState.get_tool_call_chars() < 150 {
+                let remaining = 150 - MinimalModeState.get_tool_call_chars()
+                let to_show = display_chunk
+                if len(to_show) > remaining { to_show = substring(to_show, 0, remaining) }
+                stream_print(_colorize(to_show, COLOR_DIM))
+                MinimalModeState.add_tool_call_chars(len(to_show))
+            }
+            if contains(display_chunk, "\n") {
+                MinimalModeState.set_in_tool_call(false)
+                MinimalModeState.set_tool_call_chars(0)
+            }
+            return
+        }
+        if MinimalModeState.is_in_tool_result() {
+            if MinimalModeState.get_tool_result_chars() < 150 {
+                let remaining = 150 - MinimalModeState.get_tool_result_chars()
+                let to_show = display_chunk
+                if len(to_show) > remaining { to_show = substring(to_show, 0, remaining) }
+                stream_print(_colorize(to_show, COLOR_DIM))
+                MinimalModeState.add_tool_result_chars(len(to_show))
+            }
+            if contains(display_chunk, "\n") {
+                MinimalModeState.set_in_tool_result(false)
+                MinimalModeState.set_tool_result_chars(0)
+            }
+            return
+        }
+        if MinimalModeState.is_thinking_active() {
+            stream_print("\r" + repeat(" ", 60) + "\r")
+            MinimalModeState.set_thinking_active(false)
+        }
+        stream_print(display_chunk)
+        return
+    }
+
+    // NORMAL/VERBOSE 模式
+    if contains(display_chunk, "🔧") {
+        stream_print(_colorize(display_chunk, COLOR_DIM))
+    } else if contains(display_chunk, "✅") {
+        let returned_pos = find(display_chunk, "returned: ")
+        if returned_pos >= 0 {
+            let prefix_end = returned_pos + 10
+            let prefix = substring(display_chunk, 0, prefix_end)
+            let json_str = substring(display_chunk, prefix_end)
+            try {
+                let parsed = json_parse(json_str)
+                let formatted = json_stringify(parsed, 2)
+                let lines = split(formatted, "\n")
+                let display_lines = []
+                let i = 0
+                while i < len(lines) && i < 5 {
+                    display_lines = display_lines + [lines[i]]
+                    i = i + 1
+                }
+                let display_json = join(display_lines, "\n")
+                if len(lines) > 5 {
+                    display_json = display_json + "\n    ... (truncated)"
+                }
+                stream_print(_colorize(prefix + display_json, COLOR_DIM))
+            } catch {
+                stream_print(_colorize(display_chunk, COLOR_DIM))
+            }
+        } else {
+            stream_print(_colorize(display_chunk, COLOR_DIM))
+        }
+    } else if contains(display_chunk, "```") {
+        stream_print(_colorize(display_chunk, COLOR_CYAN))
+    } else {
+        stream_print(display_chunk)
+    }
+}
+
+/** 智能 LLM 输出完成回调 — 解析缓冲的 JSON 并格式化输出摘要 */
+fn smart_llm_complete() {
+    if OutputState.get_level() <= OUTPUT_MINIMAL {
+        MinimalModeState.set_lines_shown(0)
+        MinimalModeState.set_chars_shown(0)
+        MinimalModeState.set_showing_progress(false)
+        MinimalModeState.set_content_type("")
+        MinimalModeState.set_tool_call_chars(0)
+        MinimalModeState.set_tool_result_chars(0)
+        MinimalModeState.set_in_tool_call(false)
+        MinimalModeState.set_in_tool_result(false)
+        if LLMStreamState.get_chunk_count() > 0 {
+            stream_print("\n")
+        }
+        reset_llm_output_state()
+        return
+    }
+
+    if LLMStreamState.get_chunk_count() > 0 {
+        stream_print("\n")
+    }
+
+    let response = LLMStreamState.get_buffer()
+    LLMStreamState.reset_buffer()
+    LLMStreamState.reset_chunk_count()
+
+    if response == "" {
+        reset_llm_output_state()
+        return
+    }
+
+    try {
+        let parsed = null
+        try {
+            parsed = json_parse(response)
+        } catch {
+            try {
+                let parts = split(response, "```json")
+                if len(parts) >= 2 {
+                    let inner = split(parts[1], "```")
+                    parsed = json_parse(inner[0])
+                }
+            } catch {
+                stream_print(_colorize("  ✓ LLM 响应完成\n", COLOR_DIM))
+            }
+        }
+
+        if parsed != null {
+            stream_print(_colorize("  📋 ", COLOR_BLUE) + _colorize("响应摘要:\n", COLOR_DIM))
+            format_agent_response(parsed)
+        }
+    } catch RuntimeError err {
+        // 格式化过程出错：输出诊断信息（帮助定位 bug）
+        stream_print(_colorize("  ⚠️ 响应格式化失败: " + err.message + "\n", COLOR_YELLOW))
+    } catch {
+        // 格式化过程出错（非 RuntimeError），静默忽略
+    }
+
+    reset_llm_output_state()
+}
+
+// ── Chat 专用输出函数 ────────────────────────────────────────────
+
+/** Chat 专用的 LLM chunk 输出 — 始终流式显示内容，即使在 MINIMAL 模式。 */
+fn chat_llm_chunk(text: str) {
+    // 中断检查（通过 Python FFI 读 cancel flag）
+    // 仅在前端环境生效（有 stream_emitter 时：Web UI / Rich CLI）
+    try {
+        import "ui.stream_emitter" as _CancelChecker
+        if _CancelChecker.is_cancel_requested() {
+            cancel_all_llm_calls()
+            _CancelChecker.clear_cancel()
+            return
+        }
+    } catch {
+        // FFI 不可用（纯 CLI 环境），忽略
+    }
+
+    LLMStreamState.append_chunk(text)
+    LLMStreamState.increment_chunk_count()
+
+    // 始终通过 stream_emitter 发射 llm_chunk 事件
+    try {
+        import "ui.stream_emitter" as PyStreamEmitter
+        PyStreamEmitter.emit_stream_event("llm_chunk", text)
+    } catch {
+        let display_chunk = replace(text, "\\n", "\n")
+        stream_print(display_chunk)
+        return
+    }
+
+
+    let display_chunk = replace(text, "\\n", "\n")
+    stream_print(display_chunk)
+}
+
+/** Chat 专用的 LLM 完成回调 — 简单换行结束 */
+fn chat_llm_complete() {
+    if LLMStreamState.get_chunk_count() > 0 {
+        stream_print("\n")
+    }
+    reset_llm_output_state()
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 第 4 部分：JSON/代码/评分格式化
+// ═══════════════════════════════════════════════════════════════════
+
+/** 统计文本行数 */
+fn count_lines(text: str): int {
+    if text == "" {
+        return 0
+    }
+    let lines = split(text, "\n")
+    return len(lines)
+}
+
+/** 预览代码：显示前 max_lines 行 + 截断提示 */
+fn preview_code(code: str, max_lines: int) {
+    if code == "" {
+        return
+    }
+    let lines = split(code, "\n")
+    let total = len(lines)
+    if total == 0 {
+        return
+    }
+
+    stream_print("    " + _colorize("┌─ 代码预览 (" + str(total) + " 行) ", COLOR_CYAN))
+    let padding = max(0, 35 - len("代码预览 (" + str(total) + " 行)"))
+    stream_print(_colorize(repeat("─", padding) + "\n", COLOR_DIM))
+
+    let show = total
+    if show > max_lines {
+        show = max_lines
+    }
+    let i = 0
+    while i < show {
+        let num_str = str(i + 1)
+        let num_pad = repeat(" ", max(0, 3 - len(num_str)))
+        stream_print("    " + _colorize("│ ", COLOR_CYAN) + _colorize(num_pad + num_str + "  ", COLOR_DIM) + lines[i] + "\n")
+        i = i + 1
+    }
+
+    if total > max_lines {
+        stream_print("    " + _colorize("│ ... (+", COLOR_DIM) + str(total - max_lines) + _colorize(" more lines)", COLOR_DIM) + "\n")
+    }
+
+    stream_print("    " + _colorize("└", COLOR_CYAN) + _colorize(repeat("─", 40), COLOR_DIM) + "\n")
+}
+
+/** 格式化多行文本：每行缩进显示，超过 max_lines 截断 */
+fn format_text_block(text: str, max_lines: int) {
+    if text == "" {
+        return
+    }
+    let lines = split(text, "\n")
+    let total = len(lines)
+    if total == 0 {
+        return
+    }
+
+    let show = total
+    if show > max_lines {
+        show = max_lines
+    }
+    let i = 0
+    while i < show {
+        if lines[i] != "" {
+            stream_print("  " + _colorize("│ ", COLOR_DIM) + lines[i] + "\n")
+        } else {
+            stream_print("\n")
+        }
+        i = i + 1
+    }
+    if total > max_lines {
+        stream_print("  " + _colorize("│ ... (共 " + str(total) + " 行，已截断)", COLOR_DIM) + "\n")
+    }
+}
+
+/** 评分可视化条：label + 填充条 + 数值 */
+fn format_score_bar(label: str, score: float, max_score: float, width: int) {
+    let filled_f = score / max_score * int(width)
+    let filled = int(filled_f)
+    if filled < 0 { filled = 0 }
+    if filled > width { filled = width }
+    let empty = width - filled
+    let bar = ""
+    if filled > 0 {
+        bar = bar + repeat("█", filled)
+    }
+    if empty > 0 {
+        bar = bar + repeat("░", empty)
+    }
+
+    let score_color = COLOR_YELLOW
+    let score_f = float(score)
+    if score_f >= 8.0 {
+        score_color = COLOR_GREEN
+    } else if score_f < 6.0 {
+        score_color = COLOR_RED
+    }
+
+    let score_str = format_float(score, 1)
+    let label_pad = repeat(" ", max(0, 14 - len(label)))
+    stream_print("  " + label + label_pad + " " + _colorize(bar, score_color) + " " + _colorize(score_str, COLOR_BOLD) + "\n")
+}
+
+/** 格式化键值对（带可选 emoji） */
+fn format_key_value(emoji: str, key: str, value: str) {
+    if emoji != "" {
+        stream_print("  " + emoji + " " + _colorize(key + ": ", COLOR_DIM) + _colorize(value, COLOR_BOLD) + "\n")
+    } else {
+        stream_print("  " + _colorize(key + ": ", COLOR_DIM) + _colorize(value, COLOR_BOLD) + "\n")
+    }
+}
+
+/** 安全获取 map 中的字符串值（内部用） */
+fn _out_get(m: map, key: str, default_val: str): str {
+    let v = m[key]
+    if v == null {
+        return default_val
+    }
+    return str(v)
+}
+
+/** 安全获取 map 中的 list 值（内部用） */
+fn _out_get_list(m: map, key: str): list {
+    let v = m[key]
+    if v == null {
+        return []
+    }
+    return v
+}
+
+/** 安全获取 map 中的 map 值（内部用） */
+fn _out_get_map(m: map, key: str): map {
+    let v = m[key]
+    if v == null {
+        return {}
+    }
+    return v
+}
+
+/** 安全获取 map 中的 float 值（内部用） */
+fn _out_get_score(m: map, key: str): str {
+    let v = m[key]
+    if v == null {
+        return ""
+    }
+    try {
+        let f = float(v)
+        return format_float(f, 1)
+    } catch {
+        return str(v)
+    }
+}
+
+/** 格式化 agent JSON 响应 — 自动检测字段类型并格式化输出 */
+fn format_agent_response(parsed: map) {
+    if len(parsed) == 0 {
+        return
+    }
+
+    newline()
+    stream_print("  " + _colorize("📋 结果摘要:", COLOR_BLUE) + "\n")
+
+    // 状态
+    let status_val = _out_get(parsed, "status", "")
+    if status_val != "" {
+        if status_val == "success" {
+            format_key_value("✅", "状态", status_val)
+        } else if status_val == "error" {
+            let err_msg = _out_get(parsed, "error", "unknown error")
+            format_key_value("❌", "错误", err_msg)
+        } else {
+            format_key_value("", "状态", status_val)
+        }
+    }
+
+    // 文件路径
+    let fp = _out_get(parsed, "file_path", "")
+    if fp != "" {
+        format_key_value("📁", "文件", fp)
+    }
+
+    // 代码字段预览
+    let code_field = ""
+    let code_label = ""
+    if parsed["contract"] != null && parsed["contract"] != "" {
+        code_field = "contract"
+        code_label = "契约代码"
+    } else if parsed["test_code"] != null && parsed["test_code"] != "" {
+        code_field = "test_code"
+        code_label = "测试代码"
+    } else if parsed["implementation"] != null && parsed["implementation"] != "" {
+        code_field = "implementation"
+        code_label = "实现代码"
+    } else if parsed["code"] != null && parsed["code"] != "" {
+        code_field = "code"
+        code_label = "代码"
+    }
+    if code_field != "" {
+        let code_val = str(parsed[code_field])
+        let total_lines = count_lines(code_val)
+        format_key_value("💻", code_label, str(total_lines) + " 行")
+        preview_code(code_val, 8)
+    }
+
+    // 测试数量
+    let tc = _out_get(parsed, "test_count", "")
+    if tc != "" && tc != "0" {
+        format_key_value("🧪", "测试数量", tc)
+    }
+
+    // 测试通过
+    let tp = _out_get(parsed, "tests_passed", "")
+    if tp != "" {
+        if tp == "true" || tp == "真" {
+            format_key_value("✅", "测试通过", "是")
+        } else {
+            format_key_value("❌", "测试通过", "否")
+        }
+    }
+
+    // 迭代次数
+    let iters = _out_get(parsed, "iterations", "")
+    if iters != "" && iters != "0" {
+        format_key_value("🔄", "迭代次数", iters)
+    }
+
+    // 评分（QualityGate）
+    let scores = _out_get_map(parsed, "scores")
+    if len(scores) > 0 {
+        let overall = _out_get_score(scores, "overall")
+        if overall != "" {
+            format_key_value("📊", "总体评分", overall + "/10")
+        }
+        let dims = ["security", "correctness", "maintainability", "performance", "testability", "helen_compliance", "documentation"]
+        let dim_labels = ["🔒 安全性", "✅ 正确性", "📖 可维护", "⚡ 性能", "🧪 可测试", "📜 规范", "📝 文档"]
+        stream_print("    " + _colorize("┌─ 各维度评分 ", COLOR_CYAN) + _colorize(repeat("─", 28), COLOR_DIM) + "\n")
+        let di = 0
+        while di < len(dims) {
+            let dim_score = _out_get_score(scores, dims[di])
+            if dim_score != "" {
+                let score_f = 0.0
+                try {
+                    score_f = float(dim_score)
+                } catch {
+                    score_f = 0.0
+                }
+                format_score_bar(dim_labels[di], score_f, 10.0, 10)
+            }
+            di = di + 1
+        }
+        stream_print("    " + _colorize("└", COLOR_CYAN) + _colorize(repeat("─", 40), COLOR_DIM) + "\n")
+    }
+
+    // 判定
+    let verdict = _out_get(parsed, "verdict", "")
+    if verdict != "" {
+        if verdict == "PASS" {
+            format_key_value("✅", "判定", verdict)
+        } else if verdict == "FAIL" {
+            format_key_value("❌", "判定", verdict)
+        } else {
+            format_key_value("⚠️", "判定", verdict)
+        }
+    }
+
+    // 报告
+    let report = _out_get(parsed, "report", "")
+    if report != "" {
+        stream_print("\n  " + _colorize("📝 质量报告:", COLOR_BLUE) + "\n")
+        format_text_block(report, 15)
+    }
+
+    // 模块列表
+    let modules = _out_get_list(parsed, "modules")
+    if len(modules) > 0 {
+        format_key_value("📦", "模块 (" + str(len(modules)) + ")", join(modules, ", "))
+    }
+
+    // 新技能列表
+    let new_skills = _out_get_list(parsed, "new_skills")
+    if len(new_skills) > 0 {
+        format_key_value("🧠", "新技能 (" + str(len(new_skills)) + ")", join(new_skills, ", "))
+    }
+
+    // 技能更新列表
+    let updates = _out_get_list(parsed, "updates")
+    if len(updates) > 0 {
+        format_key_value("🔄", "技能更新 (" + str(len(updates)) + ")", join(updates, ", "))
+    }
+
+    // 摘要
+    let summary = _out_get(parsed, "summary", "")
+    if summary != "" {
+        stream_print("\n  " + _colorize("💬 摘要:", COLOR_BLUE) + "\n")
+        format_text_block(summary, 5)
+    }
+}
