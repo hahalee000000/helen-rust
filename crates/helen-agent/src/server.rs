@@ -25,7 +25,7 @@ use crate::upload::UploadManager;
 
 /// Embedded frontend assets
 #[derive(RustEmbed)]
-#[folder = "frontend/"]
+#[folder = "frontend/dist/"]
 struct FrontendAssets;
 
 /// Running server handle

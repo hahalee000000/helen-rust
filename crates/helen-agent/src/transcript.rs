@@ -277,17 +277,23 @@ impl TranscriptReader {
                 continue;
             }
 
-            return if text.len() > 50 {
-                text[..50].to_string()
-            } else {
-                text
-            };
+            return truncate_at_char_boundary(&text, 50);
         }
         String::new()
     }
 }
 
 // ── Helper functions ──────────────────────────────────────────────
+
+/// Truncate a string to at most `max_chars` characters, respecting UTF-8 boundaries.
+/// Appends "..." if truncated.
+fn truncate_at_char_boundary(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        return s.to_string();
+    }
+    let truncated: String = s.chars().take(max_chars).collect();
+    format!("{}...", truncated)
+}
 
 /// Convert a Unix timestamp (seconds) to ISO 8601 string
 fn timestamp_to_iso(ts: i64) -> String {
@@ -472,6 +478,20 @@ mod tests {
         assert_eq!(cleaned, "Hello\n\nWorld");
         assert_eq!(hints.len(), 1);
         assert_eq!(hints[0], "some hint");
+    }
+
+    #[test]
+    fn test_truncate_at_char_boundary() {
+        // ASCII: no truncation needed
+        assert_eq!(truncate_at_char_boundary("hello", 10), "hello");
+        // ASCII: truncation with ellipsis
+        assert_eq!(truncate_at_char_boundary("hello world", 5), "hello...");
+        // Chinese: multi-byte chars, no truncation
+        assert_eq!(truncate_at_char_boundary("你好世界", 10), "你好世界");
+        // Chinese: truncation at char boundary (not byte boundary)
+        assert_eq!(truncate_at_char_boundary("你好世界测试", 3), "你好世...");
+        // Mixed: truncation respects char boundary
+        assert_eq!(truncate_at_char_boundary("hello你好world", 7), "hello你好...");
     }
 
     #[test]

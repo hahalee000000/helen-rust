@@ -14,6 +14,7 @@ interface Props {
 export function AuthGate({ children }: Props) {
   const [token, setToken] = useState<string>(() => getStoredToken())
   const [prompting, setPrompting] = useState(false)
+  const [probed, setProbed] = useState(false)
   const t = useT()
 
   const askForToken = useCallback(() => {
@@ -27,7 +28,10 @@ export function AuthGate({ children }: Props) {
 
   // Initial startup: probe /api/status, if 401 prompt immediately
   useEffect(() => {
-    if (token) return // already have token, skip probe
+    if (token) {
+      setProbed(true) // already have token, skip probe
+      return
+    }
     const probe = async () => {
       try {
         const resp = await fetch('/api/status')
@@ -36,6 +40,8 @@ export function AuthGate({ children }: Props) {
         }
       } catch {
         // Network error (backend not running): don't prompt, let user see normal connection error
+      } finally {
+        setProbed(true)
       }
     }
     probe()
@@ -57,8 +63,8 @@ export function AuthGate({ children }: Props) {
     setPrompting(false)
   }
 
-  // No token and not prompting: wait for probe to decide
-  if (!token && !prompting) {
+  // No token and not prompting and probe hasn't completed: wait for probe
+  if (!token && !prompting && !probed) {
     return null
   }
 
