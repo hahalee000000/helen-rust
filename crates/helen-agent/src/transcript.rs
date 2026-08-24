@@ -491,7 +491,10 @@ mod tests {
         // Chinese: truncation at char boundary (not byte boundary)
         assert_eq!(truncate_at_char_boundary("你好世界测试", 3), "你好世...");
         // Mixed: truncation respects char boundary
-        assert_eq!(truncate_at_char_boundary("hello你好world", 7), "hello你好...");
+        assert_eq!(
+            truncate_at_char_boundary("hello你好world", 7),
+            "hello你好..."
+        );
     }
 
     #[test]

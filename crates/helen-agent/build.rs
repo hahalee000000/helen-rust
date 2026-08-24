@@ -12,8 +12,7 @@ use std::path::Path;
 
 fn main() {
     // rust-embed resolves paths relative to CARGO_MANIFEST_DIR
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR not set");
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let dist = Path::new(&manifest_dir).join("frontend/dist");
 
     if !dist.exists() {
