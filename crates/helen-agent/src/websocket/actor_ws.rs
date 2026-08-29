@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::actor_bridge::bridge::HelenActorBridge;
+use crate::actor_bridge::messages::AgentOutput;
 use crate::api::sessions::AppState;
 
 /// Create WebSocket router with HelenActorBridge
@@ -183,12 +184,37 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 // Send message to Helen
                                 bridge_ref.send_message(content.clone(), vec![]).await;
 
-                                // For now, send a placeholder response
-                                // TODO: Implement actual response forwarding from Helen
-                                let response = format!("Echo: {}", content);
+                                // Wait for response with timeout
+                                let mut response_received = false;
+                                for _ in 0..50 {
+                                    // 5 second timeout (50 * 100ms)
+                                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                                    
+                                    if let Some(output) = bridge_ref.receive_output().await {
+                                        match output {
+                                            AgentOutput::ResponseComplete { content: resp_content, .. } => {
+                                                if socket.send(Message::Text(build_llm_chunk(&resp_content))).await.is_err() {
+                                                    break;
+                                                }
+                                                response_received = true;
+                                                break;
+                                            }
+                                            AgentOutput::Error { error_msg, .. } => {
+                                                if socket.send(Message::Text(build_error(&error_msg))).await.is_err() {
+                                                    break;
+                                                }
+                                                response_received = true;
+                                                break;
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
                                 
-                                if socket.send(Message::Text(build_llm_chunk(&response))).await.is_err() {
-                                    break;
+                                if !response_received {
+                                    if socket.send(Message::Text(build_error("Response timeout"))).await.is_err() {
+                                        break;
+                                    }
                                 }
                             } else {
                                 if socket.send(Message::Text(build_error("Bridge not initialized"))).await.is_err() {
