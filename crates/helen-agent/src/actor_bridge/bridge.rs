@@ -5,6 +5,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::mpsc as std_mpsc;
 use tokio::sync::{broadcast, mpsc};
 
 use helen_core::lexer::Scanner;
@@ -21,7 +22,7 @@ use super::messages::{AgentOutput, StreamChunk, UserInput};
 pub struct HelenActorBridge {
     /// Whether the bridge is alive
     alive: Arc<AtomicBool>,
-    /// Channel to send user input to the interpreter thread
+    /// Channel to send user input to the interpreter thread (tokio for async)
     input_tx: mpsc::Sender<UserInput>,
     /// Channel to receive agent output from the interpreter thread
     _output_rx: mpsc::Receiver<AgentOutput>,
@@ -38,9 +39,31 @@ impl HelenActorBridge {
     /// * `env_context` - Environment context XML to inject into prompt
     pub fn new(_cwd: String, _session_id: String, _env_context: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
-        let (input_tx, _input_rx) = mpsc::channel(32);
+        let (input_tx, mut input_rx_std) = mpsc::channel::<UserInput>(32);
+        let (input_tx_std, input_rx_std_sync) = std_mpsc::channel::<UserInput>();
         let (_output_tx, output_rx) = mpsc::channel(32);
         let (stream_tx, _) = broadcast::channel(100);
+
+        // Wrap the std receiver in Arc for sharing with interpreter thread
+        // Note: We don't actually need Arc here, just move the receiver
+        let input_rx_for_thread = input_rx_std_sync;
+
+        // Spawn a bridge thread to forward tokio messages to std channel
+        let alive_bridge = alive.clone();
+        std::thread::spawn(move || {
+            // Create a tokio runtime for this thread
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                while let Some(input) = input_rx_std.recv().await {
+                    if input_tx_std.send(input).is_err() {
+                        break;
+                    }
+                    if !alive_bridge.load(Ordering::Relaxed) {
+                        break;
+                    }
+                }
+            });
+        });
 
         // Spawn Helen interpreter thread
         let alive_clone = alive.clone();
@@ -102,17 +125,64 @@ impl HelenActorBridge {
             }
             
             // 4. Call spawn_chat_actor() to start the ChatSessionActor
-            // TODO: Implement actual spawn_chat_actor() call in Task 2.2
-            // This requires calling the Helen function and getting the mailbox
-            // For now, just log that we would call it
-            eprintln!("Would call spawn_chat_actor() here");
+            // This function spawns the actor and stores the mailbox in _chat_actor_mailbox
+            if let Some(func) = interp.functions.get("spawn_chat_actor").cloned() {
+                let span = helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
+                match interp.call_function(&func, vec![], None, &span) {
+                    Ok(result) => {
+                        eprintln!("spawn_chat_actor() returned: {:?}", result);
+                    }
+                    Err(e) => {
+                        eprintln!("spawn_chat_actor() failed: {:?}", e);
+                    }
+                }
+            } else {
+                eprintln!("spawn_chat_actor() function not found");
+            }
             
-            // 4. Message loop (will be implemented in Task 2.2)
-            // For now, just keep thread alive
+            // 5. Message loop: receive messages from Rust and call Helen functions
             loop {
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                // Check if we should exit
                 if !alive_clone.load(Ordering::Relaxed) {
                     break;
+                }
+                
+                // Try to receive a message from Rust (blocking with timeout)
+                match input_rx_for_thread.recv_timeout(std::time::Duration::from_millis(100)) {
+                    Ok(input) => {
+                        // Call tui_chat_handler_actor(user_input, file_paths)
+                        if let Some(func) = interp.functions.get("tui_chat_handler_actor").cloned() {
+                            let span = helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
+                            
+                            // Convert arguments to Helen values
+                            let user_input_val = helen_interpreter::value::Value::Str(std::rc::Rc::from(input.content.as_str()));
+                            let file_paths_val = helen_interpreter::value::Value::List(std::rc::Rc::new(std::cell::RefCell::new(
+                                input.file_paths.iter()
+                                    .map(|p| helen_interpreter::value::Value::Str(std::rc::Rc::from(p.as_str())))
+                                    .collect()
+                            )));
+                            
+                            match interp.call_function(&func, vec![user_input_val, file_paths_val], None, &span) {
+                                Ok(result) => {
+                                    eprintln!("tui_chat_handler_actor() returned: {:?}", result);
+                                    // TODO: Send result back to Rust via output channel
+                                }
+                                Err(e) => {
+                                    eprintln!("tui_chat_handler_actor() failed: {:?}", e);
+                                }
+                            }
+                        } else {
+                            eprintln!("tui_chat_handler_actor() function not found");
+                        }
+                    }
+                    Err(std_mpsc::RecvTimeoutError::Timeout) => {
+                        // No message, continue loop
+                        continue;
+                    }
+                    Err(std_mpsc::RecvTimeoutError::Disconnected) => {
+                        // Channel closed, exit loop
+                        break;
+                    }
                 }
             }
             
