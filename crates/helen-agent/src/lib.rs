@@ -3,6 +3,7 @@
 //! This crate provides a web-based interface for the Helen agent system,
 //! eliminating the need for Python dependencies in production use.
 
+pub mod actor_bridge;
 pub mod api;
 pub mod auth;
 pub mod directory;
