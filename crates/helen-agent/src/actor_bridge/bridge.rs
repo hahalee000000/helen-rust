@@ -81,6 +81,7 @@ impl HelenActorBridge {
 
         // Spawn Helen interpreter thread
         let alive_clone = alive.clone();
+        let stream_tx_clone = stream_tx.clone();
         std::thread::spawn(move || {
             // 1. Create interpreter with full runtime
             let mut interp = Interpreter::new();
@@ -178,8 +179,36 @@ impl HelenActorBridge {
                             
                             match interp.call_function(&func, vec![user_input_val, file_paths_val], None, &span) {
                                 Ok(result) => {
-                                    // Convert Helen Value to string and send back
+                                    // Convert Helen Value to string
                                     let response_str = format!("{:?}", result);
+                                    
+                                    // Split response into chunks for streaming
+                                    let chunk_size = 50; // characters per chunk
+                                    let mut sequence = 0u64;
+                                    let chars: Vec<char> = response_str.chars().collect();
+                                    
+                                    for chunk_start in (0..chars.len()).step_by(chunk_size) {
+                                        let chunk_end = (chunk_start + chunk_size).min(chars.len());
+                                        let chunk_content: String = chars[chunk_start..chunk_end].iter().collect();
+                                        
+                                        let chunk = StreamChunk {
+                                            sequence,
+                                            content: chunk_content,
+                                        };
+                                        
+                                        // Send chunk via broadcast channel
+                                        if stream_tx_clone.send(chunk).is_err() {
+                                            eprintln!("Failed to send streaming chunk");
+                                            break;
+                                        }
+                                        
+                                        sequence += 1;
+                                        
+                                        // Small delay to simulate streaming
+                                        std::thread::sleep(std::time::Duration::from_millis(10));
+                                    }
+                                    
+                                    // Send complete response via output channel
                                     let output = AgentOutput::ResponseComplete {
                                         request_id: input.request_id.clone(),
                                         content: response_str,

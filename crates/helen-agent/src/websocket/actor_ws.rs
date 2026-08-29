@@ -181,33 +181,58 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             // Process message using HelenActorBridge
                             let bridge_guard = bridge.lock().await;
                             if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                // Subscribe to streaming chunks
+                                let mut stream_rx = bridge_ref.subscribe_stream();
+                                
                                 // Send message to Helen
                                 bridge_ref.send_message(content.clone(), vec![]).await;
 
-                                // Wait for response with timeout
+                                // Wait for response with timeout, forwarding streaming chunks
                                 let mut response_received = false;
-                                for _ in 0..50 {
-                                    // 5 second timeout (50 * 100ms)
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                                    
-                                    if let Some(output) = bridge_ref.receive_output().await {
-                                        match output {
-                                            AgentOutput::ResponseComplete { content: resp_content, .. } => {
-                                                if socket.send(Message::Text(build_llm_chunk(&resp_content))).await.is_err() {
-                                                    break;
+                                let start = std::time::Instant::now();
+                                let timeout = std::time::Duration::from_secs(5);
+                                
+                                while start.elapsed() < timeout {
+                                    tokio::select! {
+                                        // Check for streaming chunks
+                                        chunk_result = stream_rx.recv() => {
+                                            match chunk_result {
+                                                Ok(chunk) => {
+                                                    if socket.send(Message::Text(build_llm_chunk(&chunk.content))).await.is_err() {
+                                                        response_received = true; // Exit outer loop
+                                                        break;
+                                                    }
                                                 }
-                                                response_received = true;
-                                                break;
+                                                Err(_) => break,
                                             }
-                                            AgentOutput::Error { error_msg, .. } => {
-                                                if socket.send(Message::Text(build_error(&error_msg))).await.is_err() {
-                                                    break;
-                                                }
-                                                response_received = true;
-                                                break;
-                                            }
-                                            _ => {}
                                         }
+                                        // Check for complete response
+                                        _ = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {
+                                            if let Some(output) = bridge_ref.receive_output().await {
+                                                match output {
+                                                    AgentOutput::ResponseComplete { .. } => {
+                                                        // Send final complete message
+                                                        if socket.send(Message::Text(build_llm_complete())).await.is_err() {
+                                                            break;
+                                                        }
+                                                        response_received = true;
+                                                        break;
+                                                    }
+                                                    AgentOutput::Error { error_msg, .. } => {
+                                                        if socket.send(Message::Text(build_error(&error_msg))).await.is_err() {
+                                                            break;
+                                                        }
+                                                        response_received = true;
+                                                        break;
+                                                    }
+                                                    _ => {}
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if response_received {
+                                        break;
                                     }
                                 }
                                 
