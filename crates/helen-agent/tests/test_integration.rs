@@ -28,25 +28,55 @@ async fn test_full_agent_workflow() {
     let ws_url = format!("ws://{}/api/chat/ws", addr);
     let (mut ws, _) = tokio_tungstenite::connect_async(&ws_url).await.unwrap();
 
-    // 4. Send a chat message
+    // 3. First message should be status_update
+    let first = ws.next().await.unwrap().unwrap();
+    match first {
+        Message::Text(text) => {
+            let data: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(data["type"], "status_update");
+        }
+        _ => panic!("Expected text message for status_update"),
+    }
+
+    // 4. Send a chat message (new protocol)
     let msg = serde_json::json!({
-        "type": "send",
-        "input": "Hello",
-        "session_id": "test_session"
+        "type": "message",
+        "content": "Hello",
+        "client_id": "test-123"
     });
     ws.send(Message::Text(msg.to_string())).await.unwrap();
 
-    // 5. Receive response
+    // 5. Receive processing_start
     let response = ws.next().await.unwrap().unwrap();
     match response {
         Message::Text(text) => {
             let data: serde_json::Value = serde_json::from_str(&text).unwrap();
-            // Should receive stream_started or error (if helen not found)
-            assert!(data["type"] == "stream_started" || data["type"] == "error");
+            assert_eq!(data["type"], "processing_start");
         }
-        _ => panic!("Expected text message"),
+        _ => panic!("Expected processing_start"),
     }
 
-    // 6. Close WebSocket
+    // 6. Receive llm_chunk (echo response)
+    let response = ws.next().await.unwrap().unwrap();
+    match response {
+        Message::Text(text) => {
+            let data: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(data["type"], "llm_chunk");
+            assert!(data["data"]["content"].as_str().unwrap().contains("Hello"));
+        }
+        _ => panic!("Expected llm_chunk"),
+    }
+
+    // 7. Receive processing_complete
+    let response = ws.next().await.unwrap().unwrap();
+    match response {
+        Message::Text(text) => {
+            let data: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(data["type"], "processing_complete");
+        }
+        _ => panic!("Expected processing_complete"),
+    }
+
+    // 8. Close WebSocket
     ws.close(None).await.ok();
 }

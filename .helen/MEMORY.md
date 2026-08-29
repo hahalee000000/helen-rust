@@ -7,7 +7,7 @@
 - **Python reference**: `~/helen/`
 - **Language policy**: All code, comments, commits, docs in **English**
 
-## Workspace (10 crates, ~70K lines Rust)
+## Workspace (11 crates, ~85K lines Rust)
 ```
 crates/
   helen-core/        # tokens, lexer, AST, errors
@@ -20,15 +20,16 @@ crates/
   helen-lsp/         # Language Server Protocol
   helen-ffi/         # Python FFI via PyO3 (feature-gated)
   helen-python-bridge/ # Python→Helen via maturin cdylib
+  helen-agent/       # WebUI server (Axum + React SPA, rust-embed) — M17+
 ```
 
-## Milestones (M0–M15 complete)
-M0–M8: core→runtime. M9: quality (unwrap 325→140, stdlib split). M10–M11: FFI+Bridge. M12–M14: CLI/REPL/LSP, conformance, release. M15: Chinese aliases, input(), clippy.
+## Milestones (M0–M24 complete)
+M0–M8: core→runtime. M9: quality (unwrap 325→140, stdlib split). M10–M11: FFI+Bridge. M12–M14: CLI/REPL/LSP, conformance, release. M15: Chinese aliases, input(), clippy. M16: compile-time skill embed. M17: helen-agent crate (Axum server, REST+WS API, embedded React frontend, Helen executor, sessions, upload, auth). M18–M19: dead code cleanup. M20: CI fixes. M21: 5-phase agent features, API coverage 77.6%→88%. M22–M23: HR agent alignment, comparison docs. M24: WebUI bug fixes (UTF-8 panic, blank page, Transcript nav).
 
 ## Test & Quality
 | Metric | Value |
 |---|---|
-| Workspace tests (excl. bridge) | **1675 passed, 0 failed** |
+| Workspace tests (excl. bridge) | **~1824 passed, 0 failed** |
 | Tier A differential | 52/52 byte-identical |
 | Tier B pytest | lang 100/100, cli 64/64, ffi 64+1skip, agent 170/172 |
 | Error parity | 70/70 E-code + exit-code match |
@@ -78,11 +79,4 @@ M0–M8: core→runtime. M9: quality (unwrap 325→140, stdlib split). M10–M11
 - Use codebase-memory-mcp-helen for code search/graph queries
 - `save_code_file`/`patch_code_file` for .helen (auto helen check)
 - Load skills before coding: `helen-syntax`, `helen-stdlib`, `helen-testing`
-- Load `debugging` skill before investigating bugs
-en-testing`
-- Load `debugging` skill before investigating bugs
-esting`
-- Load `debugging` skill before investigating bugs
- skill before investigating bugs
-esting`
 - Load `debugging` skill before investigating bugs

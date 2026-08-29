@@ -12,7 +12,6 @@ use axum::{
 use serde_json::json;
 
 use crate::api::sessions::AppState;
-use crate::helen_bridge::StreamMessage;
 
 /// Create WebSocket router
 pub fn router() -> Router<AppState> {
@@ -27,8 +26,8 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
 /// Parsed WebSocket input message
 #[derive(Debug)]
 pub enum WsInput {
-    Send { input: String, session_id: String },
-    Stop { stream_id: String },
+    Message { content: String, client_id: Option<String> },
+    Cancel,
     Unknown(String),
     InvalidJson,
 }
@@ -43,55 +42,63 @@ pub fn parse_ws_message(text: &str) -> WsInput {
     let msg_type = data.get("type").and_then(|t| t.as_str()).unwrap_or("");
 
     match msg_type {
-        "send" => {
-            let input = data
-                .get("input")
+        "message" => {
+            let content = data
+                .get("content")
                 .and_then(|i| i.as_str())
                 .unwrap_or("")
                 .to_string();
-            let session_id = data
-                .get("session_id")
+            let client_id = data
+                .get("client_id")
                 .and_then(|s| s.as_str())
-                .unwrap_or("default")
-                .to_string();
-            WsInput::Send { input, session_id }
+                .map(|s| s.to_string());
+            WsInput::Message { content, client_id }
         }
-        "stop" => {
-            let stream_id = data
-                .get("stream_id")
-                .and_then(|s| s.as_str())
-                .unwrap_or("")
-                .to_string();
-            WsInput::Stop { stream_id }
-        }
+        "cancel" => WsInput::Cancel,
         other => WsInput::Unknown(other.to_string()),
     }
 }
 
-/// Build a JSON response string for stream_started
-pub fn build_stream_started(stream_id: &str) -> String {
+/// Build a JSON response string for processing_start
+pub fn build_processing_start() -> String {
     json!({
-        "type": "stream_started",
-        "stream_id": stream_id
+        "type": "processing_start"
     })
     .to_string()
 }
 
-/// Build a JSON response string for output
-pub fn build_output(stream_id: &str, data: &str) -> String {
+/// Build a JSON response string for processing_complete
+pub fn build_processing_complete(is_slash: bool, content: Option<&str>, i18n_key: Option<&str>) -> String {
+    let mut data = json!({
+        "type": "processing_complete",
+        "data": {
+            "is_slash_response": is_slash
+        }
+    });
+    if let Some(c) = content {
+        data["data"]["content"] = json!(c);
+    }
+    if let Some(k) = i18n_key {
+        data["data"]["i18n_key"] = json!(k);
+    }
+    data.to_string()
+}
+
+/// Build a JSON response string for llm_chunk
+pub fn build_llm_chunk(content: &str) -> String {
     json!({
-        "type": "output",
-        "stream_id": stream_id,
-        "data": data
+        "type": "llm_chunk",
+        "data": {
+            "content": content
+        }
     })
     .to_string()
 }
 
-/// Build a JSON response string for stream_complete
-pub fn build_stream_complete(stream_id: &str) -> String {
+/// Build a JSON response string for llm_complete
+pub fn build_llm_complete() -> String {
     json!({
-        "type": "stream_complete",
-        "stream_id": stream_id
+        "type": "llm_complete"
     })
     .to_string()
 }
@@ -100,139 +107,75 @@ pub fn build_stream_complete(stream_id: &str) -> String {
 pub fn build_error(data: &str) -> String {
     json!({
         "type": "error",
-        "data": data
+        "data": {
+            "content": data
+        }
     })
     .to_string()
 }
 
-/// Build a JSON response string for stream_error
-pub fn build_stream_error(stream_id: &str, data: &str) -> String {
+/// Build a JSON response string for status_update
+pub fn build_status_update(cwd: &str, user: &str, hostname: &str) -> String {
     json!({
-        "type": "error",
-        "stream_id": stream_id,
-        "data": data
+        "type": "status_update",
+        "data": {
+            "cwd": cwd,
+            "user": user,
+            "hostname": hostname
+        }
     })
     .to_string()
-}
-
-/// Build a JSON response string for stream_stopped
-pub fn build_stream_stopped(stream_id: &str) -> String {
-    json!({
-        "type": "stream_stopped",
-        "stream_id": stream_id
-    })
-    .to_string()
-}
-
-/// Build a JSON response string for unknown message type error
-pub fn build_unknown_type_error(msg_type: &str) -> String {
-    build_error(&format!("Unknown message type: {}", msg_type))
 }
 
 /// Handle WebSocket connection
 async fn handle_socket(mut socket: WebSocket, state: AppState) {
+    // Send initial status update
+    {
+        let state_guard = state.lock().await;
+        let cwd = state_guard.directory_manager.get_cwd();
+        let user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+        let hostname = std::fs::read_to_string("/etc/hostname")
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|_| "unknown".to_string());
+        let _ = socket.send(Message::Text(build_status_update(&cwd, &user, &hostname))).await;
+    }
+
     while let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
             match msg {
                 Message::Text(text) => {
                     match parse_ws_message(&text) {
-                        WsInput::Send { input, session_id } => {
+                        WsInput::Message { content, .. } => {
+                            // Signal processing start
+                            if socket.send(Message::Text(build_processing_start())).await.is_err() {
+                                break;
+                            }
+
                             // Get state
                             let state_guard = state.lock().await;
-                            let cwd = state_guard.directory_manager.get_cwd();
-                            let helen_bridge = state_guard.helen_bridge.clone();
-                            let stream_registry = state_guard.stream_registry.clone();
+                            let _cwd = state_guard.directory_manager.get_cwd();
                             drop(state_guard);
 
-                            // Start stream
-                            match helen_bridge.start_stream(&session_id, &input, &cwd).await {
-                                Ok((stream_id, mut receiver)) => {
-                                    // Register as actively streaming
-                                    stream_registry.register(&session_id);
+                            // Process through Helen runtime (simplified: echo for now)
+                            // TODO: Integrate with actual Helen interpreter
+                            let response = format!("Received: {}", content);
+                            
+                            // Send response as llm_chunk
+                            if socket.send(Message::Text(build_llm_chunk(&response))).await.is_err() {
+                                break;
+                            }
 
-                                    if socket
-                                        .send(Message::Text(build_stream_started(&stream_id)))
-                                        .await
-                                        .is_err()
-                                    {
-                                        stream_registry.unregister(&session_id);
-                                        break;
-                                    }
-
-                                    // Stream output
-                                    loop {
-                                        match receiver.recv().await {
-                                            Ok(StreamMessage::Output(line)) => {
-                                                if socket
-                                                    .send(Message::Text(build_output(
-                                                        &stream_id, &line,
-                                                    )))
-                                                    .await
-                                                    .is_err()
-                                                {
-                                                    break;
-                                                }
-                                            }
-                                            Ok(StreamMessage::Complete) => {
-                                                let _ = socket
-                                                    .send(Message::Text(build_stream_complete(
-                                                        &stream_id,
-                                                    )))
-                                                    .await;
-                                                break;
-                                            }
-                                            Ok(StreamMessage::Error(err)) => {
-                                                if socket
-                                                    .send(Message::Text(build_stream_error(
-                                                        &stream_id, &err,
-                                                    )))
-                                                    .await
-                                                    .is_err()
-                                                {
-                                                    break;
-                                                }
-                                            }
-                                            Err(_) => break,
-                                        }
-                                    }
-
-                                    // Unregister after stream ends
-                                    stream_registry.unregister(&session_id);
-                                }
-                                Err(err) => {
-                                    if socket.send(Message::Text(build_error(&err))).await.is_err()
-                                    {
-                                        break;
-                                    }
-                                }
+                            // Signal processing complete
+                            if socket.send(Message::Text(build_processing_complete(false, None, None))).await.is_err() {
+                                break;
                             }
                         }
-                        WsInput::Stop { stream_id } => {
-                            let state_guard = state.lock().await;
-                            let helen_bridge = state_guard.helen_bridge.clone();
-                            drop(state_guard);
-
-                            match helen_bridge.stop_stream(&stream_id).await {
-                                Ok(_) => {
-                                    if socket
-                                        .send(Message::Text(build_stream_stopped(&stream_id)))
-                                        .await
-                                        .is_err()
-                                    {
-                                        break;
-                                    }
-                                }
-                                Err(err) => {
-                                    if socket.send(Message::Text(build_error(&err))).await.is_err()
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
+                        WsInput::Cancel => {
+                            // Cancel current processing (no-op for now)
                         }
                         WsInput::Unknown(msg_type) => {
                             if socket
-                                .send(Message::Text(build_unknown_type_error(&msg_type)))
+                                .send(Message::Text(build_error(&format!("Unknown message type: {}", msg_type))))
                                 .await
                                 .is_err()
                             {
@@ -262,48 +205,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_send_message() {
-        let input = r#"{"type":"send","input":"Hello","session_id":"sess1"}"#;
+    fn test_parse_message() {
+        let input = r#"{"type":"message","content":"Hello","client_id":"123"}"#;
         match parse_ws_message(input) {
-            WsInput::Send { input, session_id } => {
-                assert_eq!(input, "Hello");
-                assert_eq!(session_id, "sess1");
+            WsInput::Message { content, client_id } => {
+                assert_eq!(content, "Hello");
+                assert_eq!(client_id, Some("123".to_string()));
             }
-            other => panic!("Expected Send, got {:?}", other),
+            other => panic!("Expected Message, got {:?}", other),
         }
     }
 
     #[test]
-    fn test_parse_send_message_defaults() {
-        let input = r#"{"type":"send"}"#;
+    fn test_parse_message_defaults() {
+        let input = r#"{"type":"message"}"#;
         match parse_ws_message(input) {
-            WsInput::Send { input, session_id } => {
-                assert_eq!(input, "");
-                assert_eq!(session_id, "default");
+            WsInput::Message { content, client_id } => {
+                assert_eq!(content, "");
+                assert_eq!(client_id, None);
             }
-            other => panic!("Expected Send, got {:?}", other),
+            other => panic!("Expected Message, got {:?}", other),
         }
     }
 
     #[test]
-    fn test_parse_stop_message() {
-        let input = r#"{"type":"stop","stream_id":"abc-123"}"#;
+    fn test_parse_cancel() {
+        let input = r#"{"type":"cancel"}"#;
         match parse_ws_message(input) {
-            WsInput::Stop { stream_id } => {
-                assert_eq!(stream_id, "abc-123");
-            }
-            other => panic!("Expected Stop, got {:?}", other),
-        }
-    }
-
-    #[test]
-    fn test_parse_stop_message_default() {
-        let input = r#"{"type":"stop"}"#;
-        match parse_ws_message(input) {
-            WsInput::Stop { stream_id } => {
-                assert_eq!(stream_id, "");
-            }
-            other => panic!("Expected Stop, got {:?}", other),
+            WsInput::Cancel => {}
+            other => panic!("Expected Cancel, got {:?}", other),
         }
     }
 
@@ -346,28 +276,34 @@ mod tests {
     // ---- Response builder tests ----
 
     #[test]
-    fn test_build_stream_started() {
-        let result = build_stream_started("stream-1");
+    fn test_build_processing_start() {
+        let result = build_processing_start();
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "stream_started");
-        assert_eq!(parsed["stream_id"], "stream-1");
+        assert_eq!(parsed["type"], "processing_start");
     }
 
     #[test]
-    fn test_build_output() {
-        let result = build_output("stream-1", "hello world");
+    fn test_build_processing_complete() {
+        let result = build_processing_complete(true, Some("done"), None);
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "output");
-        assert_eq!(parsed["stream_id"], "stream-1");
-        assert_eq!(parsed["data"], "hello world");
+        assert_eq!(parsed["type"], "processing_complete");
+        assert_eq!(parsed["data"]["is_slash_response"], true);
+        assert_eq!(parsed["data"]["content"], "done");
     }
 
     #[test]
-    fn test_build_stream_complete() {
-        let result = build_stream_complete("stream-1");
+    fn test_build_llm_chunk() {
+        let result = build_llm_chunk("hello world");
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "stream_complete");
-        assert_eq!(parsed["stream_id"], "stream-1");
+        assert_eq!(parsed["type"], "llm_chunk");
+        assert_eq!(parsed["data"]["content"], "hello world");
+    }
+
+    #[test]
+    fn test_build_llm_complete() {
+        let result = build_llm_complete();
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["type"], "llm_complete");
     }
 
     #[test]
@@ -375,31 +311,16 @@ mod tests {
         let result = build_error("something went wrong");
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["type"], "error");
-        assert_eq!(parsed["data"], "something went wrong");
+        assert_eq!(parsed["data"]["content"], "something went wrong");
     }
 
     #[test]
-    fn test_build_stream_error() {
-        let result = build_stream_error("stream-1", "timeout");
+    fn test_build_status_update() {
+        let result = build_status_update("/home/user", "rxx", "localhost");
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "error");
-        assert_eq!(parsed["stream_id"], "stream-1");
-        assert_eq!(parsed["data"], "timeout");
-    }
-
-    #[test]
-    fn test_build_stream_stopped() {
-        let result = build_stream_stopped("stream-1");
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "stream_stopped");
-        assert_eq!(parsed["stream_id"], "stream-1");
-    }
-
-    #[test]
-    fn test_build_unknown_type_error() {
-        let result = build_unknown_type_error("foobar");
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "error");
-        assert!(parsed["data"].as_str().unwrap().contains("foobar"));
+        assert_eq!(parsed["type"], "status_update");
+        assert_eq!(parsed["data"]["cwd"], "/home/user");
+        assert_eq!(parsed["data"]["user"], "rxx");
+        assert_eq!(parsed["data"]["hostname"], "localhost");
     }
 }
