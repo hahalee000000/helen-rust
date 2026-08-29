@@ -101,6 +101,12 @@ impl HelenActorBridge {
                 }
             }
             
+            // 4. Call spawn_chat_actor() to start the ChatSessionActor
+            // TODO: Implement actual spawn_chat_actor() call in Task 2.2
+            // This requires calling the Helen function and getting the mailbox
+            // For now, just log that we would call it
+            eprintln!("Would call spawn_chat_actor() here");
+            
             // 4. Message loop (will be implemented in Task 2.2)
             // For now, just keep thread alive
             loop {
