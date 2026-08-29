@@ -36,7 +36,7 @@ impl HelenActorBridge {
     /// * `cwd` - Working directory for the agent
     /// * `session_id` - Session ID for transcript persistence
     /// * `env_context` - Environment context XML to inject into prompt
-    pub fn new(cwd: String, _session_id: String, _env_context: String) -> Self {
+    pub fn new(_cwd: String, _session_id: String, _env_context: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
         let (input_tx, _input_rx) = mpsc::channel(32);
         let (_output_tx, output_rx) = mpsc::channel(32);
@@ -56,10 +56,52 @@ impl HelenActorBridge {
                 }
             }
             
-            // 3. Mark thread as running
-            // (Will be used for lifecycle management in Phase 4)
+            // 3. Load Helen agent files
+            let agent_dir = std::env::var("HELEN_AGENT_DIR")
+                .unwrap_or_else(|_| "/home/rxx/helen/helen/agent".to_string());
             
-            // 4. Message loop (will be implemented in Task 1.4)
+            let files_to_load = vec![
+                "utils.helen",
+                "lang.helen",
+                "json_utils.helen",
+                "output.helen",
+                "context.helen",
+                "context_manager.helen",
+                "memory_utils.helen",
+                "session_stats.helen",
+                "system_reminders.helen",
+                "task_manager.helen",
+                "ui_event_queue.helen",
+                "commands.helen",
+                "chat_session_actor.helen",
+                "chat_actor.helen",
+            ];
+            
+            for file in files_to_load {
+                let path = format!("{}/{}", agent_dir, file);
+                match std::fs::read_to_string(&path) {
+                    Ok(source) => {
+                        let mut scanner = Scanner::new(&source, file);
+                        let tokens = scanner.scan_all();
+                        let mut parser = Parser::new(tokens);
+                        let program = parser.parse();
+                        
+                        if !parser.errors().is_empty() {
+                            eprintln!("Parse errors in {}: {:?}", file, parser.errors());
+                            continue;
+                        }
+                        
+                        if let Err(e) = interp.interpret(&program) {
+                            eprintln!("Load error in {}: {:?}", file, e);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to read {}: {}", path, e);
+                    }
+                }
+            }
+            
+            // 4. Message loop (will be implemented in Task 2.2)
             // For now, just keep thread alive
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(1));
