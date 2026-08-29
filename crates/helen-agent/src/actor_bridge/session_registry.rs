@@ -14,6 +14,7 @@ struct SessionInfo {
     bridge: Arc<HelenActorBridge>,
     created_at: u64,
     last_accessed: u64,
+    connection_count: usize,
 }
 
 /// Registry of active sessions
@@ -52,6 +53,7 @@ impl SessionRegistry {
         if let Some(info) = sessions.get_mut(&session_id) {
             // Reuse existing bridge
             info.last_accessed = now;
+            info.connection_count += 1;
             Some(info.bridge.clone())
         } else {
             // Create new bridge
@@ -65,6 +67,7 @@ impl SessionRegistry {
                 bridge: bridge.clone(),
                 created_at: now,
                 last_accessed: now,
+                connection_count: 1,
             };
             
             sessions.insert(session_id, info);
@@ -76,6 +79,25 @@ impl SessionRegistry {
     pub async fn remove(&self, session_id: &str) {
         let mut sessions = self.sessions.lock().await;
         sessions.remove(session_id);
+    }
+    
+    /// Get the connection count for a session
+    pub async fn connection_count(&self, session_id: &str) -> usize {
+        let sessions = self.sessions.lock().await;
+        sessions.get(session_id).map(|info| info.connection_count).unwrap_or(0)
+    }
+    
+    /// Decrement connection count for a session
+    ///
+    /// If the count reaches 0, the session is removed.
+    pub async fn disconnect(&self, session_id: &str) {
+        let mut sessions = self.sessions.lock().await;
+        if let Some(info) = sessions.get_mut(session_id) {
+            info.connection_count = info.connection_count.saturating_sub(1);
+            if info.connection_count == 0 {
+                sessions.remove(session_id);
+            }
+        }
     }
     
     /// Cleanup stale sessions (no activity for longer than timeout)
