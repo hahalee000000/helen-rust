@@ -9,6 +9,8 @@ use axum::{
     routing::get,
     Router,
 };
+use helen_runtime::http_llm::HttpLLMRuntime;
+use helen_runtime::llm::LlmRuntime;
 use serde_json::json;
 
 use crate::api::sessions::AppState;
@@ -153,16 +155,32 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 
                             // Get state
                             let state_guard = state.lock().await;
-                            let _cwd = state_guard.directory_manager.get_cwd();
+                            let cwd = state_guard.directory_manager.get_cwd();
                             drop(state_guard);
 
-                            // Process through Helen runtime (simplified: echo for now)
-                            // TODO: Integrate with actual Helen interpreter
-                            let response = format!("Received: {}", content);
-                            
-                            // Send response as llm_chunk
-                            if socket.send(Message::Text(build_llm_chunk(&response))).await.is_err() {
-                                break;
+                            // Process message (blocking operation)
+                            let content_clone = content.clone();
+                            let cwd_clone = cwd.clone();
+                            let result = tokio::task::spawn_blocking(move || {
+                                process_message(&content_clone, &cwd_clone)
+                            })
+                            .await
+                            .unwrap_or_else(|e| ProcessResult {
+                                output: None,
+                                error: Some(format!("Task error: {}", e)),
+                            });
+
+                            // Send response
+                            if let Some(output) = result.output {
+                                if !output.is_empty() && output != "null" {
+                                    if socket.send(Message::Text(build_llm_chunk(&output))).await.is_err() {
+                                        break;
+                                    }
+                                }
+                            } else if let Some(error) = result.error {
+                                if socket.send(Message::Text(build_error(&error))).await.is_err() {
+                                    break;
+                                }
                             }
 
                             // Signal processing complete
@@ -197,6 +215,60 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                 _ => {}
             }
         }
+    }
+}
+
+/// Result of processing a message
+struct ProcessResult {
+    output: Option<String>,
+    error: Option<String>,
+}
+
+/// Process a message using Rust HttpLLMRuntime
+fn process_message(content: &str, cwd: &str) -> ProcessResult {
+    match process_with_llm(content, cwd) {
+        Ok(output) => ProcessResult {
+            output: Some(output),
+            error: None,
+        },
+        Err(e) => ProcessResult {
+            output: None,
+            error: Some(e),
+        },
+    }
+}
+
+/// Call LLM using Rust HttpLLMRuntime
+fn process_with_llm(content: &str, cwd: &str) -> Result<String, String> {
+    // Create LLM runtime
+    let mut runtime = HttpLLMRuntime::new(None, None, None);
+
+    // Build system prompt
+    let system_prompt = format!(
+        "You are Helen, an AI programming assistant. You help users write, debug, and understand Helen programs.\n\
+         Current working directory: {}\n\
+         Respond helpfully to the user's message.",
+        cwd
+    );
+
+    // Call LLM
+    let response = runtime.act(
+        content,
+        None, // tools
+        None, // model
+        0.7,  // temperature
+        1,    // max_turns
+        None, // max_tokens
+        None, // history
+        Some(&system_prompt),
+        None, // dispatch_fn
+        false, // thinking_enabled
+        None,  // reasoning_effort
+    );
+
+    match response {
+        Ok(resp) => Ok(resp.text.unwrap_or_default()),
+        Err(e) => Err(format!("LLM error: {}", e)),
     }
 }
 
