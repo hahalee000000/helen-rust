@@ -236,11 +236,10 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     }
                                 }
                                 
-                                if !response_received {
-                                    if socket.send(Message::Text(build_error("Response timeout"))).await.is_err() {
+                                if !response_received
+                                    && socket.send(Message::Text(build_error("Response timeout"))).await.is_err() {
                                         break;
                                     }
-                                }
                             } else {
                                 if socket.send(Message::Text(build_error("Bridge not initialized"))).await.is_err() {
                                     break;

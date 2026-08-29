@@ -12,7 +12,6 @@ use tokio::sync::Mutex;
 /// Session metadata
 struct SessionInfo {
     bridge: Arc<HelenActorBridge>,
-    created_at: u64,
     last_accessed: u64,
     connection_count: usize,
 }
@@ -65,7 +64,6 @@ impl SessionRegistry {
             
             let info = SessionInfo {
                 bridge: bridge.clone(),
-                created_at: now,
                 last_accessed: now,
                 connection_count: 1,
             };

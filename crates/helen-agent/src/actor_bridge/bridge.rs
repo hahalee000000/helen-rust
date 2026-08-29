@@ -184,15 +184,14 @@ impl HelenActorBridge {
                                     
                                     // Split response into chunks for streaming
                                     let chunk_size = 50; // characters per chunk
-                                    let mut sequence = 0u64;
                                     let chars: Vec<char> = response_str.chars().collect();
                                     
-                                    for chunk_start in (0..chars.len()).step_by(chunk_size) {
+                                    for (sequence, chunk_start) in (0..chars.len()).step_by(chunk_size).enumerate() {
                                         let chunk_end = (chunk_start + chunk_size).min(chars.len());
                                         let chunk_content: String = chars[chunk_start..chunk_end].iter().collect();
                                         
                                         let chunk = StreamChunk {
-                                            sequence,
+                                            sequence: sequence as u64,
                                             content: chunk_content,
                                         };
                                         
@@ -201,8 +200,6 @@ impl HelenActorBridge {
                                             eprintln!("Failed to send streaming chunk");
                                             break;
                                         }
-                                        
-                                        sequence += 1;
                                         
                                         // Small delay to simulate streaming
                                         std::thread::sleep(std::time::Duration::from_millis(10));
