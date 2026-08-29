@@ -7,6 +7,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
 
+use helen_core::lexer::Scanner;
+use helen_interpreter::interpreter::Interpreter;
+use helen_parser::Parser;
+
 use super::messages::{AgentOutput, StreamChunk, UserInput};
 
 /// Bridge between Rust WebUI and Helen ChatSessionActor
@@ -32,27 +36,40 @@ impl HelenActorBridge {
     /// * `cwd` - Working directory for the agent
     /// * `session_id` - Session ID for transcript persistence
     /// * `env_context` - Environment context XML to inject into prompt
-    pub fn new(cwd: String, session_id: String, env_context: String) -> Self {
+    pub fn new(cwd: String, _session_id: String, _env_context: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
         let (input_tx, _input_rx) = mpsc::channel(32);
         let (_output_tx, output_rx) = mpsc::channel(32);
         let (stream_tx, _) = broadcast::channel(100);
 
         // Spawn Helen interpreter thread
-        // TODO: Implement actual interpreter creation in Task 1.3
         let alive_clone = alive.clone();
         std::thread::spawn(move || {
-            // Placeholder: Helen interpreter thread
-            // Will be implemented in Task 1.3
-            let _ = (cwd, session_id, env_context);
+            // 1. Create interpreter with full runtime
+            let mut interp = Interpreter::new();
             
-            // Keep thread alive for now
+            // 2. Install Python FFI (if feature enabled)
+            #[cfg(feature = "python-ffi")]
+            {
+                if let Err(e) = helen_ffi::install() {
+                    eprintln!("Python FFI install failed: {}", e);
+                }
+            }
+            
+            // 3. Mark thread as running
+            // (Will be used for lifecycle management in Phase 4)
+            
+            // 4. Message loop (will be implemented in Task 1.4)
+            // For now, just keep thread alive
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if !alive_clone.load(Ordering::Relaxed) {
                     break;
                 }
             }
+            
+            // Clean up interpreter
+            drop(interp);
         });
 
         Self {
