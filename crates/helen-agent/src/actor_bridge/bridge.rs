@@ -341,16 +341,11 @@ impl HelenActorBridge {
                             let stream_tx_clone2 = stream_tx_clone.clone();
                             std::thread::spawn(move || {
                                 let mut sequence = 0u64;
-                                eprintln!("[BRIDGE DEBUG] Streaming thread started");
                                 loop {
                                     // Receive from Helen Channel (blocking with timeout)
                                     if let Some(msg) = bridge_endpoint
                                         .receive(Some(std::time::Duration::from_millis(100)))
                                     {
-                                        eprintln!(
-                                            "[BRIDGE DEBUG] Received message from channel: {:?}",
-                                            msg.0
-                                        );
                                         // Parse the message
                                         if let helen_interpreter::value::Value::Map(map) = msg.0 {
                                             let map_ref = map.borrow();
@@ -371,27 +366,16 @@ impl HelenActorBridge {
                                                             std::rc::Rc::from("content"),
                                                         ),
                                                     ) {
-                                                        let debug_preview = {
-                                                            let s = content.as_ref();
-                                                            let end = s.len().min(50);
-                                                            let end = (0..=end).rev().find(|&i| s.is_char_boundary(i)).unwrap_or(0);
-                                                            &s[..end]
-                                                        };
-                                                        eprintln!("[BRIDGE DEBUG] Sending chunk to broadcast: {:?}", debug_preview);
                                                         let chunk = StreamChunk {
                                                             sequence,
                                                             content: content.to_string(),
                                                         };
                                                         if stream_tx_clone2.send(chunk).is_err() {
-                                                            eprintln!("[BRIDGE DEBUG] Failed to send streaming chunk to broadcast");
                                                             break;
                                                         }
                                                         sequence += 1;
                                                     }
                                                 } else if type_str.as_ref() == "complete" {
-                                                    eprintln!(
-                                                        "[BRIDGE DEBUG] Received complete signal"
-                                                    );
                                                     // Streaming complete
                                                     break;
                                                 }
@@ -399,7 +383,6 @@ impl HelenActorBridge {
                                         }
                                     }
                                 }
-                                eprintln!("[BRIDGE DEBUG] Streaming thread exiting");
                             });
 
                             // Call the streaming function

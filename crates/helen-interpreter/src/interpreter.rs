@@ -2488,34 +2488,7 @@ impl Interpreter {
         }
 
         let flow = self.with_scope(Some(call_env), |s| {
-            eprintln!(
-                "[CALL_FUNCTION DEBUG] Executing function body for: {}",
-                func.name
-            );
-            eprintln!(
-                "[CALL_FUNCTION DEBUG] Environment has {} vars",
-                s.environment.borrow().store_ref().len()
-            );
-            if func.name.contains("streaming") {
-                let env = s.environment.borrow();
-                eprintln!("[CALL_FUNCTION DEBUG] Checking for _current_streaming_channel...");
-                if let Some(val) = env.get("_current_streaming_channel") {
-                    eprintln!(
-                        "[CALL_FUNCTION DEBUG] Found _current_streaming_channel: {:?}",
-                        val
-                    );
-                } else {
-                    eprintln!(
-                        "[CALL_FUNCTION DEBUG] _current_streaming_channel NOT FOUND in environment"
-                    );
-                }
-            }
-            let result = s.execute_stmts(&func.body.body);
-            eprintln!(
-                "[CALL_FUNCTION DEBUG] Function body executed, result: {:?}",
-                result.as_ref().map(|f| format!("{:?}", f))
-            );
-            result
+            s.execute_stmts(&func.body.body)
         })?;
         match flow {
             Flow::Return(v) => Ok(v.unwrap_or(Value::Null)),
