@@ -31,24 +31,24 @@ impl SessionRegistry {
             sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-    
+
     /// Get the number of active sessions
     pub async fn active_sessions(&self) -> usize {
         self.sessions.lock().await.len()
     }
-    
+
     /// Get or create a bridge for the given session ID
     ///
     /// If a bridge already exists for this session, it is reused.
     /// Otherwise, a new bridge is created.
     pub async fn get_or_create(&self, session_id: String) -> Option<Arc<HelenActorBridge>> {
         let mut sessions = self.sessions.lock().await;
-        
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         if let Some(info) = sessions.get_mut(&session_id) {
             // Reuse existing bridge
             info.last_accessed = now;
@@ -61,30 +61,33 @@ impl SessionRegistry {
                 session_id.clone(),
                 "<context></context>".to_string(),
             ));
-            
+
             let info = SessionInfo {
                 bridge: bridge.clone(),
                 last_accessed: now,
                 connection_count: 1,
             };
-            
+
             sessions.insert(session_id, info);
             Some(bridge)
         }
     }
-    
+
     /// Remove a session from the registry
     pub async fn remove(&self, session_id: &str) {
         let mut sessions = self.sessions.lock().await;
         sessions.remove(session_id);
     }
-    
+
     /// Get the connection count for a session
     pub async fn connection_count(&self, session_id: &str) -> usize {
         let sessions = self.sessions.lock().await;
-        sessions.get(session_id).map(|info| info.connection_count).unwrap_or(0)
+        sessions
+            .get(session_id)
+            .map(|info| info.connection_count)
+            .unwrap_or(0)
     }
-    
+
     /// Decrement connection count for a session
     ///
     /// If the count reaches 0, the session is removed.
@@ -97,21 +100,21 @@ impl SessionRegistry {
             }
         }
     }
-    
+
     /// Cleanup stale sessions (no activity for longer than timeout)
     pub async fn cleanup_stale(&self, timeout: Duration) {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let mut sessions = self.sessions.lock().await;
         sessions.retain(|_, info| {
             let elapsed = now.saturating_sub(info.last_accessed);
             elapsed < timeout.as_secs()
         });
     }
-    
+
     /// Get all active session IDs
     pub async fn session_ids(&self) -> Vec<String> {
         let sessions = self.sessions.lock().await;

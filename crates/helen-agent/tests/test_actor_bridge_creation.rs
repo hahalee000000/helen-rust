@@ -19,7 +19,7 @@ async fn test_bridge_send_message() {
         "test-session".to_string(),
         "<context></context>".to_string(),
     );
-    
+
     // Should not panic
     bridge.send_message("Hello".to_string(), vec![]).await;
 }
@@ -31,7 +31,7 @@ async fn test_bridge_subscribe_stream() {
         "test-session".to_string(),
         "<context></context>".to_string(),
     );
-    
+
     // Should be able to subscribe
     let _rx = bridge.subscribe_stream();
 }
@@ -43,12 +43,12 @@ async fn test_bridge_multiple_messages() {
         "test-session".to_string(),
         "<context></context>".to_string(),
     );
-    
+
     // Send multiple messages
     bridge.send_message("First".to_string(), vec![]).await;
     bridge.send_message("Second".to_string(), vec![]).await;
     bridge.send_message("Third".to_string(), vec![]).await;
-    
+
     // Bridge should still be alive
     assert!(bridge.is_alive());
 }

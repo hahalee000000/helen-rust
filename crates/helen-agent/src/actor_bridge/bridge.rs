@@ -4,8 +4,8 @@
 //! and the Helen-based ChatSessionActor agent.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
 use std::sync::mpsc as std_mpsc;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, mpsc};
 
@@ -46,7 +46,7 @@ impl HelenActorBridge {
         let (input_tx_std, input_rx_std_sync) = std_mpsc::channel::<UserInput>();
         let (output_tx, output_rx) = std_mpsc::channel::<AgentOutput>();
         let (stream_tx, _) = broadcast::channel(100);
-        
+
         // Initialize last activity timestamp
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -54,7 +54,7 @@ impl HelenActorBridge {
             .as_secs();
         let last_activity = Arc::new(AtomicU64::new(now));
         let last_activity_clone = last_activity.clone();
-        
+
         // Wrap output_rx in Arc<Mutex> for sharing
         let output_rx = Arc::new(tokio::sync::Mutex::new(output_rx));
 
@@ -85,24 +85,16 @@ impl HelenActorBridge {
         std::thread::spawn(move || {
             // 1. Create interpreter with full runtime
             let mut interp = Interpreter::new();
-            
-            // 2. Install Python FFI (if feature enabled)
-            #[cfg(feature = "python-ffi")]
-            {
-                if let Err(e) = helen_ffi::install() {
-                    eprintln!("Python FFI install failed: {}", e);
-                }
-            }
-            
-            // 3. Load Helen agent files
+
+            // 2. Load Helen agent files
             let agent_dir = std::env::var("HELEN_AGENT_DIR")
                 .unwrap_or_else(|_| "/home/rxx/helen-rust/crates/helen-agent/agent".to_string());
-            
+
             // Set the working directory for import resolution
             if let Err(e) = std::env::set_current_dir(&agent_dir) {
                 eprintln!("Failed to set working directory to {}: {}", agent_dir, e);
             }
-            
+
             let files_to_load = vec![
                 "utils.helen",
                 "lang.helen",
@@ -119,7 +111,7 @@ impl HelenActorBridge {
                 "chat_session_actor.helen",
                 "chat_actor.helen",
             ];
-            
+
             for file in files_to_load {
                 let path = format!("{}/{}", agent_dir, file);
                 match std::fs::read_to_string(&path) {
@@ -128,12 +120,12 @@ impl HelenActorBridge {
                         let tokens = scanner.scan_all();
                         let mut parser = Parser::new(tokens);
                         let program = parser.parse();
-                        
+
                         if !parser.errors().is_empty() {
                             eprintln!("Parse errors in {}: {:?}", file, parser.errors());
                             continue;
                         }
-                        
+
                         if let Err(e) = interp.interpret(&program) {
                             eprintln!("Load error in {}: {:?}", file, e);
                         }
@@ -143,11 +135,12 @@ impl HelenActorBridge {
                     }
                 }
             }
-            
-            // 4. Call spawn_chat_actor() to start the ChatSessionActor
+
+            // 3. Call spawn_chat_actor() to start the ChatSessionActor
             // This function spawns the actor and stores the mailbox in _chat_actor_mailbox
             if let Some(func) = interp.functions.get("spawn_chat_actor").cloned() {
-                let span = helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
+                let span =
+                    helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
                 match interp.call_function(&func, vec![], None, &span) {
                     Ok(result) => {
                         eprintln!("spawn_chat_actor() returned: {:?}", result);
@@ -159,51 +152,94 @@ impl HelenActorBridge {
             } else {
                 eprintln!("spawn_chat_actor() function not found");
             }
-            
-            // 5. Message loop: receive messages from Rust and call Helen functions
+
+            // 4. Message loop: receive messages from Rust and call Helen functions
             loop {
                 // Check if we should exit
                 if !alive_clone.load(Ordering::Relaxed) {
                     break;
                 }
-                
+
                 // Try to receive a message from Rust (blocking with timeout)
                 match input_rx_for_thread.recv_timeout(std::time::Duration::from_millis(100)) {
                     Ok(input) => {
                         // Call tui_chat_handler_actor_stream(user_input, file_paths, streaming_channel)
-                        if let Some(func) = interp.functions.get("tui_chat_handler_actor_stream").cloned() {
-                            let span = helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
-                            
+                        if let Some(func) = interp
+                            .functions
+                            .get("tui_chat_handler_actor_stream")
+                            .cloned()
+                        {
+                            let span = helen_core::source::SourceSpan::new(
+                                "chat_actor.helen".to_string(),
+                                0,
+                                0,
+                                0,
+                                0,
+                            );
+
                             // Convert arguments to Helen values
-                            let user_input_val = helen_interpreter::value::Value::Str(std::rc::Rc::from(input.content.as_str()));
-                            let file_paths_val = helen_interpreter::value::Value::List(std::rc::Rc::new(std::cell::RefCell::new(
-                                input.file_paths.iter()
-                                    .map(|p| helen_interpreter::value::Value::Str(std::rc::Rc::from(p.as_str())))
-                                    .collect()
-                            )));
-                            
+                            let user_input_val = helen_interpreter::value::Value::Str(
+                                std::rc::Rc::from(input.content.as_str()),
+                            );
+                            let file_paths_val = helen_interpreter::value::Value::List(
+                                std::rc::Rc::new(std::cell::RefCell::new(
+                                    input
+                                        .file_paths
+                                        .iter()
+                                        .map(|p| {
+                                            helen_interpreter::value::Value::Str(std::rc::Rc::from(
+                                                p.as_str(),
+                                            ))
+                                        })
+                                        .collect(),
+                                )),
+                            );
+
                             // Create a Helen Channel for streaming
-                            let streaming_channel = std::sync::Arc::new(
-                                helen_runtime::channel::Channel::<helen_interpreter::value::ChannelMsg>::new("streaming_channel")
+                            let streaming_channel =
+                                std::sync::Arc::new(helen_runtime::channel::Channel::<
+                                    helen_interpreter::value::ChannelMsg,
+                                >::new(
+                                    "streaming_channel"
+                                ));
+                            let streaming_endpoint =
+                                std::sync::Arc::new(helen_runtime::channel::ChannelEndpoint::new(
+                                    streaming_channel.clone(),
+                                    true,
+                                ));
+                            let streaming_channel_val = helen_interpreter::value::Value::Channel(
+                                streaming_endpoint.clone(),
                             );
-                            let streaming_endpoint = std::sync::Arc::new(
-                                helen_runtime::channel::ChannelEndpoint::new(streaming_channel.clone(), true)
-                            );
-                            let streaming_channel_val = helen_interpreter::value::Value::Channel(streaming_endpoint.clone());
-                            
+
                             // Spawn a thread to forward chunks from Helen Channel to broadcast channel
                             let stream_tx_clone2 = stream_tx_clone.clone();
                             std::thread::spawn(move || {
                                 let mut sequence = 0u64;
                                 loop {
                                     // Receive from Helen Channel (blocking with timeout)
-                                    if let Some(msg) = streaming_endpoint.receive(Some(std::time::Duration::from_millis(100))) {
+                                    if let Some(msg) = streaming_endpoint
+                                        .receive(Some(std::time::Duration::from_millis(100)))
+                                    {
                                         // Parse the message
                                         if let helen_interpreter::value::Value::Map(map) = msg.0 {
                                             let map_ref = map.borrow();
-                                            if let Some(helen_interpreter::value::Value::Str(type_str)) = map_ref.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from("type"))) {
+                                            if let Some(helen_interpreter::value::Value::Str(
+                                                type_str,
+                                            )) =
+                                                map_ref.get(&helen_interpreter::value::Value::Str(
+                                                    std::rc::Rc::from("type"),
+                                                ))
+                                            {
                                                 if type_str.as_ref() == "chunk" {
-                                                    if let Some(helen_interpreter::value::Value::Str(content)) = map_ref.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from("content"))) {
+                                                    if let Some(
+                                                        helen_interpreter::value::Value::Str(
+                                                            content,
+                                                        ),
+                                                    ) = map_ref.get(
+                                                        &helen_interpreter::value::Value::Str(
+                                                            std::rc::Rc::from("content"),
+                                                        ),
+                                                    ) {
                                                         let chunk = StreamChunk {
                                                             sequence,
                                                             content: content.to_string(),
@@ -223,20 +259,28 @@ impl HelenActorBridge {
                                     }
                                 }
                             });
-                            
+
                             // Call the streaming function
-                            match interp.call_function(&func, vec![user_input_val, file_paths_val, streaming_channel_val], None, &span) {
+                            match interp.call_function(
+                                &func,
+                                vec![user_input_val, file_paths_val, streaming_channel_val],
+                                None,
+                                &span,
+                            ) {
                                 Ok(result) => {
                                     // Convert Helen Value to string
                                     let response_str = format!("{:?}", result);
-                                    
+
                                     // Send complete response via output channel
                                     let output = AgentOutput::ResponseComplete {
                                         request_id: input.request_id.clone(),
                                         content: response_str,
                                     };
                                     if let Err(e) = output_tx.send(output) {
-                                        eprintln!("Failed to send response to output channel: {:?}", e);
+                                        eprintln!(
+                                            "Failed to send response to output channel: {:?}",
+                                            e
+                                        );
                                     }
                                 }
                                 Err(e) => {
@@ -246,7 +290,10 @@ impl HelenActorBridge {
                                         error_msg: format!("{:?}", e),
                                     };
                                     if let Err(e) = output_tx.send(output) {
-                                        eprintln!("Failed to send error to output channel: {:?}", e);
+                                        eprintln!(
+                                            "Failed to send error to output channel: {:?}",
+                                            e
+                                        );
                                     }
                                 }
                             }
@@ -264,7 +311,7 @@ impl HelenActorBridge {
                     }
                 }
             }
-            
+
             // Clean up interpreter
             drop(interp);
         });
@@ -295,7 +342,7 @@ impl HelenActorBridge {
             .unwrap()
             .as_secs();
         self.last_activity.store(now, Ordering::Relaxed);
-        
+
         let input = UserInput {
             content,
             file_paths,
@@ -377,7 +424,7 @@ mod tests {
             "test-session".to_string(),
             "<context></context>".to_string(),
         );
-        
+
         // Should not panic
         bridge.send_message("Hello".to_string(), vec![]).await;
     }

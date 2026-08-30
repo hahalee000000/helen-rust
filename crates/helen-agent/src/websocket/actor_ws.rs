@@ -30,7 +30,10 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
 /// Parsed WebSocket input message
 #[derive(Debug)]
 pub enum WsInput {
-    Message { content: String, client_id: Option<String> },
+    Message {
+        content: String,
+        client_id: Option<String>,
+    },
     Cancel,
     Unknown(String),
     InvalidJson,
@@ -72,7 +75,11 @@ pub fn build_processing_start() -> String {
 }
 
 /// Build a JSON response string for processing_complete
-pub fn build_processing_complete(is_slash: bool, content: Option<&str>, i18n_key: Option<&str>) -> String {
+pub fn build_processing_complete(
+    is_slash: bool,
+    content: Option<&str>,
+    i18n_key: Option<&str>,
+) -> String {
     let mut data = json!({
         "type": "processing_complete",
         "data": {
@@ -141,7 +148,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
         let hostname = std::fs::read_to_string("/etc/hostname")
             .map(|s| s.trim().to_string())
             .unwrap_or_else(|_| "unknown".to_string());
-        let _ = socket.send(Message::Text(build_status_update(&cwd, &user, &hostname))).await;
+        let _ = socket
+            .send(Message::Text(build_status_update(&cwd, &user, &hostname)))
+            .await;
     }
 
     // Create HelenActorBridge for this connection
@@ -154,7 +163,11 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                     match parse_ws_message(&text) {
                         WsInput::Message { content, .. } => {
                             // Signal processing start
-                            if socket.send(Message::Text(build_processing_start())).await.is_err() {
+                            if socket
+                                .send(Message::Text(build_processing_start()))
+                                .await
+                                .is_err()
+                            {
                                 break;
                             }
 
@@ -183,7 +196,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             if let Some(bridge_ref) = bridge_guard.as_ref() {
                                 // Subscribe to streaming chunks
                                 let mut stream_rx = bridge_ref.subscribe_stream();
-                                
+
                                 // Send message to Helen
                                 bridge_ref.send_message(content.clone(), vec![]).await;
 
@@ -191,7 +204,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 let mut response_received = false;
                                 let start = std::time::Instant::now();
                                 let timeout = std::time::Duration::from_secs(5);
-                                
+
                                 while start.elapsed() < timeout {
                                     tokio::select! {
                                         // Check for streaming chunks
@@ -230,24 +243,36 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                             }
                                         }
                                     }
-                                    
+
                                     if response_received {
                                         break;
                                     }
                                 }
-                                
+
                                 if !response_received
-                                    && socket.send(Message::Text(build_error("Response timeout"))).await.is_err() {
-                                        break;
-                                    }
+                                    && socket
+                                        .send(Message::Text(build_error("Response timeout")))
+                                        .await
+                                        .is_err()
+                                {
+                                    break;
+                                }
                             } else {
-                                if socket.send(Message::Text(build_error("Bridge not initialized"))).await.is_err() {
+                                if socket
+                                    .send(Message::Text(build_error("Bridge not initialized")))
+                                    .await
+                                    .is_err()
+                                {
                                     break;
                                 }
                             }
 
                             // Signal processing complete
-                            if socket.send(Message::Text(build_processing_complete(false, None, None))).await.is_err() {
+                            if socket
+                                .send(Message::Text(build_processing_complete(false, None, None)))
+                                .await
+                                .is_err()
+                            {
                                 break;
                             }
                         }
@@ -256,7 +281,10 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                         }
                         WsInput::Unknown(msg_type) => {
                             if socket
-                                .send(Message::Text(build_error(&format!("Unknown message type: {}", msg_type))))
+                                .send(Message::Text(build_error(&format!(
+                                    "Unknown message type: {}",
+                                    msg_type
+                                ))))
                                 .await
                                 .is_err()
                             {

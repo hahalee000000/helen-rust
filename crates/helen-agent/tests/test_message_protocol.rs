@@ -10,10 +10,10 @@ async fn test_call_spawn_chat_actor() {
         "test-session".to_string(),
         "<context></context>".to_string(),
     );
-    
+
     // Give thread time to initialize
     tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-    
+
     // Bridge should be alive
     assert!(bridge.is_alive());
 }
@@ -26,13 +26,13 @@ async fn test_call_tui_chat_handler() {
         "test-session".to_string(),
         "<context></context>".to_string(),
     );
-    
+
     // Give thread time to initialize
     tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-    
+
     // Send a message (this will call tui_chat_handler_actor internally)
     bridge.send_message("Hello".to_string(), vec![]).await;
-    
+
     // Bridge should still be alive
     assert!(bridge.is_alive());
 }
