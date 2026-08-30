@@ -10,10 +10,113 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, mpsc};
 
 use helen_core::lexer::Scanner;
+use helen_interpreter::exceptions::ExceptionValue;
 use helen_interpreter::interpreter::Interpreter;
+use helen_interpreter::llm_runtime::{LlmResponse as InterpreterLlmResponse, LlmRuntime};
 use helen_parser::Parser;
+use helen_runtime::http_llm::HttpLLMRuntime;
+use helen_runtime::llm::LlmRuntime as RuntimeLlmRuntime;
+use std::cell::RefCell;
 
 use super::messages::{AgentOutput, StreamChunk, UserInput};
+
+/// Adapter that wraps `HttpLLMRuntime` to implement the interpreter's `LlmRuntime` trait.
+/// (Duplicated from helen-rust/src/llm_adapter.rs to avoid circular dependency)
+struct HttpLlmAdapter {
+    inner: RefCell<HttpLLMRuntime>,
+}
+
+impl HttpLlmAdapter {
+    fn new(runtime: HttpLLMRuntime) -> Self {
+        Self {
+            inner: RefCell::new(runtime),
+        }
+    }
+}
+
+impl LlmRuntime for HttpLlmAdapter {
+    fn route(
+        &self,
+        description: &str,
+        branches: &[String],
+        context: Option<&str>,
+    ) -> Result<Option<String>, ExceptionValue> {
+        let mut runtime = self.inner.borrow_mut();
+        runtime
+            .route(description, branches, context)
+            .map_err(|e| ExceptionValue::new("RuntimeError", e, None))
+    }
+
+    fn act(
+        &self,
+        prompt: &str,
+        tools: &[serde_json::Value],
+        model: Option<&str>,
+        temperature: f64,
+        max_turns: usize,
+        max_tokens: Option<u64>,
+        history: &[serde_json::Value],
+        system_prompt: Option<&str>,
+        dispatch_fn: Option<&dyn Fn(&str, &serde_json::Value) -> String>,
+        thinking_enabled: bool,
+        reasoning_effort: Option<&str>,
+    ) -> Result<InterpreterLlmResponse, ExceptionValue> {
+        let mut runtime = self.inner.borrow_mut();
+        let response = runtime
+            .act(
+                prompt,
+                Some(tools),
+                model,
+                temperature,
+                max_turns,
+                max_tokens,
+                Some(history),
+                system_prompt,
+                dispatch_fn,
+                thinking_enabled,
+                reasoning_effort,
+            )
+            .map_err(|e| ExceptionValue::new("RuntimeError", e, None))?;
+        Ok(InterpreterLlmResponse {
+            text: response.text,
+            tool_calls: response.tool_calls,
+            model: response.model,
+        })
+    }
+
+    fn act_stream(
+        &self,
+        prompt: &str,
+        model: Option<&str>,
+        temperature: f64,
+        system_prompt: Option<&str>,
+        tools: &[serde_json::Value],
+        max_turns: usize,
+        history: &[serde_json::Value],
+        dispatch_fn: Option<&dyn Fn(&str, &serde_json::Value) -> String>,
+        on_event: &mut dyn FnMut(serde_json::Value) -> bool,
+        thinking_enabled: bool,
+        reasoning_effort: Option<&str>,
+    ) -> Result<(), ExceptionValue> {
+        let mut runtime = self.inner.borrow_mut();
+        runtime
+            .act_stream(
+                prompt,
+                model,
+                temperature,
+                system_prompt,
+                Some(tools),
+                max_turns,
+                None,
+                Some(history),
+                dispatch_fn,
+                on_event,
+                thinking_enabled,
+                reasoning_effort,
+            )
+            .map_err(|e| ExceptionValue::new("RuntimeError", e, None))
+    }
+}
 
 /// Bridge between Rust WebUI and Helen ChatSessionActor
 ///
@@ -85,6 +188,16 @@ impl HelenActorBridge {
         std::thread::spawn(move || {
             // 1. Create interpreter with full runtime
             let mut interp = Interpreter::new();
+
+            // 1b. Configure LLM runtime from environment (same as REPL)
+            let llm_runtime = HttpLLMRuntime::new(None, None, None);
+            if !llm_runtime.api_key.is_empty() && llm_runtime.api_key != "sk-placeholder" {
+                let adapter = HttpLlmAdapter::new(llm_runtime);
+                interp.set_llm_runtime(Arc::new(adapter));
+                eprintln!("HelenActorBridge: LLM runtime configured from environment");
+            } else {
+                eprintln!("HelenActorBridge: WARNING — no valid LLM API key found. Tools will not work.");
+            }
 
             // 2. Load Helen agent files
             let agent_dir = std::env::var("HELEN_AGENT_DIR")

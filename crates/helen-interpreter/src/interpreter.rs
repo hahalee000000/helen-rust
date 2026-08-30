@@ -3213,6 +3213,108 @@ impl Interpreter {
             interp.dispatch_agent_tool(name, args)
         };
 
+        let has_streaming = la.on_chunk.is_some() || la.on_complete.is_some();
+
+        // True streaming path: use act_stream() when callbacks are present
+        if has_streaming {
+            use std::cell::RefCell;
+            let full_text = Rc::new(RefCell::new(String::new()));
+            let interrupted = Rc::new(RefCell::new(false));
+
+            // Prepare callbacks for streaming
+            let chunk_fn_opt = if let Some(oc) = &la.on_chunk {
+                Some(self.eval_expr(oc)?)
+            } else {
+                None
+            };
+            let complete_fn_opt = if let Some(oc) = &la.on_complete {
+                Some(self.eval_expr(oc)?)
+            } else {
+                None
+            };
+
+            // Streaming event handler — uses unsafe pointer to self (same pattern as dispatch_fn)
+            let self_ptr_stream = self as *mut Interpreter;
+            let full_text_clone = full_text.clone();
+            let interrupted_clone = interrupted.clone();
+            let mut on_event = move |event: serde_json::Value| -> bool {
+                if *interrupted_clone.borrow() {
+                    return false;
+                }
+
+                // Check for content chunks
+                if let Some(event_type) = event.get("type").and_then(|t| t.as_str()) {
+                    if event_type == "content" {
+                        if let Some(content) = event.get("content").and_then(|c| c.as_str()) {
+                            if !content.is_empty() {
+                                full_text_clone.borrow_mut().push_str(content);
+                                // Call Helen on_chunk callback
+                                if let Some(ref chunk_fn) = chunk_fn_opt {
+                                    // SAFETY: same as dispatch_fn — self lives for the duration of act_stream
+                                    let interp = unsafe { &mut *self_ptr_stream };
+                                    match interp.call_value(
+                                        chunk_fn.clone(),
+                                        vec![Value::Str(Rc::from(content))],
+                                    ) {
+                                        Ok(result) => {
+                                            // Python checks `chunk_result is False` (identity)
+                                            if matches!(result, Value::Bool(false)) {
+                                                *interrupted_clone.borrow_mut() = true;
+                                                return false;
+                                            }
+                                        }
+                                        Err(_) => {
+                                            // Callback error — continue streaming
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                true
+            };
+
+            // Call act_stream
+            let stream_result = self.llm_runtime.act_stream(
+                &prompt,
+                model.as_deref(),
+                temperature,
+                None,
+                &tools,
+                max_turns,
+                &[],
+                Some(&dispatch_fn),
+                &mut on_event,
+                thinking_enabled,
+                reasoning_effort.as_deref(),
+            );
+
+            // Record history
+            {
+                let mut h = self.history.borrow_mut();
+                h.push(serde_json::json!({"role": "user", "content": prompt}));
+                let text = full_text.borrow().clone();
+                if !text.is_empty() {
+                    h.push(serde_json::json!({"role": "assistant", "content": text}));
+                }
+            }
+
+            // Call on_complete if not interrupted
+            if !*interrupted.borrow() {
+                if let Some(complete_fn) = complete_fn_opt {
+                    let _ = self.call_value(complete_fn, vec![]);
+                }
+            }
+
+            // Check for streaming errors
+            stream_result?;
+
+            let final_text = full_text.borrow().clone();
+            return Ok(Value::Str(Rc::from(final_text.as_str())));
+        }
+
+        // Non-streaming path: use act()
         let response = self.llm_runtime.act(
             &prompt,
             &tools,
@@ -3236,44 +3338,10 @@ impl Interpreter {
             }
         }
 
-        let has_streaming = la.on_chunk.is_some() || la.on_complete.is_some();
-        if !has_streaming {
-            return match response.text {
-                Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
-                None => Ok(Value::Null),
-            };
+        match response.text {
+            Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
+            None => Ok(Value::Null),
         }
-
-        // Streaming path (Python `_visit_llm_act_streaming` with the default
-        // `act_stream`, which wraps `act()` and yields the full text as a
-        // single content event):
-        //   on_chunk(text)  — if it returns `false`, stop (interrupted)
-        //   on_complete()   — called with NO args, only if not interrupted
-        //   return joined text (for a single event: the text itself)
-        let mut full_text = String::new();
-        let mut interrupted = false;
-        if let Some(text) = &response.text {
-            if !text.is_empty() {
-                full_text.push_str(text);
-                if let Some(oc) = &la.on_chunk {
-                    let chunk_fn = self.eval_expr(oc)?;
-                    let chunk_result =
-                        self.call_value(chunk_fn, vec![Value::Str(Rc::from(text.as_str()))])?;
-                    // Python checks `chunk_result is False` (identity), so
-                    // only a literal `false` interrupts — not 0/""/None.
-                    if matches!(chunk_result, Value::Bool(false)) {
-                        interrupted = true;
-                    }
-                }
-            }
-        }
-        if !interrupted {
-            if let Some(oc) = &la.on_complete {
-                let done_fn = self.eval_expr(oc)?;
-                self.call_value(done_fn, vec![])?;
-            }
-        }
-        Ok(Value::Str(Rc::from(full_text.as_str())))
     }
 
     // ------------------------------------------------------------------
