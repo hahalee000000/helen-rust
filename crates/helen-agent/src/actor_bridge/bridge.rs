@@ -309,30 +309,40 @@ impl HelenActorBridge {
                             );
 
                             // Create a Helen Channel for streaming
+                            // IMPORTANT: Create TWO endpoints with opposite is_main values
+                            // Bridge endpoint (is_main=true): sends to to_spawned, receives from to_main
+                            // Helen endpoint (is_main=false): sends to to_main, receives from to_spawned
                             let streaming_channel =
                                 std::sync::Arc::new(helen_runtime::channel::Channel::<
                                     helen_interpreter::value::ChannelMsg,
                                 >::new(
                                     "streaming_channel"
                                 ));
-                            let streaming_endpoint =
+                            let bridge_endpoint =
                                 std::sync::Arc::new(helen_runtime::channel::ChannelEndpoint::new(
                                     streaming_channel.clone(),
-                                    true,
+                                    true,  // Bridge is "main"
+                                ));
+                            let helen_endpoint =
+                                std::sync::Arc::new(helen_runtime::channel::ChannelEndpoint::new(
+                                    streaming_channel.clone(),
+                                    false,  // Helen is "spawned"
                                 ));
                             let streaming_channel_val = helen_interpreter::value::Value::Channel(
-                                streaming_endpoint.clone(),
+                                helen_endpoint.clone(),
                             );
 
                             // Spawn a thread to forward chunks from Helen Channel to broadcast channel
                             let stream_tx_clone2 = stream_tx_clone.clone();
                             std::thread::spawn(move || {
                                 let mut sequence = 0u64;
+                                eprintln!("[BRIDGE DEBUG] Streaming thread started");
                                 loop {
                                     // Receive from Helen Channel (blocking with timeout)
-                                    if let Some(msg) = streaming_endpoint
+                                    if let Some(msg) = bridge_endpoint
                                         .receive(Some(std::time::Duration::from_millis(100)))
                                     {
+                                        eprintln!("[BRIDGE DEBUG] Received message from channel: {:?}", msg.0);
                                         // Parse the message
                                         if let helen_interpreter::value::Value::Map(map) = msg.0 {
                                             let map_ref = map.borrow();
@@ -353,17 +363,19 @@ impl HelenActorBridge {
                                                             std::rc::Rc::from("content"),
                                                         ),
                                                     ) {
+                                                        eprintln!("[BRIDGE DEBUG] Sending chunk to broadcast: {:?}", &content.as_ref()[..content.as_ref().len().min(50)]);
                                                         let chunk = StreamChunk {
                                                             sequence,
                                                             content: content.to_string(),
                                                         };
                                                         if stream_tx_clone2.send(chunk).is_err() {
-                                                            eprintln!("Failed to send streaming chunk to broadcast");
+                                                            eprintln!("[BRIDGE DEBUG] Failed to send streaming chunk to broadcast");
                                                             break;
                                                         }
                                                         sequence += 1;
                                                     }
                                                 } else if type_str.as_ref() == "complete" {
+                                                    eprintln!("[BRIDGE DEBUG] Received complete signal");
                                                     // Streaming complete
                                                     break;
                                                 }
@@ -371,6 +383,7 @@ impl HelenActorBridge {
                                         }
                                     }
                                 }
+                                eprintln!("[BRIDGE DEBUG] Streaming thread exiting");
                             });
 
                             // Call the streaming function

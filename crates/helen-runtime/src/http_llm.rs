@@ -953,6 +953,7 @@ fn process_sse_line(
         if let Some(c) = parsed.get("content").and_then(|v| v.as_str()) {
             if !c.is_empty() {
                 full_text.push_str(c);
+                eprintln!("[SSE DEBUG] Emitting content event: {:?}", &c[..c.len().min(50)]);
                 if !on_event(json!({"type": "content", "content": c})) {
                     return;
                 }

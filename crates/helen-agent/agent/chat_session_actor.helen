@@ -635,6 +635,7 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
 
         // 流式回调：将 chunks 发送到 streaming_channel
         fn _streaming_chunks_cb_with_channel(text) {
+            print(">>> STREAMING CALLBACK CALLED <<<")
             try {
                 import "ui.stream_emitter" as _CancelCheck
                 if _CancelCheck.is_cancel_requested() {
@@ -645,13 +646,18 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             } catch {}
             // 发送 chunk 到 streaming_channel
             try {
+                print("ChatSessionActor: _streaming_chunks_cb_with_channel called, channel=" + str(_current_streaming_channel != null))
                 if _current_streaming_channel != null {
-                    _current_streaming_channel.send({"type": "chunk", "content": text})
+                    print("ChatSessionActor: Sending chunk to streaming_channel: " + str(len(text)) + " chars")
+                    let send_result = _current_streaming_channel.send({"type": "chunk", "content": text})
+                    print("ChatSessionActor: Chunk sent, result=" + str(send_result))
+                } else {
+                    print("ChatSessionActor: WARNING - _current_streaming_channel is null!")
                 }
             } catch RuntimeError err {
-                debug("ChatSessionActor: failed to send chunk to streaming_channel: " + err.message)
+                print("ChatSessionActor: failed to send chunk to streaming_channel: " + err.message)
             } catch {
-                debug("ChatSessionActor: failed to send chunk to streaming_channel (unknown)")
+                print("ChatSessionActor: failed to send chunk to streaming_channel (unknown)")
             }
             // 同时调用原有的回调（用于 FFI 路径）
             _actor_chunks_cb(text)

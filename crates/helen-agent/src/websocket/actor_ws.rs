@@ -203,7 +203,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 // Wait for response with timeout, forwarding streaming chunks
                                 let mut response_received = false;
                                 let start = std::time::Instant::now();
-                                let timeout = std::time::Duration::from_secs(5);
+                                let timeout = std::time::Duration::from_secs(120); // Increased from 5s to 120s for LLM calls
 
                                 while start.elapsed() < timeout {
                                     tokio::select! {
