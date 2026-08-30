@@ -56,31 +56,45 @@ async fn test_full_agent_workflow() {
         _ => panic!("Expected processing_start"),
     }
 
-    // 6. Receive llm_chunk, llm_complete, or error (code execution output or error)
-    let response = ws.next().await.unwrap().unwrap();
-    match response {
-        Message::Text(text) => {
-            let data: serde_json::Value = serde_json::from_str(&text).unwrap();
-            let msg_type = data["type"].as_str().unwrap();
-            // Accept llm_chunk (streaming content), llm_complete (streaming done), or error
-            assert!(
-                msg_type == "llm_chunk" || msg_type == "llm_complete" || msg_type == "error",
-                "Expected llm_chunk, llm_complete, or error, got: {}",
-                msg_type
-            );
+    // 6. Receive messages until processing_complete
+    // Expected sequence: llm_chunk* -> llm_complete -> processing_complete
+    let mut received_llm_complete = false;
+    let mut received_processing_complete = false;
+
+    while !received_processing_complete {
+        let response = ws.next().await.unwrap().unwrap();
+        match response {
+            Message::Text(text) => {
+                let data: serde_json::Value = serde_json::from_str(&text).unwrap();
+                let msg_type = data["type"].as_str().unwrap();
+
+                match msg_type {
+                    "llm_chunk" => {
+                        // Streaming content chunks are OK
+                    }
+                    "llm_complete" => {
+                        received_llm_complete = true;
+                    }
+                    "processing_complete" => {
+                        received_processing_complete = true;
+                    }
+                    "error" => {
+                        panic!("Received error: {:?}", data);
+                    }
+                    _ => {
+                        panic!("Unexpected message type: {}", msg_type);
+                    }
+                }
+            }
+            _ => panic!("Expected text message"),
         }
-        _ => panic!("Expected text message"),
     }
 
-    // 7. Receive processing_complete
-    let response = ws.next().await.unwrap().unwrap();
-    match response {
-        Message::Text(text) => {
-            let data: serde_json::Value = serde_json::from_str(&text).unwrap();
-            assert_eq!(data["type"], "processing_complete");
-        }
-        _ => panic!("Expected processing_complete"),
-    }
+    // Verify we received llm_complete before processing_complete
+    assert!(
+        received_llm_complete,
+        "Should have received llm_complete before processing_complete"
+    );
 
     // 8. Close WebSocket
     ws.close(None).await.ok();

@@ -3476,3 +3476,47 @@ impl Default for Interpreter {
 // ---------------------------------------------------------------------------
 // Free functions
 // ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_tool_args_empty() {
+        let args = serde_json::json!({});
+        assert_eq!(format_tool_args(&args), "");
+    }
+
+    #[test]
+    fn test_format_tool_args_single_string() {
+        let args = serde_json::json!({"path": "/tmp/test.txt"});
+        assert_eq!(format_tool_args(&args), "path='/tmp/test.txt'");
+    }
+
+    #[test]
+    fn test_format_tool_args_multiple_strings() {
+        let args = serde_json::json!({"name": "Alice", "age": "30"});
+        let result = format_tool_args(&args);
+        // Order may vary due to JSON object iteration
+        assert!(result.contains("name='Alice'"));
+        assert!(result.contains("age='30'"));
+        assert!(result.contains(", "));
+    }
+
+    #[test]
+    fn test_format_tool_args_mixed_types() {
+        let args = serde_json::json!({"count": 42, "name": "test", "flag": true});
+        let result = format_tool_args(&args);
+        assert!(result.contains("count=42"));
+        assert!(result.contains("name='test'"));
+        assert!(result.contains("flag=true"));
+    }
+
+    #[test]
+    fn test_format_tool_args_nested_object() {
+        let args = serde_json::json!({"config": {"key": "value"}});
+        let result = format_tool_args(&args);
+        assert!(result.contains("config="));
+        assert!(result.contains("key"));
+    }
+}
