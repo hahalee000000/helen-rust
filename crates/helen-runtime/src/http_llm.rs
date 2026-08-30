@@ -826,6 +826,11 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|a| a.as_str())
                         .and_then(|s| serde_json::from_str(s).ok())
                         .unwrap_or_else(|| json!({}));
+                    // Emit tool_call event BEFORE executing (Python parity)
+                    if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": &fn_args}))
+                    {
+                        return Ok(());
+                    }
                     let result = match &dispatch_fn {
                         Some(d) => d(&fn_name, &fn_args),
                         None => {
@@ -953,10 +958,6 @@ fn process_sse_line(
         if let Some(c) = parsed.get("content").and_then(|v| v.as_str()) {
             if !c.is_empty() {
                 full_text.push_str(c);
-                eprintln!(
-                    "[SSE DEBUG] Emitting content event: {:?}",
-                    &c[..c.len().min(50)]
-                );
                 if !on_event(json!({"type": "content", "content": c})) {
                     return;
                 }

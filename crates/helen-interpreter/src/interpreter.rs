@@ -40,6 +40,25 @@ use crate::interpreter_builtins::{
 use crate::llm_runtime::{LlmRuntime, MockLlmRuntime};
 use crate::value::{BuiltinFn, ChannelMethodValue, ChannelMsg, StoreMethodValue, Value};
 
+/// Format tool call arguments as `key=value, ...` string (Python parity).
+/// Matches Python's `", ".join(f"{k}={v!r}" for k, v in fn_args.items())`.
+fn format_tool_args(args: &serde_json::Value) -> String {
+    match args.as_object() {
+        Some(map) => map
+            .iter()
+            .map(|(k, v)| {
+                let v_str = match v {
+                    serde_json::Value::String(s) => format!("'{s}'"),
+                    other => other.to_string(),
+                };
+                format!("{k}={v_str}")
+            })
+            .collect::<Vec<_>>()
+            .join(", "),
+        None => args.to_string(),
+    }
+}
+
 /// Runtime type-check results used by `_call_function`/`_call_closure`.
 fn type_of_value(v: &Value) -> Type {
     match v {
@@ -3275,56 +3294,87 @@ impl Interpreter {
                     return false;
                 }
 
-                // Check for content chunks
                 if let Some(event_type) = event.get("type").and_then(|t| t.as_str()) {
-                    if event_type == "content" {
-                        if let Some(content) = event.get("content").and_then(|c| c.as_str()) {
-                            if !content.is_empty() {
-                                full_text_clone.borrow_mut().push_str(content);
-                                // Call Helen on_chunk callback
-                                if let Some(ref chunk_fn) = chunk_fn_opt {
-                                    // SAFETY: same as dispatch_fn — self lives for the duration of act_stream
-                                    let interp = unsafe { &mut *self_ptr_stream };
-                                    eprintln!(
-                                        "[INTERP DEBUG] Calling on_chunk callback with: {:?}",
-                                        &content[..content.len().min(50)]
-                                    );
-                                    eprintln!(
-                                        "[INTERP DEBUG] Current agent: {:?}",
-                                        interp.current_agent.as_ref().map(|a| &a.name)
-                                    );
-                                    match interp.call_value(
-                                        chunk_fn.clone(),
-                                        vec![Value::Str(Rc::from(content))],
-                                    ) {
-                                        Ok(result) => {
-                                            eprintln!(
-                                                "[INTERP DEBUG] on_chunk callback returned: {:?}",
-                                                result
-                                            );
-                                            // Python checks `chunk_result is False` (identity)
-                                            if matches!(result, Value::Bool(false)) {
-                                                *interrupted_clone.borrow_mut() = true;
-                                                return false;
+                    match event_type {
+                        "content" => {
+                            if let Some(content) = event.get("content").and_then(|c| c.as_str()) {
+                                if !content.is_empty() {
+                                    full_text_clone.borrow_mut().push_str(content);
+                                    // Call Helen on_chunk callback
+                                    if let Some(ref chunk_fn) = chunk_fn_opt {
+                                        let interp = unsafe { &mut *self_ptr_stream };
+                                        match interp.call_value(
+                                            chunk_fn.clone(),
+                                            vec![Value::Str(Rc::from(content))],
+                                        ) {
+                                            Ok(result) => {
+                                                if matches!(result, Value::Bool(false)) {
+                                                    *interrupted_clone.borrow_mut() = true;
+                                                    return false;
+                                                }
+                                            }
+                                            Err(_) => {
+                                                // Callback error — continue streaming
                                             }
                                         }
-                                        Err(e) => {
-                                            eprintln!(
-                                                "[INTERP DEBUG] on_chunk callback error: {:?}",
-                                                e
-                                            );
-                                            eprintln!(
-                                                "[INTERP DEBUG] Error message: {}",
-                                                e.message
-                                            );
-                                            // Callback error — continue streaming
-                                        }
                                     }
-                                } else {
-                                    eprintln!("[INTERP DEBUG] No on_chunk callback registered");
                                 }
                             }
                         }
+                        "tool_call" => {
+                            // Python parity: emit 🔧 Calling fn_name(args)...
+                            let fn_name = event
+                                .get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("");
+                            let fn_args = event.get("args").cloned().unwrap_or_else(|| serde_json::json!({}));
+                            let args_str = format_tool_args(&fn_args);
+                            let progress =
+                                format!("\n🔧 Calling {fn_name}({args_str})...\n");
+                            if let Some(ref chunk_fn) = chunk_fn_opt {
+                                let interp = unsafe { &mut *self_ptr_stream };
+                                if let Ok(result) = interp.call_value(
+                                    chunk_fn.clone(),
+                                    vec![Value::Str(Rc::from(progress.as_str()))],
+                                ) {
+                                    if matches!(result, Value::Bool(false)) {
+                                        *interrupted_clone.borrow_mut() = true;
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+                        "tool_result" => {
+                            // Python parity: emit ✅ fn_name returned: result
+                            let fn_name = event
+                                .get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("");
+                            let result = event
+                                .get("result")
+                                .and_then(|r| r.as_str())
+                                .unwrap_or("");
+                            let display_result = if result.len() <= 200 {
+                                result.to_string()
+                            } else {
+                                format!("{}...", &result[..200])
+                            };
+                            let result_msg =
+                                format!("✅ {fn_name} returned: {display_result}\n");
+                            if let Some(ref chunk_fn) = chunk_fn_opt {
+                                let interp = unsafe { &mut *self_ptr_stream };
+                                if let Ok(result) = interp.call_value(
+                                    chunk_fn.clone(),
+                                    vec![Value::Str(Rc::from(result_msg.as_str()))],
+                                ) {
+                                    if matches!(result, Value::Bool(false)) {
+                                        *interrupted_clone.borrow_mut() = true;
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 true
