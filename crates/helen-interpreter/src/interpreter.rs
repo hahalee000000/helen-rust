@@ -2487,9 +2487,7 @@ impl Interpreter {
             }
         }
 
-        let flow = self.with_scope(Some(call_env), |s| {
-            s.execute_stmts(&func.body.body)
-        })?;
+        let flow = self.with_scope(Some(call_env), |s| s.execute_stmts(&func.body.body))?;
         match flow {
             Flow::Return(v) => Ok(v.unwrap_or(Value::Null)),
             Flow::Normal(v) => Ok(v.unwrap_or(Value::Null)),
@@ -3323,7 +3321,10 @@ impl Interpreter {
                             let display_result = if result.len() <= 200 {
                                 result.to_string()
                             } else {
-                                let end = (0..=200).rev().find(|&i| result.is_char_boundary(i)).unwrap_or(0);
+                                let end = (0..=200)
+                                    .rev()
+                                    .find(|&i| result.is_char_boundary(i))
+                                    .unwrap_or(0);
                                 format!("{}...", &result[..end])
                             };
                             let result_msg = format!("✅ {fn_name} returned: {display_result}\n");

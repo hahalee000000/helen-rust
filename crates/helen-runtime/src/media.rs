@@ -97,7 +97,10 @@ impl MediaPart {
 impl std::fmt::Display for MediaPart {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let content_preview = if self.content.len() > 50 {
-            let end = (0..=50).rev().find(|&i| self.content.is_char_boundary(i)).unwrap_or(0);
+            let end = (0..=50)
+                .rev()
+                .find(|&i| self.content.is_char_boundary(i))
+                .unwrap_or(0);
             format!("{}...", &self.content[..end])
         } else {
             self.content.clone()

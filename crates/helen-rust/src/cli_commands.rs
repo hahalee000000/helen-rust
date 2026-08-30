@@ -681,7 +681,10 @@ fn interactive_replay(mut replay: helen_runtime::transcript_replay::TranscriptRe
                                 .map(|c| {
                                     let t = c.replace('\n', " ");
                                     if t.len() > 60 {
-                                        let end = (0..=60).rev().find(|&i| t.is_char_boundary(i)).unwrap_or(0);
+                                        let end = (0..=60)
+                                            .rev()
+                                            .find(|&i| t.is_char_boundary(i))
+                                            .unwrap_or(0);
                                         format!("{}...", &t[..end])
                                     } else {
                                         t
