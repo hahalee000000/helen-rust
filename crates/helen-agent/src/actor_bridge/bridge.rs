@@ -143,6 +143,7 @@ impl HelenActorBridge {
     /// * `cwd` - Working directory for the agent
     /// * `session_id` - Session ID for transcript persistence
     /// * `env_context` - Environment context XML to inject into prompt
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new(_cwd: String, _session_id: String, _env_context: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
         let (input_tx, mut input_rx_std) = mpsc::channel::<UserInput>(32);

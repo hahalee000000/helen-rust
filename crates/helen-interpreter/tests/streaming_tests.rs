@@ -7,7 +7,8 @@ use helen_interpreter::llm_runtime::MockLlmRuntime;
 use helen_interpreter::value::Value;
 use helen_parser::Parser;
 
-/// Helper to parse and execute Helen code
+/// Helper to parse and execute Helen code with a mock LLM runtime
+#[allow(clippy::arc_with_non_send_sync)]
 fn run_with_mock(code: &str, mock_text: &str) -> Result<Option<Value>, String> {
     let tokens = Scanner::new(code, "test.helen").scan_all();
     let mut parser = Parser::new(tokens);
@@ -145,6 +146,7 @@ fn streaming_on_complete_called() {
 
 /// Test that streaming returns empty string for empty LLM response
 #[test]
+#[allow(clippy::arc_with_non_send_sync)]
 fn streaming_empty_response() {
     let code = r#"
         agent EmptyTest(msg: str) {
