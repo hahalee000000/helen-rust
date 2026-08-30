@@ -3350,7 +3350,8 @@ impl Interpreter {
                             let display_result = if result.len() <= 200 {
                                 result.to_string()
                             } else {
-                                format!("{}...", &result[..200])
+                                let end = (0..=200).rev().find(|&i| result.is_char_boundary(i)).unwrap_or(0);
+                                format!("{}...", &result[..end])
                             };
                             let result_msg = format!("✅ {fn_name} returned: {display_result}\n");
                             if let Some(ref chunk_fn) = chunk_fn_opt {

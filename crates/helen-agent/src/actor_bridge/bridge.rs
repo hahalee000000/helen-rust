@@ -371,7 +371,13 @@ impl HelenActorBridge {
                                                             std::rc::Rc::from("content"),
                                                         ),
                                                     ) {
-                                                        eprintln!("[BRIDGE DEBUG] Sending chunk to broadcast: {:?}", &content.as_ref()[..content.as_ref().len().min(50)]);
+                                                        let debug_preview = {
+                                                            let s = content.as_ref();
+                                                            let end = s.len().min(50);
+                                                            let end = (0..=end).rev().find(|&i| s.is_char_boundary(i)).unwrap_or(0);
+                                                            &s[..end]
+                                                        };
+                                                        eprintln!("[BRIDGE DEBUG] Sending chunk to broadcast: {:?}", debug_preview);
                                                         let chunk = StreamChunk {
                                                             sequence,
                                                             content: content.to_string(),

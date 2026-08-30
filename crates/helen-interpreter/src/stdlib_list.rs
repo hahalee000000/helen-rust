@@ -79,7 +79,8 @@ fn list_map(interp: &mut Interpreter, args: &[Value]) -> Result<Value, Exception
             Err(e) => {
                 let item_repr = item.python_repr();
                 let truncated = if item_repr.len() > 100 {
-                    format!("{}...(truncated)", &item_repr[..100])
+                    let end = (0..=100).rev().find(|&i| item_repr.is_char_boundary(i)).unwrap_or(0);
+                    format!("{}...(truncated)", &item_repr[..end])
                 } else {
                     item_repr
                 };
@@ -130,7 +131,8 @@ fn list_filter(interp: &mut Interpreter, args: &[Value]) -> Result<Value, Except
             Err(e) => {
                 let item_repr = item.python_repr();
                 let truncated = if item_repr.len() > 100 {
-                    format!("{}...(truncated)", &item_repr[..100])
+                    let end = (0..=100).rev().find(|&i| item_repr.is_char_boundary(i)).unwrap_or(0);
+                    format!("{}...(truncated)", &item_repr[..end])
                 } else {
                     item_repr
                 };

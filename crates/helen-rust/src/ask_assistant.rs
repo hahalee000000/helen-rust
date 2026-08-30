@@ -100,7 +100,8 @@ pub fn format_repl_context_block(
     // Last error
     if let Some(err_text) = last_error_text {
         let truncated = if err_text.len() > 1500 {
-            format!("{}\n... (truncated)", &err_text[..1500])
+            let end = (0..=1500).rev().find(|&i| err_text.is_char_boundary(i)).unwrap_or(0);
+            format!("{}\n... (truncated)", &err_text[..end])
         } else {
             err_text.to_string()
         };
