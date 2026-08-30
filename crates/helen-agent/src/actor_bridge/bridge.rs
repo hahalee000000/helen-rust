@@ -204,7 +204,11 @@ impl HelenActorBridge {
 
             // 2. Load Helen agent files
             let agent_dir = std::env::var("HELEN_AGENT_DIR")
-                .unwrap_or_else(|_| "/home/rxx/helen-rust/crates/helen-agent/agent".to_string());
+                .unwrap_or_else(|_| {
+                    // Use CARGO_MANIFEST_DIR at compile time for reliable path resolution
+                    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+                    format!("{}/agent", manifest_dir)
+                });
 
             // Set the working directory for import resolution
             if let Err(e) = std::env::set_current_dir(&agent_dir) {
