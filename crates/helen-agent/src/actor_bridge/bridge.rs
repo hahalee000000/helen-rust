@@ -182,7 +182,18 @@ impl HelenActorBridge {
                                     // Convert Helen Value to string
                                     let response_str = format!("{:?}", result);
                                     
-                                    // Split response into chunks for streaming
+                                    // NOTE: This is NOT true streaming.
+                                    // The full response is received before any chunk is sent.
+                                    // True streaming would require:
+                                    // 1. Modifying Helen functions to accept streaming callbacks
+                                    // 2. Hooking into Helen's LLM runtime streaming API
+                                    // 3. Forwarding chunks immediately as they arrive from LLM
+                                    //
+                                    // Current implementation: "simulated streaming"
+                                    // - Splits response into chunks after receiving full response
+                                    // - No artificial delay (removed misleading 10ms delay)
+                                    // - Chunks are sent immediately, but all at once
+                                    
                                     let chunk_size = 50; // characters per chunk
                                     let chars: Vec<char> = response_str.chars().collect();
                                     
@@ -195,14 +206,11 @@ impl HelenActorBridge {
                                             content: chunk_content,
                                         };
                                         
-                                        // Send chunk via broadcast channel
+                                        // Send chunk via broadcast channel (no artificial delay)
                                         if stream_tx_clone.send(chunk).is_err() {
                                             eprintln!("Failed to send streaming chunk");
                                             break;
                                         }
-                                        
-                                        // Small delay to simulate streaming
-                                        std::thread::sleep(std::time::Duration::from_millis(10));
                                     }
                                     
                                     // Send complete response via output channel
