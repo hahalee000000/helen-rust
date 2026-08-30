@@ -39,6 +39,10 @@ import "lang.helen"
 import "contracts/contracts.helen"
 import "session_stats.helen"
 
+// Module-level shared variable for streaming channel
+// This is set by _handle_actor_user_input_stream and read by _streaming_chunks_cb_with_channel
+shared let _current_streaming_channel = null
+
 /** ChatSessionActor - 长驻聊天 actor（唯一编排器）
  *
  * 参数:
@@ -515,6 +519,144 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             return new_count
         }
 
+        fn _handle_actor_user_input_stream(msg: map, reply: Channel, streaming_channel: Channel, request_count: int): int {
+            let user_content = msg["content"]
+            let file_paths = msg["file_paths"]
+            let request_id = msg["request_id"]
+
+            let new_count = request_count + 1
+            debug("ChatSessionActor: handling streaming request " + request_id + " (#" + str(new_count) + ")")
+
+            // Fix: 每次处理新 user_input 时强制清理残留 cancel flag。
+            try {
+                import "ui.stream_emitter" as _CancelCleanup
+                _CancelCleanup.clear_cancel()
+            } catch {}
+
+            // 统计轮次
+            try { SessionStats.increment_turns() } catch {}
+
+            _emit_actor_stream_event("processing_start", user_content)
+
+            let media_parts = _build_actor_media_parts(file_paths)
+
+            // ── 周期性上下文压缩（防止长对话溢出）──
+            try {
+                let usage = context_usage()
+                if usage > 0.7 {
+                    debug("ChatSessionActor: context usage " + str(int(usage * 100)) + "% > 70%, auto-compressing...")
+                    let result = compress_context("auto")
+                    debug("ChatSessionActor: auto-compressed: " + json_stringify(result))
+                }
+            } catch RuntimeError err {
+                debug("ChatSessionActor: pre-LLM compression failed: " + err.message)
+            } catch {
+                debug("ChatSessionActor: pre-LLM compression failed (unknown)")
+            }
+
+            let full_response = ""
+            debug("ChatSessionActor: LLM act start (streaming request=" + request_id + ", media_parts=" + str(len(media_parts)) + ")")
+            
+            // Store streaming_channel in shared state for the callback
+            _current_streaming_channel = streaming_channel
+            
+            try {
+                if len(media_parts) > 0 {
+                    full_response = llm act user_content media(media_parts)
+                        on_chunk _streaming_chunks_cb_with_channel
+                        on_complete _actor_complete_cb
+                        on_tool_end _actor_tool_end_cb
+                } else {
+                    full_response = llm act user_content
+                        on_chunk _streaming_chunks_cb_with_channel
+                        on_complete _actor_complete_cb
+                        on_tool_end _actor_tool_end_cb
+                }
+                debug("ChatSessionActor: LLM act complete (streaming request=" + request_id + ", response_len=" + str(len(full_response)) + ")")
+                // Fix: llm act 正常完成后清理残留 cancel flag。
+                try {
+                    import "ui.stream_emitter" as _CancelCleanup
+                    _CancelCleanup.clear_cancel()
+                } catch {}
+            } catch RuntimeError err {
+                debug("ChatSessionActor: LLM error (streaming): " + err.message)
+                try {
+                    import "ui.stream_emitter" as _CancelCleanup
+                    _CancelCleanup.clear_cancel()
+                } catch {}
+                let _llm_err_params = {"message": err.message}
+                let _llm_err_payload = {"i18n_key": "error.llmError", "params": _llm_err_params}
+                _emit_actor_stream_event("error", json_stringify(_llm_err_payload))
+                _emit_actor_stream_event("processing_complete", "")
+                reply.send({
+                    "type": "error",
+                    "request_id": request_id,
+                    "error_msg": err.message,
+                    "error_type": "runtime_error"
+                })
+                return new_count
+            } catch {
+                debug("ChatSessionActor: LLM error (streaming, unknown)")
+                try {
+                    import "ui.stream_emitter" as _CancelCleanup
+                    _CancelCleanup.clear_cancel()
+                } catch {}
+                let _llm_unknown_payload = {"i18n_key": "error.llmUnknown", "params": dict()}
+                _emit_actor_stream_event("error", json_stringify(_llm_unknown_payload))
+                _emit_actor_stream_event("processing_complete", "")
+                reply.send({
+                    "type": "error",
+                    "request_id": request_id,
+                    "error_msg": "Unknown LLM error",
+                    "error_type": "unknown"
+                })
+                return new_count
+            }
+
+            // 成功路径：发送完成标记到 streaming_channel
+            try {
+                streaming_channel.send({"type": "complete"})
+            } catch RuntimeError err {
+                debug("ChatSessionActor: failed to send complete to streaming_channel: " + err.message)
+            } catch {
+                debug("ChatSessionActor: failed to send complete to streaming_channel (unknown)")
+            }
+            
+            _emit_actor_stream_event("processing_complete", "")
+
+            reply.send({
+                "type": "response_complete",
+                "request_id": request_id,
+                "content": full_response,
+                "status": "success"
+            })
+            return new_count
+        }
+
+        // 流式回调：将 chunks 发送到 streaming_channel
+        fn _streaming_chunks_cb_with_channel(text) {
+            try {
+                import "ui.stream_emitter" as _CancelCheck
+                if _CancelCheck.is_cancel_requested() {
+                    cancel_all_llm_calls()
+                    _CancelCheck.clear_cancel()
+                    return
+                }
+            } catch {}
+            // 发送 chunk 到 streaming_channel
+            try {
+                if _current_streaming_channel != null {
+                    _current_streaming_channel.send({"type": "chunk", "content": text})
+                }
+            } catch RuntimeError err {
+                debug("ChatSessionActor: failed to send chunk to streaming_channel: " + err.message)
+            } catch {
+                debug("ChatSessionActor: failed to send chunk to streaming_channel (unknown)")
+            }
+            // 同时调用原有的回调（用于 FFI 路径）
+            _actor_chunks_cb(text)
+        }
+
         // ── 质量检查与测试工具（从 specialist agents 合并）──
 
         fn verify_after_change(file_path: str, test_file: str): map {
@@ -937,6 +1079,12 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
                             break
                         }
                     }
+                }
+
+                if msg_type == "user_input_stream" {
+                    // 流式输出：通过 streaming_channel 实时转发 chunks
+                    let streaming_channel = request_msg["streaming_channel"]
+                    request_count = _handle_actor_user_input_stream(request_msg, reply, streaming_channel, request_count)
                 }
             } catch RuntimeError err {
                 debug("ChatSessionActor: uncaught error in main loop: " + err.message)

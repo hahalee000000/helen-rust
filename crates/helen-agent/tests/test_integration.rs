@@ -56,16 +56,16 @@ async fn test_full_agent_workflow() {
         _ => panic!("Expected processing_start"),
     }
 
-    // 6. Receive llm_chunk or error (code execution output or error)
+    // 6. Receive llm_chunk, llm_complete, or error (code execution output or error)
     let response = ws.next().await.unwrap().unwrap();
     match response {
         Message::Text(text) => {
             let data: serde_json::Value = serde_json::from_str(&text).unwrap();
             let msg_type = data["type"].as_str().unwrap();
-            // Accept either llm_chunk (success) or error (semantic/runtime error)
+            // Accept llm_chunk (streaming content), llm_complete (streaming done), or error
             assert!(
-                msg_type == "llm_chunk" || msg_type == "error",
-                "Expected llm_chunk or error, got: {}",
+                msg_type == "llm_chunk" || msg_type == "llm_complete" || msg_type == "error",
+                "Expected llm_chunk, llm_complete, or error, got: {}",
                 msg_type
             );
         }

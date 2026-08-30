@@ -188,6 +188,79 @@ fn tui_chat_handler_actor(user_input: str, file_paths: list = []): str {
     }
 }
 
+/** 通过 actor 处理用户输入（流式输出，通过 streaming_channel 实时转发 chunks）
+ * 
+ * 参数:
+ *   user_input - 用户输入
+ *   file_paths - 文件路径列表
+ *   streaming_channel - 流式输出 Channel，actor 会通过此 channel 发送 chunks
+ * 
+ * 返回: 完整响应内容
+ */
+fn tui_chat_handler_actor_stream(user_input: str, file_paths: list, streaming_channel: Channel): str {
+    if _chat_actor_mailbox == null {
+        spawn_chat_actor()
+    }
+
+    _chat_actor_req_counter = _chat_actor_req_counter + 1
+    let request_id = "req-" + str(_chat_actor_req_counter)
+    let request = {
+        "type": "user_input_stream",
+        "content": user_input,
+        "file_paths": file_paths,
+        "request_id": request_id,
+        "streaming_channel": streaming_channel
+    }
+
+    _chat_actor_mailbox.send(request)
+
+    // 等待响应，按 request_id 匹配，丢弃过时响应
+    // streaming_channel 会在 actor 处理过程中实时接收 chunks
+    while true {
+        let response = _chat_actor_mailbox.receive()
+        if response == null {
+            let _p = {"i18n_key": "error.actorExited", "params": dict()}
+            return json_stringify(_p)
+        }
+
+        let resp_type = ""
+        try { resp_type = response["type"] } catch RuntimeError err {
+            let _params = {"message": err.message}
+            let _payload = {"i18n_key": "error.actorException", "params": _params}
+            return json_stringify(_payload)
+        } catch {
+            let _p = {"i18n_key": "error.actorInvalidResponse", "params": dict()}
+            return json_stringify(_p)
+        }
+        let resp_id = ""
+        try { resp_id = response["request_id"] } catch {}
+
+        if resp_type == "actor_status" {
+            let _params = {"status": response["status"]}
+            let _payload = {"i18n_key": "error.actorStatus", "params": _params}
+            return json_stringify(_payload)
+        }
+
+        if resp_id != request_id {
+            debug("tui_chat_handler_actor_stream: 丢弃过时响应 req_id=" + resp_id)
+            continue
+        }
+
+        if resp_type == "response_complete" {
+            return response["content"]
+        }
+        if resp_type == "error" {
+            let _params = {"message": response["error_msg"]}
+            let _payload = {"i18n_key": "error.generic", "params": _params}
+            return json_stringify(_payload)
+        }
+
+        let _params = {"type": resp_type}
+        let _payload = {"i18n_key": "error.unknownResponseType", "params": _params}
+        return json_stringify(_payload)
+    }
+}
+
 /** 退出长驻 actor */
 fn exit_chat_actor() {
     if _chat_actor_mailbox != null {

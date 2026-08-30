@@ -96,7 +96,12 @@ impl HelenActorBridge {
             
             // 3. Load Helen agent files
             let agent_dir = std::env::var("HELEN_AGENT_DIR")
-                .unwrap_or_else(|_| "/home/rxx/helen/helen/agent".to_string());
+                .unwrap_or_else(|_| "/home/rxx/helen-rust/crates/helen-agent/agent".to_string());
+            
+            // Set the working directory for import resolution
+            if let Err(e) = std::env::set_current_dir(&agent_dir) {
+                eprintln!("Failed to set working directory to {}: {}", agent_dir, e);
+            }
             
             let files_to_load = vec![
                 "utils.helen",
@@ -165,8 +170,8 @@ impl HelenActorBridge {
                 // Try to receive a message from Rust (blocking with timeout)
                 match input_rx_for_thread.recv_timeout(std::time::Duration::from_millis(100)) {
                     Ok(input) => {
-                        // Call tui_chat_handler_actor(user_input, file_paths)
-                        if let Some(func) = interp.functions.get("tui_chat_handler_actor").cloned() {
+                        // Call tui_chat_handler_actor_stream(user_input, file_paths, streaming_channel)
+                        if let Some(func) = interp.functions.get("tui_chat_handler_actor_stream").cloned() {
                             let span = helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
                             
                             // Convert arguments to Helen values
@@ -177,41 +182,53 @@ impl HelenActorBridge {
                                     .collect()
                             )));
                             
-                            match interp.call_function(&func, vec![user_input_val, file_paths_val], None, &span) {
+                            // Create a Helen Channel for streaming
+                            let streaming_channel = std::sync::Arc::new(
+                                helen_runtime::channel::Channel::<helen_interpreter::value::ChannelMsg>::new("streaming_channel")
+                            );
+                            let streaming_endpoint = std::sync::Arc::new(
+                                helen_runtime::channel::ChannelEndpoint::new(streaming_channel.clone(), true)
+                            );
+                            let streaming_channel_val = helen_interpreter::value::Value::Channel(streaming_endpoint.clone());
+                            
+                            // Spawn a thread to forward chunks from Helen Channel to broadcast channel
+                            let stream_tx_clone2 = stream_tx_clone.clone();
+                            std::thread::spawn(move || {
+                                let mut sequence = 0u64;
+                                loop {
+                                    // Receive from Helen Channel (blocking with timeout)
+                                    if let Some(msg) = streaming_endpoint.receive(Some(std::time::Duration::from_millis(100))) {
+                                        // Parse the message
+                                        if let helen_interpreter::value::Value::Map(map) = msg.0 {
+                                            let map_ref = map.borrow();
+                                            if let Some(helen_interpreter::value::Value::Str(type_str)) = map_ref.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from("type"))) {
+                                                if type_str.as_ref() == "chunk" {
+                                                    if let Some(helen_interpreter::value::Value::Str(content)) = map_ref.get(&helen_interpreter::value::Value::Str(std::rc::Rc::from("content"))) {
+                                                        let chunk = StreamChunk {
+                                                            sequence,
+                                                            content: content.to_string(),
+                                                        };
+                                                        if stream_tx_clone2.send(chunk).is_err() {
+                                                            eprintln!("Failed to send streaming chunk to broadcast");
+                                                            break;
+                                                        }
+                                                        sequence += 1;
+                                                    }
+                                                } else if type_str.as_ref() == "complete" {
+                                                    // Streaming complete
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            // Call the streaming function
+                            match interp.call_function(&func, vec![user_input_val, file_paths_val, streaming_channel_val], None, &span) {
                                 Ok(result) => {
                                     // Convert Helen Value to string
                                     let response_str = format!("{:?}", result);
-                                    
-                                    // NOTE: This is NOT true streaming.
-                                    // The full response is received before any chunk is sent.
-                                    // True streaming would require:
-                                    // 1. Modifying Helen functions to accept streaming callbacks
-                                    // 2. Hooking into Helen's LLM runtime streaming API
-                                    // 3. Forwarding chunks immediately as they arrive from LLM
-                                    //
-                                    // Current implementation: "simulated streaming"
-                                    // - Splits response into chunks after receiving full response
-                                    // - No artificial delay (removed misleading 10ms delay)
-                                    // - Chunks are sent immediately, but all at once
-                                    
-                                    let chunk_size = 50; // characters per chunk
-                                    let chars: Vec<char> = response_str.chars().collect();
-                                    
-                                    for (sequence, chunk_start) in (0..chars.len()).step_by(chunk_size).enumerate() {
-                                        let chunk_end = (chunk_start + chunk_size).min(chars.len());
-                                        let chunk_content: String = chars[chunk_start..chunk_end].iter().collect();
-                                        
-                                        let chunk = StreamChunk {
-                                            sequence: sequence as u64,
-                                            content: chunk_content,
-                                        };
-                                        
-                                        // Send chunk via broadcast channel (no artificial delay)
-                                        if stream_tx_clone.send(chunk).is_err() {
-                                            eprintln!("Failed to send streaming chunk");
-                                            break;
-                                        }
-                                    }
                                     
                                     // Send complete response via output channel
                                     let output = AgentOutput::ResponseComplete {
@@ -223,7 +240,7 @@ impl HelenActorBridge {
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("tui_chat_handler_actor() failed: {:?}", e);
+                                    eprintln!("tui_chat_handler_actor_stream() failed: {:?}", e);
                                     let output = AgentOutput::Error {
                                         request_id: input.request_id.clone(),
                                         error_msg: format!("{:?}", e),
@@ -234,7 +251,7 @@ impl HelenActorBridge {
                                 }
                             }
                         } else {
-                            eprintln!("tui_chat_handler_actor() function not found");
+                            eprintln!("tui_chat_handler_actor_stream() function not found");
                         }
                     }
                     Err(std_mpsc::RecvTimeoutError::Timeout) => {

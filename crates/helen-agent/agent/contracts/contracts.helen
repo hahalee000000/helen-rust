@@ -1,0 +1,49 @@
+// Helen Programming Agent v1.0 - 契约定义
+
+// ─── 错误码（供 agent 返回结构化错误时使用） ───
+// 当前 agent 返回 {"status": "error", "error": "..."}，错误码预留供未来结构化错误处理。
+
+const ERR_AGENT_FAILED = 5001
+const ERR_CONTRACT_INVALID = 5002
+const ERR_TEST_GENERATION_FAILED = 5003
+const ERR_IMPLEMENTATION_FAILED = 5004
+const ERR_QUALITY_BELOW_THRESHOLD = 5005
+const ERR_SKILL_EVALUATION_FAILED = 5006
+const ERR_FILE_NOT_FOUND = 5007
+const ERR_PATCH_FAILED = 5008
+
+// ─── 质量阈值 ───
+
+const QUALITY_THRESHOLD = 7.5
+const MIN_DIMENSION_SCORE = 6.0
+
+// ─── 工具集常量（Helen v1.11 新特性：tools 支持 const 引用）──
+// v1.0：所有工具合并到 ChatSessionActor，LLM 直接调用所有工具
+// 内置工具：read_file, write_file, patch_file, web_search, web_fetch, shell_exec,
+//          calculate, path_exists, mkdir_p, list_dir, load_skill
+// 其他常用 stdlib 也可作为工具暴露给 LLM
+
+// ChatSessionActor 工具集 (v1.0: 合并所有 specialist agents 的工具)
+// LLM 直接使用所有工具，按需 load_skill 获取领域知识
+const CHAT_TOOLS = [
+    // 基础工具
+    "read_file", "write_file", "patch_file", "shell_exec",
+    "web_search", "web_fetch", "calculate",
+    // 技能与记忆
+    "load_skill", "update_memory", "update_user_preference",
+    // 质量检查与测试（从 specialist agents 合并）
+    "verify_after_change", "run_single_test",
+    "get_scores", "get_metrics",
+    "run_helen_check", "run_helen_tests",
+    // 技能管理（从 SkillEvaluator 合并）
+    "list_existing_skills", "read_skill_content",
+    "save_new_skill", "update_existing_skill", "refresh_skill_index",
+    // 项目初始化
+    "create_project_structure",
+    // 调试与可观测性（P1/P2）
+    "emit_debug", "search_session_transcript", "get_context_stats",
+    "enable_tracing", "get_execution_trace",
+    "query_llm_log", "query_last_error", "query_call_stack",
+    // Hooks
+    "save_code_file", "patch_code_file", "pre_exit_check"
+]
