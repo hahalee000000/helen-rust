@@ -2469,19 +2469,33 @@ impl Interpreter {
         }
 
         let flow = self.with_scope(Some(call_env), |s| {
-            eprintln!("[CALL_FUNCTION DEBUG] Executing function body for: {}", func.name);
-            eprintln!("[CALL_FUNCTION DEBUG] Environment has {} vars", s.environment.borrow().store_ref().len());
+            eprintln!(
+                "[CALL_FUNCTION DEBUG] Executing function body for: {}",
+                func.name
+            );
+            eprintln!(
+                "[CALL_FUNCTION DEBUG] Environment has {} vars",
+                s.environment.borrow().store_ref().len()
+            );
             if func.name.contains("streaming") {
                 let env = s.environment.borrow();
                 eprintln!("[CALL_FUNCTION DEBUG] Checking for _current_streaming_channel...");
                 if let Some(val) = env.get("_current_streaming_channel") {
-                    eprintln!("[CALL_FUNCTION DEBUG] Found _current_streaming_channel: {:?}", val);
+                    eprintln!(
+                        "[CALL_FUNCTION DEBUG] Found _current_streaming_channel: {:?}",
+                        val
+                    );
                 } else {
-                    eprintln!("[CALL_FUNCTION DEBUG] _current_streaming_channel NOT FOUND in environment");
+                    eprintln!(
+                        "[CALL_FUNCTION DEBUG] _current_streaming_channel NOT FOUND in environment"
+                    );
                 }
             }
             let result = s.execute_stmts(&func.body.body);
-            eprintln!("[CALL_FUNCTION DEBUG] Function body executed, result: {:?}", result.as_ref().map(|f| format!("{:?}", f)));
+            eprintln!(
+                "[CALL_FUNCTION DEBUG] Function body executed, result: {:?}",
+                result.as_ref().map(|f| format!("{:?}", f))
+            );
             result
         })?;
         match flow {
@@ -2674,7 +2688,8 @@ impl Interpreter {
                 }
                 s.functions.insert(f.name.clone(), Rc::new(f.clone()));
                 // Register agent function in module_envs so callbacks can access agent scope
-                s.function_module_envs.insert(f.name.clone(), call_env.clone());
+                s.function_module_envs
+                    .insert(f.name.clone(), call_env.clone());
             }
             // Define variables from the functions { } block (let/const
             // declarations) in the agent's isolated env, sequential order.
@@ -3270,14 +3285,23 @@ impl Interpreter {
                                 if let Some(ref chunk_fn) = chunk_fn_opt {
                                     // SAFETY: same as dispatch_fn — self lives for the duration of act_stream
                                     let interp = unsafe { &mut *self_ptr_stream };
-                                    eprintln!("[INTERP DEBUG] Calling on_chunk callback with: {:?}", &content[..content.len().min(50)]);
-                                    eprintln!("[INTERP DEBUG] Current agent: {:?}", interp.current_agent.as_ref().map(|a| &a.name));
+                                    eprintln!(
+                                        "[INTERP DEBUG] Calling on_chunk callback with: {:?}",
+                                        &content[..content.len().min(50)]
+                                    );
+                                    eprintln!(
+                                        "[INTERP DEBUG] Current agent: {:?}",
+                                        interp.current_agent.as_ref().map(|a| &a.name)
+                                    );
                                     match interp.call_value(
                                         chunk_fn.clone(),
                                         vec![Value::Str(Rc::from(content))],
                                     ) {
                                         Ok(result) => {
-                                            eprintln!("[INTERP DEBUG] on_chunk callback returned: {:?}", result);
+                                            eprintln!(
+                                                "[INTERP DEBUG] on_chunk callback returned: {:?}",
+                                                result
+                                            );
                                             // Python checks `chunk_result is False` (identity)
                                             if matches!(result, Value::Bool(false)) {
                                                 *interrupted_clone.borrow_mut() = true;
@@ -3285,8 +3309,14 @@ impl Interpreter {
                                             }
                                         }
                                         Err(e) => {
-                                            eprintln!("[INTERP DEBUG] on_chunk callback error: {:?}", e);
-                                            eprintln!("[INTERP DEBUG] Error message: {}", e.message);
+                                            eprintln!(
+                                                "[INTERP DEBUG] on_chunk callback error: {:?}",
+                                                e
+                                            );
+                                            eprintln!(
+                                                "[INTERP DEBUG] Error message: {}",
+                                                e.message
+                                            );
                                             // Callback error — continue streaming
                                         }
                                     }

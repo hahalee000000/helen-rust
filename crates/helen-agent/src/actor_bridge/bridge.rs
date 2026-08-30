@@ -196,7 +196,9 @@ impl HelenActorBridge {
                 interp.set_llm_runtime(Arc::new(adapter));
                 eprintln!("HelenActorBridge: LLM runtime configured from environment");
             } else {
-                eprintln!("HelenActorBridge: WARNING — no valid LLM API key found. Tools will not work.");
+                eprintln!(
+                    "HelenActorBridge: WARNING — no valid LLM API key found. Tools will not work."
+                );
             }
 
             // 2. Load Helen agent files
@@ -321,16 +323,15 @@ impl HelenActorBridge {
                             let bridge_endpoint =
                                 std::sync::Arc::new(helen_runtime::channel::ChannelEndpoint::new(
                                     streaming_channel.clone(),
-                                    true,  // Bridge is "main"
+                                    true, // Bridge is "main"
                                 ));
                             let helen_endpoint =
                                 std::sync::Arc::new(helen_runtime::channel::ChannelEndpoint::new(
                                     streaming_channel.clone(),
-                                    false,  // Helen is "spawned"
+                                    false, // Helen is "spawned"
                                 ));
-                            let streaming_channel_val = helen_interpreter::value::Value::Channel(
-                                helen_endpoint.clone(),
-                            );
+                            let streaming_channel_val =
+                                helen_interpreter::value::Value::Channel(helen_endpoint.clone());
 
                             // Spawn a thread to forward chunks from Helen Channel to broadcast channel
                             let stream_tx_clone2 = stream_tx_clone.clone();
@@ -342,7 +343,10 @@ impl HelenActorBridge {
                                     if let Some(msg) = bridge_endpoint
                                         .receive(Some(std::time::Duration::from_millis(100)))
                                     {
-                                        eprintln!("[BRIDGE DEBUG] Received message from channel: {:?}", msg.0);
+                                        eprintln!(
+                                            "[BRIDGE DEBUG] Received message from channel: {:?}",
+                                            msg.0
+                                        );
                                         // Parse the message
                                         if let helen_interpreter::value::Value::Map(map) = msg.0 {
                                             let map_ref = map.borrow();
@@ -375,7 +379,9 @@ impl HelenActorBridge {
                                                         sequence += 1;
                                                     }
                                                 } else if type_str.as_ref() == "complete" {
-                                                    eprintln!("[BRIDGE DEBUG] Received complete signal");
+                                                    eprintln!(
+                                                        "[BRIDGE DEBUG] Received complete signal"
+                                                    );
                                                     // Streaming complete
                                                     break;
                                                 }

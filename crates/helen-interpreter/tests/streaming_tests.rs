@@ -1,11 +1,11 @@
 //! Tests for streaming functionality — verifies on_chunk/on_complete callbacks
 //! and proper memory management in streaming paths.
 
+use helen_core::lexer::Scanner;
 use helen_interpreter::interpreter::Interpreter;
 use helen_interpreter::llm_runtime::MockLlmRuntime;
 use helen_interpreter::value::Value;
 use helen_parser::Parser;
-use helen_core::lexer::Scanner;
 
 /// Helper to parse and execute Helen code
 fn run_with_mock(code: &str, mock_text: &str) -> Result<Option<Value>, String> {
@@ -15,12 +15,14 @@ fn run_with_mock(code: &str, mock_text: &str) -> Result<Option<Value>, String> {
     if !parser.errors().is_empty() {
         return Err(format!("Parse errors: {:?}", parser.errors()));
     }
-    
+
     let mut interp = Interpreter::new();
     let mock = MockLlmRuntime::with_act_text(mock_text);
     interp.set_llm_runtime(std::sync::Arc::new(mock));
-    
-    interp.interpret(&program).map_err(|e| format!("Runtime error: {:?}", e))
+
+    interp
+        .interpret(&program)
+        .map_err(|e| format!("Runtime error: {:?}", e))
 }
 
 /// Test that streaming path correctly accumulates and returns text
@@ -41,16 +43,22 @@ fn streaming_accumulates_text_correctly() {
         let output = StreamTest("hello")
         return output
     "#;
-    
+
     let result = run_with_mock(code, "Hello, streaming world!");
-    assert!(result.is_ok(), "Streaming execution should succeed: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Streaming execution should succeed: {:?}",
+        result.err()
+    );
+
     let value = result.unwrap();
     match value {
         Some(Value::Str(s)) => {
             let text = s.as_ref();
-            assert_eq!(text, "Hello, streaming world!", 
-                      "Streaming should return complete accumulated text");
+            assert_eq!(
+                text, "Hello, streaming world!",
+                "Streaming should return complete accumulated text"
+            );
         }
         Some(other) => panic!("Expected string result, got {:?}", other),
         None => panic!("Expected Some result, got None"),
@@ -82,10 +90,14 @@ fn streaming_on_chunk_receives_content() {
         let output = ChunkTest("test")
         return output
     "#;
-    
+
     let result = run_with_mock(code, "chunk1 chunk2 chunk3");
-    assert!(result.is_ok(), "Streaming with on_chunk should succeed: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Streaming with on_chunk should succeed: {:?}",
+        result.err()
+    );
+
     let value = result.unwrap();
     match value {
         Some(Value::Str(s)) => {
@@ -122,9 +134,13 @@ fn streaming_on_complete_called() {
         let output = CompleteTest("test")
         return output
     "#;
-    
+
     let result = run_with_mock(code, "complete test");
-    assert!(result.is_ok(), "Streaming with on_complete should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Streaming with on_complete should succeed: {:?}",
+        result.err()
+    );
 }
 
 /// Test that streaming returns empty string for empty LLM response
@@ -144,20 +160,28 @@ fn streaming_empty_response() {
         let output = EmptyTest("test")
         return output
     "#;
-    
+
     // Use mock that returns None (empty text)
     let tokens = Scanner::new(code, "test.helen").scan_all();
     let mut parser = Parser::new(tokens);
     let program = parser.parse();
-    assert!(parser.errors().is_empty(), "Parse errors: {:?}", parser.errors());
-    
+    assert!(
+        parser.errors().is_empty(),
+        "Parse errors: {:?}",
+        parser.errors()
+    );
+
     let mut interp = Interpreter::new();
     let mock = MockLlmRuntime::new(None, None);
     interp.set_llm_runtime(std::sync::Arc::new(mock));
-    
+
     let result = interp.interpret(&program);
-    assert!(result.is_ok(), "Empty streaming response should succeed: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Empty streaming response should succeed: {:?}",
+        result.err()
+    );
+
     let value = result.unwrap();
     match value {
         Some(Value::Str(s)) => {
@@ -186,18 +210,25 @@ fn streaming_long_text() {
         let output = LongTest("test")
         return output
     "#;
-    
+
     // Create a long response
     let long_text = "word ".repeat(1000);
     let result = run_with_mock(code, &long_text);
-    assert!(result.is_ok(), "Long streaming response should succeed: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Long streaming response should succeed: {:?}",
+        result.err()
+    );
+
     let value = result.unwrap();
     match value {
         Some(Value::Str(s)) => {
             let text = s.as_ref();
-            assert_eq!(text.len(), long_text.len(), 
-                      "Long text should not be truncated");
+            assert_eq!(
+                text.len(),
+                long_text.len(),
+                "Long text should not be truncated"
+            );
             assert_eq!(text, long_text);
         }
         Some(other) => panic!("Expected string result, got {:?}", other),
@@ -222,11 +253,15 @@ fn streaming_unicode_text() {
         let output = UnicodeTest("test")
         return output
     "#;
-    
+
     let unicode_text = "你好世界 🌍 Hello 世界";
     let result = run_with_mock(code, unicode_text);
-    assert!(result.is_ok(), "Unicode streaming should succeed: {:?}", result.err());
-    
+    assert!(
+        result.is_ok(),
+        "Unicode streaming should succeed: {:?}",
+        result.err()
+    );
+
     let value = result.unwrap();
     match value {
         Some(Value::Str(s)) => {
