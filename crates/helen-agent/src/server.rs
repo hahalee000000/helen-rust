@@ -202,14 +202,30 @@ async fn static_asset_handler(Path(path): Path<String>) -> impl IntoResponse {
     }
 }
 
-/// SPA fallback — serve index.html for non-API routes, 404 for API routes
+/// SPA fallback — serve embedded root files (favicon, logos, etc.) or index.html for SPA routing
 async fn spa_fallback(req: Request) -> impl IntoResponse {
     let path = req.uri().path();
     if path.starts_with("/api/") {
         // API routes should return 404, not the SPA
         StatusCode::NOT_FOUND.into_response()
     } else {
-        // Non-API routes serve the SPA for client-side routing
+        // Strip leading '/' to get the embedded file key
+        let file_key = path.trim_start_matches('/');
+
+        // Try to serve the requested file from embedded assets (e.g. favicon.png, bg.png)
+        if !file_key.is_empty() {
+            if let Some(file) = FrontendAssets::get(file_key) {
+                let mime = mime_from_path(file_key);
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, mime)
+                    .header(header::CACHE_CONTROL, "public, max-age=86400")
+                    .body(Body::from(file.data.to_vec()))
+                    .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+            }
+        }
+
+        // File not found — serve the SPA for client-side routing
         match FrontendAssets::get("index.html") {
             Some(file) => Html(String::from_utf8_lossy(&file.data).to_string()).into_response(),
             None => Html(
