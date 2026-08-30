@@ -827,8 +827,7 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|s| serde_json::from_str(s).ok())
                         .unwrap_or_else(|| json!({}));
                     // Emit tool_call event BEFORE executing (Python parity)
-                    if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": &fn_args}))
-                    {
+                    if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": &fn_args})) {
                         return Ok(());
                     }
                     let result = match &dispatch_fn {

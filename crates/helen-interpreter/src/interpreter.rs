@@ -3323,14 +3323,13 @@ impl Interpreter {
                         }
                         "tool_call" => {
                             // Python parity: emit 🔧 Calling fn_name(args)...
-                            let fn_name = event
-                                .get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("");
-                            let fn_args = event.get("args").cloned().unwrap_or_else(|| serde_json::json!({}));
+                            let fn_name = event.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                            let fn_args = event
+                                .get("args")
+                                .cloned()
+                                .unwrap_or_else(|| serde_json::json!({}));
                             let args_str = format_tool_args(&fn_args);
-                            let progress =
-                                format!("\n🔧 Calling {fn_name}({args_str})...\n");
+                            let progress = format!("\n🔧 Calling {fn_name}({args_str})...\n");
                             if let Some(ref chunk_fn) = chunk_fn_opt {
                                 let interp = unsafe { &mut *self_ptr_stream };
                                 if let Ok(result) = interp.call_value(
@@ -3346,21 +3345,14 @@ impl Interpreter {
                         }
                         "tool_result" => {
                             // Python parity: emit ✅ fn_name returned: result
-                            let fn_name = event
-                                .get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("");
-                            let result = event
-                                .get("result")
-                                .and_then(|r| r.as_str())
-                                .unwrap_or("");
+                            let fn_name = event.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                            let result = event.get("result").and_then(|r| r.as_str()).unwrap_or("");
                             let display_result = if result.len() <= 200 {
                                 result.to_string()
                             } else {
                                 format!("{}...", &result[..200])
                             };
-                            let result_msg =
-                                format!("✅ {fn_name} returned: {display_result}\n");
+                            let result_msg = format!("✅ {fn_name} returned: {display_result}\n");
                             if let Some(ref chunk_fn) = chunk_fn_opt {
                                 let interp = unsafe { &mut *self_ptr_stream };
                                 if let Ok(result) = interp.call_value(
