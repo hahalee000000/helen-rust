@@ -144,7 +144,7 @@ impl HelenActorBridge {
     /// * `session_id` - Session ID for transcript persistence
     /// * `env_context` - Environment context XML to inject into prompt
     #[allow(clippy::arc_with_non_send_sync)]
-    pub fn new(_cwd: String, _session_id: String, _env_context: String) -> Self {
+    pub fn new(cwd: String, session_id: String, _env_context: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
         let (input_tx, mut input_rx_std) = mpsc::channel::<UserInput>(32);
         let (input_tx_std, input_rx_std_sync) = std_mpsc::channel::<UserInput>();
@@ -186,9 +186,27 @@ impl HelenActorBridge {
         // Spawn Helen interpreter thread
         let alive_clone = alive.clone();
         let stream_tx_clone = stream_tx.clone();
+        let cwd_for_thread = cwd.clone();
+        let session_id_for_thread = session_id.clone();
         std::thread::spawn(move || {
             // 1. Create interpreter with full runtime
             let mut interp = Interpreter::new();
+
+            // 1a. Override session_manager to use project-local .helen/sessions/
+            //     instead of the default ~/.helen/sessions/ (which is for helen-rust dev).
+            //     This matches Python's directory_manager.py behavior:
+            //     TranscriptStore writes to {cwd}/.helen/sessions/.
+            let sessions_dir = format!("{}/.helen/sessions", cwd_for_thread);
+            let _ = std::fs::create_dir_all(&sessions_dir);
+            interp.session_manager = Arc::new(std::sync::Mutex::new(
+                helen_runtime::SessionManager::new(Some(std::path::Path::new(&sessions_dir))),
+            ));
+            // Set the session ID so the interpreter uses the same session as the WebUI
+            interp.session_id = session_id_for_thread;
+            eprintln!(
+                "HelenActorBridge: session_manager → {}/sessions, session_id={}",
+                cwd_for_thread, interp.session_id
+            );
 
             // 1b. Configure LLM runtime from environment (same as REPL)
             let llm_runtime = HttpLLMRuntime::new(None, None, None);
@@ -393,8 +411,9 @@ impl HelenActorBridge {
                                 &span,
                             ) {
                                 Ok(result) => {
-                                    // Convert Helen Value to string
-                                    let response_str = format!("{:?}", result);
+                                    // Extract string content from Helen Value
+                                    // Use python_str() to get the actual string, not Debug format
+                                    let response_str = result.python_str();
 
                                     // Send complete response via output channel
                                     let output = AgentOutput::ResponseComplete {
@@ -531,6 +550,7 @@ impl HelenActorBridge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use helen_interpreter::value::Value;
 
     #[tokio::test]
     async fn test_bridge_creation() {
@@ -552,5 +572,47 @@ mod tests {
 
         // Should not panic
         bridge.send_message("Hello".to_string(), vec![]).await;
+    }
+
+    // ── Value-to-string conversion regression tests ────────────────────────
+    // These tests ensure the bridge correctly extracts string content from
+    // Helen Values, not Debug format (which was the bug: format!("{:?}", result)
+    // produced `Str("content")` instead of just `content`).
+
+    #[test]
+    fn test_value_python_str_extracts_string_content() {
+        // This is what tui_chat_handler_actor_stream returns for slash commands
+        let value = Value::Str(std::rc::Rc::from("## Session Info\n\n- ID: abc123"));
+        let result = value.python_str();
+        // Must NOT contain Debug wrapper like `Str("...")`
+        assert_eq!(result, "## Session Info\n\n- ID: abc123");
+        assert!(!result.starts_with("Str("));
+    }
+
+    #[test]
+    fn test_value_python_str_empty_string() {
+        let value = Value::Str(std::rc::Rc::from(""));
+        assert_eq!(value.python_str(), "");
+    }
+
+    #[test]
+    fn test_value_python_str_with_markers() {
+        // Slash command responses may contain protocol markers
+        let value = Value::Str(std::rc::Rc::from("Session cleared\n__HELEN_CLEAR_OK__"));
+        let result = value.python_str();
+        assert_eq!(result, "Session cleared\n__HELEN_CLEAR_OK__");
+        assert!(!result.contains("Str("));
+    }
+
+    #[test]
+    fn test_value_debug_format_is_wrong() {
+        // Regression test: document that Debug format is WRONG for user-facing output
+        let value = Value::Str(std::rc::Rc::from("hello"));
+        let debug_format = format!("{:?}", value);
+        let python_str = value.python_str();
+        // Debug format wraps in Str("..."), python_str gives raw content
+        assert_ne!(debug_format, python_str);
+        assert!(debug_format.starts_with("Str("));
+        assert_eq!(python_str, "hello");
     }
 }

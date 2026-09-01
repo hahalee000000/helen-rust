@@ -527,6 +527,68 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             let new_count = request_count + 1
             debug("ChatSessionActor: handling streaming request " + request_id + " (#" + str(new_count) + ")")
 
+            // ── 斜杠命令拦截（streaming 路径也需要处理）──
+            let cmd = parse_command(user_content)
+            if cmd["is_command"] {
+                debug("ChatSessionActor: slash command detected in streaming path: " + user_content)
+                
+                // Execute command
+                let cmd_response = ""
+                try {
+                    cmd_response = execute_command(cmd)
+                } catch RuntimeError err {
+                    cmd_response = "❌ 命令执行失败: " + err.message
+                } catch {
+                    cmd_response = "❌ 命令执行失败（未知错误）"
+                }
+
+                // Add protocol markers and send response via reply channel (mailbox)
+                if cmd["command"] == "clear" {
+                    try {
+                        reply.send({
+                            "type": "response_complete",
+                            "request_id": request_id,
+                            "content": cmd_response + "\n__HELEN_CLEAR_OK__",
+                            "status": "success"
+                        })
+                    } catch {}
+                } else if cmd["command"] == "clear-session" {
+                    // Delete main session if needed
+                    if session_id != "" {
+                        try {
+                            let main_sid = session_id
+                            let cur_sid = ""
+                            try { cur_sid = get_session_id() } catch {}
+                            if main_sid != cur_sid && main_sid != "" {
+                                delete_session(main_sid, cascade=true)
+                            }
+                        } catch {}
+                    }
+                    try {
+                        reply.send({
+                            "type": "response_complete",
+                            "request_id": request_id,
+                            "content": cmd_response + "\n__HELEN_RESTART_ACTOR__",
+                            "status": "success"
+                        })
+                    } catch {}
+                } else {
+                    try {
+                        reply.send({
+                            "type": "response_complete",
+                            "request_id": request_id,
+                            "content": cmd_response,
+                            "status": "success"
+                        })
+                    } catch {}
+                }
+
+                // Emit status update
+                try { _actor_emit_statusline() } catch {}
+
+                return new_count
+            }
+
             // Fix: 每次处理新 user_input 时强制清理残留 cancel flag。
             try {
                 import "ui.stream_emitter" as _CancelCleanup

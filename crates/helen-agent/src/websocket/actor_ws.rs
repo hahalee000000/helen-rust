@@ -138,6 +138,26 @@ pub fn build_status_update(cwd: &str, user: &str, hostname: &str) -> String {
     .to_string()
 }
 
+/// Detect if a message is a slash command (starts with /)
+pub fn is_slash_command(content: &str) -> bool {
+    content.trim().starts_with('/')
+}
+
+/// Strip internal protocol markers from slash command responses.
+/// These markers are used for backend coordination and should not be shown to users.
+/// Returns None if the result is empty after stripping.
+pub fn strip_protocol_markers(content: &str) -> Option<String> {
+    let mut c = content.to_string();
+    c = c.replace("__HELEN_CLEAR_OK__", "").trim().to_string();
+    c = c.replace("__HELEN_CLEAR_SESSION_OK__", "").trim().to_string();
+    c = c.replace("__HELEN_RESTART_ACTOR__", "").trim().to_string();
+    if c.is_empty() {
+        None
+    } else {
+        Some(c)
+    }
+}
+
 /// Handle WebSocket connection
 async fn handle_socket(mut socket: WebSocket, state: AppState) {
     // Send initial status update
@@ -174,10 +194,10 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             // Get state
                             let state_guard = state.lock().await;
                             let cwd = state_guard.directory_manager.get_cwd();
+                            // Use deterministic session ID based on CWD (SHA256-based)
+                            // This ensures reconnecting to the same CWD reuses the same session
+                            let session_id = state_guard.directory_manager.cwd_to_session_id(&cwd);
                             drop(state_guard);
-
-                            // Generate session ID (in production, this would come from auth/session management)
-                            let session_id = format!("session-{}", uuid::Uuid::new_v4());
 
                             // Initialize bridge if not already done
                             {
@@ -191,6 +211,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 }
                             }
 
+                            // Detect slash commands (messages starting with /)
+                            let is_slash = is_slash_command(&content);
+
                             // Process message using HelenActorBridge
                             let bridge_guard = bridge.lock().await;
                             if let Some(bridge_ref) = bridge_guard.as_ref() {
@@ -202,6 +225,8 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 
                                 // Wait for response with timeout, forwarding streaming chunks
                                 let mut response_received = false;
+                                let mut chunks_received = false;
+                                let mut complete_content = String::new();
                                 let start = std::time::Instant::now();
                                 let timeout = std::time::Duration::from_secs(120); // Increased from 5s to 120s for LLM calls
 
@@ -211,6 +236,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                         chunk_result = stream_rx.recv() => {
                                             match chunk_result {
                                                 Ok(chunk) => {
+                                                    chunks_received = true;
                                                     if socket.send(Message::Text(build_llm_chunk(&chunk.content))).await.is_err() {
                                                         response_received = true; // Exit outer loop
                                                         break;
@@ -223,9 +249,13 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                         _ = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {
                                             if let Some(output) = bridge_ref.receive_output().await {
                                                 match output {
-                                                    AgentOutput::ResponseComplete { .. } => {
-                                                        // Send final complete message
-                                                        if socket.send(Message::Text(build_llm_complete())).await.is_err() {
+                                                    AgentOutput::ResponseComplete { content: ref c, .. } => {
+                                                        // Capture content for slash commands
+                                                        // (for normal LLM responses, content was already streamed via chunks)
+                                                        complete_content = c.clone();
+                                                        // Send final complete message (only if chunks were streamed)
+                                                        if chunks_received
+                                                            && socket.send(Message::Text(build_llm_complete())).await.is_err() {
                                                             break;
                                                         }
                                                         response_received = true;
@@ -257,6 +287,30 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 {
                                     break;
                                 }
+
+                                // Send processing_complete with appropriate flags.
+                                // For slash commands: no streaming chunks, response in complete_content
+                                // → send with is_slash_response=true so frontend displays as user bubble.
+                                // For normal LLM: content already streamed via chunks
+                                // → send with is_slash_response=false.
+                                let slash_content = if is_slash && !chunks_received && !complete_content.is_empty() {
+                                    // Strip internal protocol markers (same as Python reference)
+                                    strip_protocol_markers(&complete_content)
+                                } else {
+                                    None
+                                };
+
+                                if socket
+                                    .send(Message::Text(build_processing_complete(
+                                        slash_content.is_some(),
+                                        slash_content.as_deref(),
+                                        None,
+                                    )))
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
                             } else {
                                 if socket
                                     .send(Message::Text(build_error("Bridge not initialized")))
@@ -265,15 +319,6 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 {
                                     break;
                                 }
-                            }
-
-                            // Signal processing complete
-                            if socket
-                                .send(Message::Text(build_processing_complete(false, None, None)))
-                                .await
-                                .is_err()
-                            {
-                                break;
                             }
                         }
                         WsInput::Cancel => {
@@ -431,5 +476,137 @@ mod tests {
         assert_eq!(parsed["data"]["cwd"], "/home/user");
         assert_eq!(parsed["data"]["user"], "rxx");
         assert_eq!(parsed["data"]["hostname"], "localhost");
+    }
+
+    // ── Slash command detection tests ──────────────────────────────────────
+
+    #[test]
+    fn test_is_slash_command_basic() {
+        assert!(is_slash_command("/session"));
+        assert!(is_slash_command("/help"));
+        assert!(is_slash_command("/clear"));
+        assert!(is_slash_command("/dir /tmp"));
+    }
+
+    #[test]
+    fn test_is_slash_command_with_whitespace() {
+        assert!(is_slash_command("  /session"));
+        assert!(is_slash_command("\t/help"));
+        assert!(is_slash_command("\n/clear"));
+        assert!(is_slash_command("  /dir /tmp  "));
+    }
+
+    #[test]
+    fn test_is_slash_command_negative() {
+        assert!(!is_slash_command("hello"));
+        assert!(!is_slash_command("hello /world"));
+        assert!(!is_slash_command(""));
+        assert!(!is_slash_command("   "));
+    }
+
+    #[test]
+    fn test_is_slash_command_bare_slash() {
+        // A bare "/" is detected as a slash command (will be "unknown command" in Helen)
+        assert!(is_slash_command("/"));
+    }
+
+    #[test]
+    fn test_is_slash_command_edge_cases() {
+        // Full-width slash (Chinese input) should NOT be detected as slash command
+        // (normalization happens in Helen's parse_command, not here)
+        assert!(!is_slash_command("／session"));
+        // Unicode slash
+        assert!(!is_slash_command("⁄session"));
+    }
+
+    // ── Protocol marker stripping tests ────────────────────────────────────
+
+    #[test]
+    fn test_strip_protocol_markers_clear_ok() {
+        let input = "Session cleared successfully\n__HELEN_CLEAR_OK__";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, Some("Session cleared successfully".to_string()));
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_clear_session_ok() {
+        let input = "Session deleted\n__HELEN_CLEAR_SESSION_OK__";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, Some("Session deleted".to_string()));
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_restart_actor() {
+        let input = "Restarting actor\n__HELEN_RESTART_ACTOR__";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, Some("Restarting actor".to_string()));
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_multiple() {
+        let input = "Done\n__HELEN_CLEAR_OK__\n__HELEN_RESTART_ACTOR__";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, Some("Done".to_string()));
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_empty_after_strip() {
+        let input = "__HELEN_CLEAR_OK__";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_only_whitespace_after_strip() {
+        let input = "  \n__HELEN_CLEAR_OK__\n  ";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_no_markers() {
+        let input = "## Session Info\n\n- Session ID: abc123";
+        let result = strip_protocol_markers(input);
+        assert_eq!(result, Some("## Session Info\n\n- Session ID: abc123".to_string()));
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_preserves_content() {
+        let input = "## Help\n\n| Command | Description |\n|---------|-------------|\n| /help | Show help |\n__HELEN_CLEAR_OK__";
+        let result = strip_protocol_markers(input);
+        assert!(result.is_some());
+        let content = result.unwrap();
+        assert!(content.contains("## Help"));
+        assert!(content.contains("/help"));
+        assert!(!content.contains("__HELEN_CLEAR_OK__"));
+    }
+
+    // ── Integration: slash command response building ───────────────────────
+
+    #[test]
+    fn test_build_processing_complete_slash_response() {
+        let result = build_processing_complete(true, Some("## Session Info\n\n- ID: abc"), None);
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["type"], "processing_complete");
+        assert_eq!(parsed["data"]["is_slash_response"], true);
+        assert_eq!(parsed["data"]["content"], "## Session Info\n\n- ID: abc");
+    }
+
+    #[test]
+    fn test_build_processing_complete_normal_response() {
+        let result = build_processing_complete(false, None, None);
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["type"], "processing_complete");
+        assert_eq!(parsed["data"]["is_slash_response"], false);
+        assert!(parsed["data"].get("content").is_none());
+    }
+
+    #[test]
+    fn test_build_processing_complete_with_i18n() {
+        let result = build_processing_complete(true, None, Some("dir.currentDir"));
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["type"], "processing_complete");
+        assert_eq!(parsed["data"]["is_slash_response"], true);
+        assert_eq!(parsed["data"]["i18n_key"], "dir.currentDir");
     }
 }
