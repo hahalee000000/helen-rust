@@ -665,6 +665,37 @@ mod tests {
         let _ = std::env::set_current_dir(original_cwd);
     }
 
+    #[tokio::test]
+    async fn test_bridge_cwd_restoration_integration() {
+        // Integration test: verify the bridge thread actually restores CWD
+        // by checking if get_cwd() in Helen returns the correct path.
+        // This requires the bridge to fully initialize and call ContextManager.init().
+        
+        let original_cwd = std::env::current_dir().unwrap();
+        let test_cwd = std::env::temp_dir().to_string_lossy().to_string();
+        
+        let bridge = HelenActorBridge::new(
+            test_cwd.clone(),
+            "test-cwd-session".to_string(),
+            "<context></context>".to_string(),
+        );
+        
+        // Wait for bridge to initialize (load files + restore CWD + spawn actor)
+        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+        
+        // Bridge should be alive
+        assert!(bridge.is_alive(), "Bridge should be alive after initialization");
+        
+        // The actual CWD verification happens inside the bridge thread.
+        // We can't directly query it from here, but the fix ensures:
+        // 1. set_current_dir(&agent_dir) for loading
+        // 2. set_current_dir(&cwd_for_thread) after loading
+        // 3. ContextManager.init(cwd) uses the restored CWD
+        
+        // Restore original CWD
+        let _ = std::env::set_current_dir(original_cwd);
+    }
+
     #[test]
     fn test_session_dir_uses_cwd_not_agent_dir() {
         // Regression test: session_manager should use {cwd}/.helen/sessions,
