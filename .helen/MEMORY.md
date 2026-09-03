@@ -75,6 +75,10 @@ M0–M8: core→runtime. M9: quality (unwrap 325→140, stdlib split). M10–M11
 4. `cargo publish` / PyPI not executed (needs credentials)
 5. 2 Python-internal Tier B tests excluded (reference-side bugs)
 
+## Mandatory Rules
+1. **TDD workflow required** — All development and maintenance MUST follow TDD (test-first). New test files must be included in regression testing. After any code change, run full regression tests (including page/frontend code) to verify correctness before considering the task done.
+2. **NEVER auto-exit or kill helen agent** — Do NOT automatically exit the helen agent session, and NEVER kill the helen agent process. If exit/kill is needed, notify the user to perform it manually.
+
 ## Tool Usage
 - Use codebase-memory-mcp-helen for code search/graph queries
 - `save_code_file`/`patch_code_file` for .helen (auto helen check)

@@ -201,8 +201,14 @@ impl HelenActorBridge {
             interp.session_manager = Arc::new(std::sync::Mutex::new(
                 helen_runtime::SessionManager::new(Some(std::path::Path::new(&sessions_dir))),
             ));
-            // Set the session ID so the interpreter uses the same session as the WebUI
-            interp.session_id = session_id_for_thread;
+            // Set the session ID so the interpreter uses the same session as the WebUI.
+            // Also create the session directory so transcript writes succeed.
+            // Without this, the SHA256-based session dir would never be created,
+            // and the Rust TranscriptReader would find no transcript.jsonl.
+            interp.session_id = {
+                let mgr = interp.session_manager.lock().expect("mutex poisoned");
+                mgr.create_session(Some(&session_id_for_thread))
+            };
             eprintln!(
                 "HelenActorBridge: session_manager → {}/sessions, session_id={}",
                 cwd_for_thread, interp.session_id

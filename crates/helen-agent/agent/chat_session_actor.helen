@@ -697,7 +697,6 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
 
         // 流式回调：将 chunks 发送到 streaming_channel
         fn _streaming_chunks_cb_with_channel(text) {
-            print(">>> STREAMING CALLBACK CALLED <<<")
             try {
                 import "ui.stream_emitter" as _CancelCheck
                 if _CancelCheck.is_cancel_requested() {
@@ -708,19 +707,10 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             } catch {}
             // 发送 chunk 到 streaming_channel
             try {
-                print("ChatSessionActor: _streaming_chunks_cb_with_channel called, channel=" + str(_current_streaming_channel != null))
                 if _current_streaming_channel != null {
-                    print("ChatSessionActor: Sending chunk to streaming_channel: " + str(len(text)) + " chars")
-                    let send_result = _current_streaming_channel.send({"type": "chunk", "content": text})
-                    print("ChatSessionActor: Chunk sent, result=" + str(send_result))
-                } else {
-                    print("ChatSessionActor: WARNING - _current_streaming_channel is null!")
+                    _current_streaming_channel.send({"type": "chunk", "content": text})
                 }
-            } catch RuntimeError err {
-                print("ChatSessionActor: failed to send chunk to streaming_channel: " + err.message)
-            } catch {
-                print("ChatSessionActor: failed to send chunk to streaming_channel (unknown)")
-            }
+            } catch {}
             // 同时调用原有的回调（用于 FFI 路径）
             _actor_chunks_cb(text)
         }
@@ -1061,17 +1051,13 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
         _init_actor_output()
         try { init_lang() } catch {}
         try { ContextManager.init(cwd) } catch {}
-        // v1.30.3: 显式重建 pinned UUIDs
-        // ContextManager 是 shared store，可能与主 interpreter 共享。
-        // 主 interpreter 的 init() 可能已经调用过 _rebuild_pinned_uuids()，
-        // 但那时 transcript 加载的是 MAIN session（没有 pinned 消息）。
-        // Actor 的 transcript 加载的是 CHILD session（有 pinned 消息），
-        // 需要显式重建。
+        // v1.1: Actor uses the same SHA256 session as the main interpreter.
+        // Rebuild pinned UUIDs from the shared transcript.
         try { _rebuild_pinned_uuids() } catch {}
         try { SessionStats.init() } catch {}
 
-        // ── 保存主、子 session id 到 memento（供下次启动恢复）──
-        // 主 session_id 是参数 session_id；子 session_id 是 Actor 自己的 get_session_id()
+        // ── 保存 session id 到 memento（调试/诊断用）──
+        // v1.1: main 和 child 现在是同一个 SHA256 session ID
         // memento 文件：<cwd>/.helen/current_session_id，JSON: {"main":"...", "child":"..."}
         try {
             let my_sid = get_session_id()

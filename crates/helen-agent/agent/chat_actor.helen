@@ -79,28 +79,13 @@ fn spawn_chat_actor(): map {
     }
 
     // spawn ChatSessionActor（传入完整环境上下文）
-    // v1.0 session 恢复：读取 memento 中的子 session_id，用 spawn resume() 复用历史子 session
-    let child_sid = ""
-    try {
-        let memento_path = get_cwd() + "/.helen/current_session_id"
-        if path_exists(memento_path) {
-            let content = read_file(memento_path)
-            let data = json_parse(content)
-            child_sid = data["child"]
-        }
-    } catch {
-        debug("spawn_chat_actor: memento 读取失败（首次运行或格式错误）")
-    }
-
+    // v1.1 session 恢复：使用确定性 SHA256 session ID（与 Rust TranscriptReader 一致）
+    // 不再使用 memento 中的子 session ID（格式不匹配导致 transcript 读写路径不一致）
+    // sid 是确定性 SHA256 ID（由 cwd_to_session_id 生成），每次启动相同 cwd 得到相同 ID
     let mailbox = null
     try {
-        if child_sid != "" {
-            mailbox = spawn ChatSessionActor(get_cwd(), sid, full_env_context) resume(child_sid)
-            debug("spawned ChatSessionActor with session_id=" + sid + " resume(child=" + child_sid + ")")
-        } else {
-            mailbox = spawn ChatSessionActor(get_cwd(), sid, full_env_context)
-            debug("spawned ChatSessionActor with session_id=" + sid + " (fresh child session)")
-        }
+        mailbox = spawn ChatSessionActor(get_cwd(), sid, full_env_context) resume(sid)
+        debug("spawned ChatSessionActor with session_id=" + sid + " resume(" + sid + ")")
     } catch RuntimeError err {
         return {
             "status": "error",
