@@ -149,7 +149,10 @@ pub fn is_slash_command(content: &str) -> bool {
 pub fn strip_protocol_markers(content: &str) -> Option<String> {
     let mut c = content.to_string();
     c = c.replace("__HELEN_CLEAR_OK__", "").trim().to_string();
-    c = c.replace("__HELEN_CLEAR_SESSION_OK__", "").trim().to_string();
+    c = c
+        .replace("__HELEN_CLEAR_SESSION_OK__", "")
+        .trim()
+        .to_string();
     c = c.replace("__HELEN_RESTART_ACTOR__", "").trim().to_string();
     if c.is_empty() {
         None
@@ -293,12 +296,14 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 // → send with is_slash_response=true so frontend displays as user bubble.
                                 // For normal LLM: content already streamed via chunks
                                 // → send with is_slash_response=false.
-                                let slash_content = if is_slash && !chunks_received && !complete_content.is_empty() {
-                                    // Strip internal protocol markers (same as Python reference)
-                                    strip_protocol_markers(&complete_content)
-                                } else {
-                                    None
-                                };
+                                let slash_content =
+                                    if is_slash && !chunks_received && !complete_content.is_empty()
+                                    {
+                                        // Strip internal protocol markers (same as Python reference)
+                                        strip_protocol_markers(&complete_content)
+                                    } else {
+                                        None
+                                    };
 
                                 if socket
                                     .send(Message::Text(build_processing_complete(
@@ -567,7 +572,10 @@ mod tests {
     fn test_strip_protocol_markers_no_markers() {
         let input = "## Session Info\n\n- Session ID: abc123";
         let result = strip_protocol_markers(input);
-        assert_eq!(result, Some("## Session Info\n\n- Session ID: abc123".to_string()));
+        assert_eq!(
+            result,
+            Some("## Session Info\n\n- Session ID: abc123".to_string())
+        );
     }
 
     #[test]
