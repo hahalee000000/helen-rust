@@ -5,6 +5,15 @@ use tokio_tungstenite::tungstenite::Message;
 
 #[tokio::test]
 async fn test_full_agent_workflow() {
+    // Skip if no LLM API key is available (e.g., in CI)
+    let has_api_key = std::env::var("OPENAI_API_KEY").is_ok()
+        || std::env::var("ANTHROPIC_API_KEY").is_ok()
+        || std::env::var("HELEN_LLM_KEY").is_ok();
+    if !has_api_key {
+        eprintln!("Skipping test_full_agent_workflow: no LLM API key available");
+        return;
+    }
+
     // Start server
     let server = helen_agent::server::start_server("127.0.0.1:0")
         .await
