@@ -9,9 +9,12 @@ import { useT } from '@/i18n'
  * v6.0 单会话架构：移除了 Helen session ID 的 localStorage 追踪
  * 会话恢复现在由 ChatSession.main 内部直接使用 get_session_id() resume
  * 前端不再需要发送 __helen_resume__ / __helen_init__ 静默命令
+ * 
+ * v6.3: 将 messages 状态提升到全局 chatStore，解决路由切换时消息丢失问题
  */
 export function useChat(sessionId: string | null) {
-  const [messages, setMessages] = useState<Message[]>([])
+  // v6.3: 使用全局 store 中的 messages，而不是本地 useState
+  const { messages, setMessages, addMessage, updateLastMessage, clearMessages } = useChatStore()
   const [isLoading, setIsLoading] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [statusline, setStatusline] = useState<StatuslineData>({ usageRatio: 0 })
@@ -21,7 +24,7 @@ export function useChat(sessionId: string | null) {
   // 加载历史消息
   useEffect(() => {
     if (!sessionId) {
-      setMessages([])
+      clearMessages()
       return
     }
 
@@ -64,25 +67,19 @@ export function useChat(sessionId: string | null) {
           case 'llm_chunk': {
             // 流式 LLM 内容：追加到当前 assistant 消息
             if (!content) break
-            setMessages((prev) => {
-              const last = prev[prev.length - 1]
-              if (last && last.role === 'assistant') {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, content: last.content + content }
-                ]
-              }
-              return [
-                ...prev,
-                {
-                  id: Date.now(),
-                  session_id: sessionId,
-                  role: 'assistant',
-                  content,
-                  timestamp: new Date().toISOString()
-                }
-              ]
-            })
+            // v6.3: 使用 updateLastMessage 或 addMessage
+            const last = messages[messages.length - 1]
+            if (last && last.role === 'assistant') {
+              updateLastMessage((msg) => ({ ...msg, content: msg.content + content }))
+            } else {
+              addMessage({
+                id: Date.now(),
+                session_id: sessionId,
+                role: 'assistant',
+                content,
+                timestamp: new Date().toISOString()
+              })
+            }
             break
           }
 
@@ -108,16 +105,13 @@ export function useChat(sessionId: string | null) {
             const isSlash = respData.is_slash_response
             const respContent = respData.i18n_key ? t(respData.i18n_key, respData.params || {}) : respData.content
             if (isSlash && respContent) {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: Date.now() + Math.random(),
-                  session_id: sessionId || undefined,
-                  role: 'user',
-                  content: respContent,
-                  timestamp: new Date().toISOString()
-                }
-              ])
+              addMessage({
+                id: Date.now() + Math.random(),
+                session_id: sessionId || undefined,
+                role: 'user',
+                content: respContent,
+                timestamp: new Date().toISOString()
+              })
             }
             setIsLoading(false)
             break
@@ -153,16 +147,13 @@ export function useChat(sessionId: string | null) {
               completeContent += `\n\n_共 ${iterations} 轮迭代_`
             }
 
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now() + Math.random(),
-                session_id: sessionId || undefined,
-                role: 'assistant',
-                content: completeContent,
-                timestamp: new Date().toISOString()
-              }
-            ])
+            addMessage({
+              id: Date.now() + Math.random(),
+              session_id: sessionId || undefined,
+              role: 'assistant',
+              content: completeContent,
+              timestamp: new Date().toISOString()
+            })
             setIsLoading(false)
             break
           }
@@ -175,7 +166,9 @@ export function useChat(sessionId: string | null) {
           case 'hint_queued': {
             const cid = data.data?.client_id
             if (cid) {
-              setMessages(prev => prev.map(m =>
+              // v6.3: 使用 getState() 获取当前状态，然后更新
+              const currentMessages = useChatStore.getState().messages
+              setMessages(currentMessages.map(m =>
                 String(m.id) === String(cid)
                   ? { ...m, hintStatus: 'queued' as const }
                   : m
@@ -188,7 +181,9 @@ export function useChat(sessionId: string | null) {
           case 'hint_injected': {
             removeThinking(t('message.queuedInline'))
             appendThinking(t('message.injectedInline'))
-            setMessages(prev => prev.map(m =>
+            // v6.3: 使用 getState() 获取当前状态，然后更新
+            const currentMessages = useChatStore.getState().messages
+            setMessages(currentMessages.map(m =>
               m.hintStatus === 'queued' ? { ...m, hintStatus: 'injected' as const } : m
             ))
             setTimeout(() => {
@@ -234,7 +229,7 @@ export function useChat(sessionId: string | null) {
           case 'reload_messages': {
             // /clear:transcript 已插入 BoundaryMarker,清空显示
             // v6.1:不再从 DB 重载(transcript 是唯一数据源,已空)
-            setMessages([])
+            clearMessages()
             setIsLoading(false)
             break
           }
@@ -279,21 +274,20 @@ export function useChat(sessionId: string | null) {
 
   // 追加 thinking（中间过程）消息
   const appendThinking = useCallback((content: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now() + Math.random(),
-        session_id: sessionId || undefined,
-        role: 'thinking',
-        content,
-        timestamp: new Date().toISOString()
-      }
-    ])
+    addMessage({
+      id: Date.now() + Math.random(),
+      session_id: sessionId || undefined,
+      role: 'thinking',
+      content,
+      timestamp: new Date().toISOString()
+    })
   }, [sessionId])
 
   // 移除特定内容的 thinking 消息
   const removeThinking = useCallback((content: string) => {
-    setMessages((prev) => prev.filter(m => !(m.role === 'thinking' && m.content === content)))
+    // v6.3: 使用 getState() 获取当前状态，然后更新
+    const currentMessages = useChatStore.getState().messages
+    setMessages(currentMessages.filter(m => !(m.role === 'thinking' && m.content === content)))
   }, [])
 
   // 请求中断当前 LLM 流
@@ -324,7 +318,7 @@ export function useChat(sessionId: string | null) {
       attachments: attachments && attachments.length > 0 ? attachments : undefined,
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    addMessage(userMessage)
 
     const wsMessage: Record<string, any> = {
       type: isHint ? 'hint' : 'message',
