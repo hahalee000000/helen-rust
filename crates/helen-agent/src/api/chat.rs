@@ -421,12 +421,35 @@ pub async fn get_directory_messages(
 ) -> impl IntoResponse {
     let inner = state.lock().await;
     let sessions_dir = inner.directory_manager.get_sessions_dir();
+    
+    // Debug logging
+    eprintln!("[get_directory_messages] sessions_dir: {}", sessions_dir);
+    eprintln!("[get_directory_messages] sessions_dir exists: {}", std::path::Path::new(&sessions_dir).exists());
+    
     let reader = TranscriptReader::from_path(&sessions_dir);
 
-    // Get current session's messages
-    let cwd = inner.directory_manager.get_cwd();
-    let session_id = inner.directory_manager.cwd_to_session_id(&cwd);
+    // Find the most recent session for the current CWD
+    // Helen interpreter creates sessions with timestamp-based IDs (session_XXX),
+    // not SHA256-based IDs that the backend generates.
+    // So we scan for the most recent session instead of generating a mismatched ID.
+    let sessions = reader.list_sessions();
+    
+    eprintln!("[get_directory_messages] found {} sessions", sessions.len());
+    
+    let session_id = sessions
+        .first()
+        .map(|s| s.id.clone())
+        .unwrap_or_else(|| {
+            // Fallback: generate SHA256-based ID (for backwards compatibility)
+            let cwd = inner.directory_manager.get_cwd();
+            inner.directory_manager.cwd_to_session_id(&cwd)
+        });
+    
+    eprintln!("[get_directory_messages] using session_id: {}", session_id);
+    
     let messages = reader.to_messages(&session_id);
+    
+    eprintln!("[get_directory_messages] loaded {} messages", messages.len());
 
     let api_messages: Vec<Message> = messages
         .into_iter()

@@ -20,6 +20,8 @@ crate-type = ["cdylib", "rlib"]
 # maturin-only: prevents the cdylib from linking libpython (manylinux
 # compliance). Enabled by [tool.maturin] features in pyproject.toml; never
 # enabled for `cargo test` (tests embed Python via auto-initialize).
+# NOTE: Do NOT propagate to helen-ffi/extension-module to avoid affecting
+# the entire workspace during `cargo test --all-features`.
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]

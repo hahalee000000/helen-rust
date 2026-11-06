@@ -22,15 +22,33 @@ export function useChat(sessionId: string | null) {
   const t = useT()
 
   // 加载历史消息
+  // v6.4: 修复路由切换时消息丢失问题
+  // - sessionId 为 null 时不清空消息（页面切换时的中间状态）
+  // - 只在 sessionId 确实变化时才重新加载
+  const lastSessionIdRef = useRef<string | null>(null)
+  
   useEffect(() => {
+    console.log('[useChat] Message load effect triggered, sessionId:', sessionId, 'lastSessionIdRef:', lastSessionIdRef.current, 'current messages:', messages.length)
+    
+    // sessionId 为 null 时，不清空消息（可能是页面切换的中间状态）
     if (!sessionId) {
-      clearMessages()
+      console.log('[useChat] sessionId is null, skipping message load (preserving messages)')
       return
     }
+
+    // sessionId 没有变化，不重新加载（避免重复加载）
+    if (lastSessionIdRef.current === sessionId) {
+      console.log('[useChat] sessionId unchanged, skipping reload')
+      return
+    }
+    
+    console.log('[useChat] sessionId changed, loading messages from backend')
+    lastSessionIdRef.current = sessionId
 
     const loadMessages = async () => {
       try {
         const history = await api.chat.getDirectoryMessages(10000, 0)
+        console.log('[useChat] Loaded', history.length, 'messages from backend')
         setMessages(history)
         // Re-sync: 检查后端是否正在处理请求（恢复 stop/hint 按钮状态）
         try {
@@ -67,8 +85,9 @@ export function useChat(sessionId: string | null) {
           case 'llm_chunk': {
             // 流式 LLM 内容：追加到当前 assistant 消息
             if (!content) break
-            // v6.3: 使用 updateLastMessage 或 addMessage
-            const last = messages[messages.length - 1]
+            // v6.4: 使用 getState() 获取最新状态，避免闭包中的 messages 过期
+            const currentMessages = useChatStore.getState().messages
+            const last = currentMessages[currentMessages.length - 1]
             if (last && last.role === 'assistant') {
               updateLastMessage((msg) => ({ ...msg, content: msg.content + content }))
             } else {

@@ -1,8 +1,12 @@
 //! M10 FFI tests — port of `helen/tests/ffi/test_*` (feature-gated).
 //!
 //! Run with: `cargo test -p helen-ffi --features python-ffi`
+//!
+//! NOTE: These tests require linking against libpython, which is incompatible
+//! with the `extension-module` feature (used by maturin for manylinux compliance).
+//! When `extension-module` is enabled, these tests are skipped.
 
-#![cfg(feature = "python-ffi")]
+#![cfg(all(feature = "python-ffi", not(feature = "extension-module")))]
 #![allow(clippy::approx_constant)]
 
 use helen_ffi::converter::{helen_to_python, python_to_helen};

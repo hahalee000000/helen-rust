@@ -12,6 +12,10 @@ default = []
 # Enables the Python FFI runtime (embeds CPython via PyO3). Off by default so
 # pure-Rust builds need no Python headers.
 python-ffi = ["dep:pyo3"]
+# maturin-only: prevents the cdylib from linking libpython (manylinux
+# compliance). Enabled by [tool.maturin] features in pyproject.toml; never
+# enabled for `cargo test` (tests embed Python via auto-initialize).
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 helen-interpreter = { version = "0.1.0", path = "../helen-interpreter" }

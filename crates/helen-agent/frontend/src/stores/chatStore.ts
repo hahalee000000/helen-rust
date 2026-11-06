@@ -90,6 +90,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   clearMessages: () => {
+    console.log('[chatStore] clearMessages called, clearing', get().messages.length, 'messages')
     set({ messages: [] })
   }
 }))

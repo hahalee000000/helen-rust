@@ -3,6 +3,12 @@
 //! These exercise the compiled `helen_rust` rlib directly with an embedded
 //! Python interpreter. The full Python-level DoD suite lives in
 //! `tests/test_bridge_python.py` (run after `maturin develop`).
+//!
+//! NOTE: These tests require linking against libpython, which is incompatible
+//! with the `extension-module` feature (used by maturin for manylinux compliance).
+//! When `extension-module` is enabled, these tests are skipped.
+
+#![cfg(not(feature = "extension-module"))]
 
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple};
