@@ -1,11 +1,18 @@
 //! Integration tests for agent transcript persistence (v1.29).
 //! Tests that agents with `transcript "persistent"` write messages to transcript.jsonl.
+//! 
+//! v1.46.22: Agents with explicit logic (main block) should NOT write internal
+//! call summaries to transcript, as these leak into the chat UI.
 
 use helen_interpreter::interpreter::Interpreter;
 use helen_parser::Parser;
 use helen_core::lexer::Scanner;
 
-/// Test that calling an agent with transcript="persistent" writes to transcript file
+/// Test that calling an agent with transcript="persistent" and explicit logic (main block)
+/// does NOT write internal call summaries to transcript (v1.46.22 fix).
+/// 
+/// Rationale: The "Calling AgentName(...)" message was leaking into the chat UI
+/// as a user message. Only actual user input and LLM responses should be in the transcript.
 #[test]
 fn test_agent_with_persistent_transcript_writes_messages() {
     let mut interp = Interpreter::new();
@@ -19,7 +26,7 @@ fn test_agent_with_persistent_transcript_writes_messages() {
     // Set session_id
     interp.session_id = session_id.clone();
     
-    // Create a simple agent with transcript="persistent"
+    // Create a simple agent with transcript="persistent" and explicit logic
     let agent_code = r#"
 agent TestAgent(msg: str) {
     description "Test agent with persistent transcript"
@@ -42,12 +49,14 @@ TestAgent("Hello")
     let result = interp.interpret(&program);
     assert!(result.is_ok(), "Failed to execute: {:?}", result.err());
     
-    // Verify transcript file was created
-    assert!(path.exists(), "transcript.jsonl should be created at {:?}", path);
-    
-    // Read and verify content
-    let content = std::fs::read_to_string(&path).expect("should read transcript file");
-    assert!(!content.is_empty(), "transcript should not be empty");
+    // v1.46.22: Transcript file should NOT be created for agents with explicit logic.
+    // Internal call summaries should not leak into the chat UI.
+    // If the file exists, it should be empty (no messages written).
+    if path.exists() {
+        let content = std::fs::read_to_string(&path).expect("should read transcript file");
+        assert!(content.is_empty(), 
+            "transcript should be empty for agents with explicit logic (no user-facing messages)");
+    }
     
     // Clean up
     let _ = std::fs::remove_dir_all(path.parent().unwrap());

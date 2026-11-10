@@ -231,15 +231,22 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 let mut chunks_received = false;
                                 let mut complete_content = String::new();
                                 let start = std::time::Instant::now();
-                                let timeout = std::time::Duration::from_secs(120); // Increased from 5s to 120s for LLM calls
+                                let total_timeout = std::time::Duration::from_secs(300); // 5 minutes total timeout
+                                let activity_timeout = std::time::Duration::from_secs(60); // 60 seconds without activity
+                                let mut last_activity = std::time::Instant::now();
 
-                                while start.elapsed() < timeout {
+                                while start.elapsed() < total_timeout {
+                                    // Check if we've had no activity for too long
+                                    if last_activity.elapsed() > activity_timeout {
+                                        break;
+                                    }
                                     tokio::select! {
                                         // Check for streaming chunks
                                         chunk_result = stream_rx.recv() => {
                                             match chunk_result {
                                                 Ok(chunk) => {
                                                     chunks_received = true;
+                                                    last_activity = std::time::Instant::now(); // Reset activity timer
                                                     if socket.send(Message::Text(build_llm_chunk(&chunk.content))).await.is_err() {
                                                         response_received = true; // Exit outer loop
                                                         break;
@@ -251,6 +258,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                         // Check for complete response
                                         _ = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {
                                             if let Some(output) = bridge_ref.receive_output().await {
+                                                last_activity = std::time::Instant::now(); // Reset activity timer
                                                 match output {
                                                     AgentOutput::ResponseComplete { content: ref c, .. } => {
                                                         // Capture content for slash commands
@@ -282,13 +290,15 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     }
                                 }
 
-                                if !response_received
-                                    && socket
-                                        .send(Message::Text(build_error("Response timeout")))
-                                        .await
-                                        .is_err()
-                                {
-                                    break;
+                                if !response_received {
+                                    let error_msg = if last_activity.elapsed() > activity_timeout {
+                                        "Response timeout: no activity for 60 seconds"
+                                    } else {
+                                        "Response timeout: exceeded 5 minute limit"
+                                    };
+                                    if socket.send(Message::Text(build_error(error_msg))).await.is_err() {
+                                        break;
+                                    }
                                 }
 
                                 // Send processing_complete with appropriate flags.

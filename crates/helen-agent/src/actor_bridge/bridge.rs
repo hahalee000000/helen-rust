@@ -209,17 +209,12 @@ impl HelenActorBridge {
                 let mgr = interp.session_manager.lock().expect("mutex poisoned");
                 mgr.create_session(Some(&session_id_for_thread))
             };
-            eprintln!(
-                "HelenActorBridge: session_manager → {}/sessions, session_id={}",
-                cwd_for_thread, interp.session_id
-            );
 
             // 1b. Configure LLM runtime from environment (same as REPL)
             let llm_runtime = HttpLLMRuntime::new(None, None, None);
             if !llm_runtime.api_key.is_empty() && llm_runtime.api_key != "sk-placeholder" {
                 let adapter = HttpLlmAdapter::new(llm_runtime);
                 interp.set_llm_runtime(Arc::new(adapter));
-                eprintln!("HelenActorBridge: LLM runtime configured from environment");
             } else {
                 eprintln!(
                     "HelenActorBridge: WARNING — no valid LLM API key found. Tools will not work."
@@ -293,8 +288,6 @@ impl HelenActorBridge {
                     "Failed to restore working directory to {}: {}",
                     cwd_for_thread, e
                 );
-            } else {
-                eprintln!("HelenActorBridge: restored CWD to {}", cwd_for_thread);
             }
 
             // 3. Call spawn_chat_actor() to start the ChatSessionActor
@@ -303,8 +296,8 @@ impl HelenActorBridge {
                 let span =
                     helen_core::source::SourceSpan::new("chat_actor.helen".to_string(), 0, 0, 0, 0);
                 match interp.call_function(&func, vec![], None, &span) {
-                    Ok(result) => {
-                        eprintln!("spawn_chat_actor() returned: {:?}", result);
+                    Ok(_result) => {
+                        // v1.46.22: Removed debug output for successful spawn
                     }
                     Err(e) => {
                         eprintln!("spawn_chat_actor() failed: {:?}", e);

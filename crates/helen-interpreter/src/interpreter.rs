@@ -144,6 +144,10 @@ struct SpawnPayload {
     llm_runtime: std::sync::Arc<dyn LlmRuntime>,
     stdout: std::sync::Arc<std::sync::Mutex<String>>,
     endpoint: std::sync::Arc<helen_runtime::channel::ChannelEndpoint<ChannelMsg>>,
+    /// v1.46.22: Session ID for transcript persistence (from `spawn resume(sid)`).
+    resume_session_id: Option<String>,
+    /// v1.46.22: Session manager from parent (so spawned agent writes to same sessions dir).
+    session_manager: std::sync::Arc<std::sync::Mutex<helen_runtime::SessionManager>>,
 }
 
 // SAFETY: see the struct doc — single-owner Rc discipline.
@@ -165,6 +169,12 @@ fn run_spawned(p: SpawnPayload) {
     interp.source_file = p.source_file;
     interp.llm_runtime = p.llm_runtime;
     interp.stdout = p.stdout;
+    // v1.46.22: Set session_id and session_manager from spawn resume(sid) so the spawned agent
+    // writes to the same transcript as the parent (fixes page refresh losing messages).
+    interp.session_manager = p.session_manager;
+    if let Some(sid) = &p.resume_session_id {
+        interp.session_id = sid.clone();
+    }
 
     let result = interp.call_agent(&p.agent, p.args, &p.span);
     if let Err(e) = result {
@@ -1022,7 +1032,8 @@ impl Interpreter {
 
         // v1.27: resume("<session_id>"). Session loading is M8 (session
         // manager); we validate and carry the id.
-        let _resume_session_id: Option<String> = if let Some(rs) = &sp.resume_session {
+        // v1.46.22: Actually pass it to the spawned interpreter (fixes transcript persistence).
+        let resume_session_id: Option<String> = if let Some(rs) = &sp.resume_session {
             match self.eval_expr(rs)? {
                 Value::Str(s) => Some(s.to_string()),
                 other => {
@@ -1123,6 +1134,8 @@ impl Interpreter {
             llm_runtime,
             stdout,
             endpoint: spawned_endpoint,
+            resume_session_id,
+            session_manager: self.session_manager.clone(),
         };
 
         std::thread::Builder::new()
@@ -2757,36 +2770,17 @@ impl Interpreter {
                 }
             }
             let r = if let Some(logic) = &agent.logic {
-                // v1.29: Write user message to transcript if transcript="persistent"
-                // This must happen BEFORE executing the logic, so the user message
-                // is recorded even if the agent has explicit logic (main block).
-                let should_write_transcript = agent.transcript == "persistent";
-                if should_write_transcript {
-                    // For agents with logic, we don't have a rendered prompt,
-                    // so we write a summary of the call instead.
-                    let call_summary = format!(
-                        "Calling {}({})",
-                        agent.name,
-                        args.iter()
-                            .map(|(k, v)| format!("{}={:?}", k, v))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
-                    s.write_transcript_message("user", &call_summary, &agent.name);
-                }
+                // v1.46.22: Don't write "Calling AgentName(...)" to transcript.
+                // This internal call summary was leaking into the chat UI as a user message.
+                // Only actual user input and assistant responses should be in the transcript.
                 
                 let result = match logic.as_ref() {
                     Stmt::MainBlock(mb) => s.execute_stmts(&mb.body),
                     other => s.execute_stmt(other),
                 };
                 
-                // v1.29: Write assistant message to transcript after logic completes
-                if should_write_transcript {
-                    if let Ok(Flow::Normal(Some(ref value))) = result {
-                        let response_summary = format!("{} returned: {:?}", agent.name, value);
-                        s.write_transcript_message("assistant", &response_summary, &agent.name);
-                    }
-                }
+                // v1.46.22: Don't write "AgentName returned: ..." to transcript either.
+                // These internal summaries clutter the chat history.
                 
                 result
             } else {
