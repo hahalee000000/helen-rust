@@ -3261,10 +3261,45 @@ impl Interpreter {
         }
     }
 
-    /// `llm act` (HLD 3.6.5): evaluate the prompt, call the LLM runtime, and
+    /// Build the system prompt for LLM calls (Python parity).
+    /// Includes: framework_instructions + helen_conventions + agent description + skill_index.
+    /// Port of `LlmMixin._build_system_prompt` (Python).
+    fn build_system_prompt(&self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        // 1. Framework instructions (P0+P1: tool use, skills, parallel, completion)
+        parts.push(crate::system_prompt::FRAMEWORK_INSTRUCTIONS.to_string());
+
+        // 2. Helen language conventions (always included)
+        parts.push(crate::system_prompt::HELEN_CONVENTIONS.to_string());
+
+        // 3. Agent description (role definition)
+        if let Some(agent) = &self.current_agent {
+            for decl in &agent.declarations {
+                if let Some(helen_core::ast::Expr::Literal(lit)) = &decl.description {
+                    if let LiteralValue::Str(s) = &lit.value {
+                        parts.push(s.clone());
+                    }
+                }
+            }
+        }
+
+        // 4. Skill Index (Tier 1: name + description + category + tags)
+        let skill_index = helen_runtime::skills::build_skill_index();
+        if !skill_index.is_empty() {
+            parts.push(skill_index);
+        }
+
+        parts.join("\n\n")
+    }
+
+    /// `llm act` (HLD 3.6.5): evaluate the prompt expression, call the LLM runtime, and
     /// return the response text (Null when the runtime yields no text).
     /// Port of `LlmMixin.visit_llm_act_expr` (sync path, no callbacks).
     fn visit_llm_act(&mut self, la: &helen_core::ast::LlmAct) -> Result<Value, ExceptionValue> {
+        // Build system prompt (Python parity: framework + conventions + description + skill_index)
+        let system_prompt = self.build_system_prompt();
+
         // Evaluate the prompt expression to a string (Python: `_stringify`
         // for non-str values).
         let prompt = if let Some(p) = &la.prompt {
@@ -3440,7 +3475,7 @@ impl Interpreter {
                 &prompt,
                 model.as_deref(),
                 temperature,
-                None,
+                Some(&system_prompt),
                 &tools,
                 max_turns,
                 &[],
@@ -3495,7 +3530,7 @@ impl Interpreter {
             max_turns,
             max_tokens,
             &[],
-            None,
+            Some(&system_prompt),
             Some(&dispatch_fn),
             thinking_enabled,
             reasoning_effort.as_deref(),

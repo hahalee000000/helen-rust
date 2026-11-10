@@ -141,10 +141,17 @@ pub fn format_repl_context_block(
 }
 
 /// Build the combined system prompt for the REPL assistant.
-/// Combines framework instructions + Helen conventions + REPL context.
+/// Combines framework instructions + Helen conventions + skill index + REPL context.
 pub fn build_assistant_system_prompt(repl_context: &str) -> String {
-    let mut parts: Vec<&str> = vec![FRAMEWORK_INSTRUCTIONS];
-    parts.push(HELEN_CONVENTIONS);
+    let mut parts: Vec<String> = Vec::new();
+    parts.push(helen_interpreter::system_prompt::FRAMEWORK_INSTRUCTIONS.to_string());
+    parts.push(helen_interpreter::system_prompt::HELEN_CONVENTIONS.to_string());
+
+    // Inject skill index (Tier 1: name + description + category + tags).
+    let skill_index = helen_runtime::skills::build_skill_index();
+    if !skill_index.is_empty() {
+        parts.push(skill_index);
+    }
 
     let mut result = parts.join("\n\n");
     if !repl_context.is_empty() {
@@ -507,53 +514,5 @@ fn create_llm_runtime() -> Option<HttpLLMRuntime> {
 }
 
 // ---------------------------------------------------------------------------
-// Framework instructions & Helen conventions (embedded constants)
+// Framework instructions & Helen conventions are now in helen_interpreter::system_prompt
 // ---------------------------------------------------------------------------
-
-const FRAMEWORK_INSTRUCTIONS: &str = r#"<framework_instructions>
-You are a Helen agent with tools and skills available. Follow these rules:
-
-## 1. Tool Use (CRITICAL)
-You MUST use your tools to take action — do not describe what you would do
-without actually doing it. When tools are available, use them instead of
-telling the user what you would do. Execute, don't describe.
-
-## 2. Skills (CRITICAL)
-Before replying, scan <available_skills> below. If a skill matches or is
-even partially relevant to your task, you MUST load it with load_skill and
-follow its instructions. Err on the side of loading.
-
-## 3. Parallel Tool Calls
-When you need multiple independent pieces of information, request them
-together in a single response instead of one tool call per turn. Independent
-reads, searches, and read-only commands should be batched.
-
-## 4. Completion Criteria
-The deliverable is a working artifact backed by real tool output — not a
-description of one. Keep working until you have actually exercised the code
-or produced the requested result. Don't stop at "I would do X" — actually do X.
-
-## 5. Memory Management
-Save durable, reusable knowledge — skip transient or trivial details.
-</framework_instructions>"#;
-
-const HELEN_CONVENTIONS: &str = r#"<helen_conventions>
-You are generating code for Helen, a prompt-first Agent programming language.
-
-## Core Principles
-- Helen is agent-centric: design around `agent` blocks with `prompt`, `tools`, and `main`
-- Use `llm act` for LLM interactions (with optional tool calling via `tools` declaration)
-- Use `llm if` for LLM-routed branching (classification tasks)
-- Prefer composition over inheritance: build small, focused agents that collaborate
-
-## Skill-Driven Development
-**CRITICAL**: Before writing ANY code (tests, main program, or utilities):
-1. Scan the available skills below
-2. If a skill matches your task, call `load_skill(name='skill-name')` FIRST
-3. Follow the loaded skill's instructions precisely
-
-## Code Generation Best Practices
-- **Test-first**: Write tests before implementation when possible
-- **Incremental**: Build and verify in small steps, not all at once
-- **Error handling**: Use `try-catch` with specific exception types
-</helen_conventions>"#;

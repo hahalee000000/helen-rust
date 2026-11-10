@@ -11,7 +11,26 @@
 include!(concat!(env!("OUT_DIR"), "/embedded_skills.rs"));
 
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+// ---------------------------------------------------------------------------
+// SkillMeta — lightweight skill metadata for Tier 1 skill index
+// ---------------------------------------------------------------------------
+
+/// Lightweight skill metadata (Tier 1) — name + description + category + tags.
+/// Used by `build_skill_index()` to construct `<available_skills>` XML block
+/// without loading full SKILL.md content.
+#[derive(Debug, Clone)]
+pub struct SkillMeta {
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub tags: Vec<String>,
+}
+
+/// Max description length in skill index (save tokens).
+const SKILL_DESC_MAX_LEN: usize = 100;
 
 /// Skill directories in priority order (Python `get_skill_dirs`).
 ///
@@ -333,6 +352,198 @@ pub fn is_within_project(path: &Path) -> bool {
     !rel.starts_with("..")
 }
 
+// ---------------------------------------------------------------------------
+// list_skills — scan all skill directories and return SkillMeta list
+// ---------------------------------------------------------------------------
+
+/// List all available skills (disk + embedded) with lightweight metadata.
+/// Used by `build_skill_index()` to construct `<available_skills>` XML block.
+pub fn list_skills() -> Vec<SkillMeta> {
+    let mut skills: Vec<SkillMeta> = Vec::new();
+    let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    // 1. Scan disk-based skill directories (project → user).
+    for base in get_skill_dirs() {
+        if !base.is_dir() {
+            continue;
+        }
+        // Recursively walk to find SKILL.md files.
+        let mut stack = vec![base.clone()];
+        while let Some(dir) = stack.pop() {
+            if dir.join("SKILL.md").is_file() {
+                if let Some(meta) = parse_skill_frontmatter_from_disk(&dir) {
+                    if !seen_names.contains(&meta.name) {
+                        seen_names.insert(meta.name.clone());
+                        skills.push(meta);
+                    }
+                }
+            }
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        stack.push(path);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Scan embedded skills.
+    for path in embedded_skill_paths() {
+        if path.ends_with("/SKILL.md") {
+            if let Some(meta) = parse_skill_frontmatter_from_embedded(path) {
+                if !seen_names.contains(&meta.name) {
+                    seen_names.insert(meta.name.clone());
+                    skills.push(meta);
+                }
+            }
+        }
+    }
+
+    skills
+}
+
+/// Parse YAML frontmatter from a disk-based SKILL.md file.
+fn parse_skill_frontmatter_from_disk(skill_dir: &Path) -> Option<SkillMeta> {
+    let skill_md = skill_dir.join("SKILL.md");
+    let content = std::fs::read_to_string(&skill_md).ok()?;
+    parse_skill_frontmatter(&content, skill_dir.file_name()?.to_str()?)
+}
+
+/// Parse YAML frontmatter from an embedded SKILL.md file.
+fn parse_skill_frontmatter_from_embedded(virtual_path: &str) -> Option<SkillMeta> {
+    let content = embedded_skill_file(virtual_path)?;
+    // Extract skill name from path: "category/skill_name/SKILL.md" → "skill_name"
+    let name = virtual_path.rsplit('/').nth(1).unwrap_or("unknown");
+
+    parse_skill_frontmatter(content, name)
+}
+
+/// Parse YAML frontmatter from SKILL.md content.
+/// Returns SkillMeta with name, description, category, and tags.
+fn parse_skill_frontmatter(content: &str, fallback_name: &str) -> Option<SkillMeta> {
+    // Frontmatter must start with "---" and end with "---".
+    if !content.starts_with("---") {
+        return None;
+    }
+    // Search for closing "---" AFTER the opening "---" (skip first 3 chars).
+    let end = content[3..]
+        .find("---\n")
+        .map(|i| i + 3)
+        .or_else(|| content[3..].find("---\r\n").map(|i| i + 3))?;
+    let yaml_text = content[3..end].trim();
+
+    // Simple YAML parser for frontmatter fields.
+    let mut name: Option<String> = None;
+    let mut description: Option<String> = None;
+    let mut category: Option<String> = None;
+    let mut tags: Vec<String> = Vec::new();
+
+    for line in yaml_text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim();
+            match key {
+                "name" => {
+                    name = Some(unquote(value).to_string());
+                }
+                "description" => {
+                    description = Some(unquote(value).to_string());
+                }
+                "category" => {
+                    category = Some(unquote(value).to_string());
+                }
+                "tags" if value.starts_with('[') && value.ends_with(']') => {
+                    let inner = &value[1..value.len() - 1];
+                    tags = inner
+                        .split(',')
+                        .map(|s| unquote(s.trim()).to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Some(SkillMeta {
+        name: name.unwrap_or_else(|| fallback_name.to_string()),
+        description: description.unwrap_or_default(),
+        category: category.unwrap_or_else(|| "uncategorized".to_string()),
+        tags,
+    })
+}
+
+/// Remove surrounding quotes from a string.
+fn unquote(s: &str) -> &str {
+    let s = s.trim();
+    if (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')) {
+        &s[1..s.len() - 1]
+    } else {
+        s
+    }
+}
+
+// ---------------------------------------------------------------------------
+// build_skill_index — construct <available_skills> XML block
+// ---------------------------------------------------------------------------
+
+/// Build the Tier 1 Skill Index for System Prompt injection.
+/// Returns `<available_skills>` XML block with name + description + category + tags.
+pub fn build_skill_index() -> String {
+    let skills = list_skills();
+    if skills.is_empty() {
+        return String::new();
+    }
+
+    // Group by category.
+    let mut by_category: HashMap<String, Vec<&SkillMeta>> = HashMap::new();
+    for s in &skills {
+        by_category.entry(s.category.clone()).or_default().push(s);
+    }
+
+    let mut lines: Vec<String> = vec![
+        "<available_skills>".to_string(),
+        "Before replying, scan skills below. If a skill matches or is".to_string(),
+        "even partially relevant to your task, you MUST load it with".to_string(),
+        "load_skill and follow its instructions. Err on the side of loading.".to_string(),
+        String::new(),
+    ];
+
+    // Sort categories alphabetically.
+    let mut categories: Vec<&String> = by_category.keys().collect();
+    categories.sort();
+
+    for category in categories {
+        lines.push(format!("  {}:", category));
+        let mut skill_list = by_category[category].clone();
+        // Sort skills by name within each category.
+        skill_list.sort_by(|a, b| a.name.cmp(&b.name));
+        for s in skill_list {
+            // Truncate long descriptions (save tokens).
+            let desc = if s.description.len() > SKILL_DESC_MAX_LEN {
+                format!("{}...", &s.description[..SKILL_DESC_MAX_LEN - 3])
+            } else {
+                s.description.clone()
+            };
+            let tag_str = if s.tags.is_empty() {
+                String::new()
+            } else {
+                format!(" (tags: {})", s.tags.join(", "))
+            };
+            lines.push(format!("    - {}: {}{}", s.name, desc, tag_str));
+        }
+    }
+
+    lines.push("</available_skills>".to_string());
+    lines.join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,5 +605,41 @@ mod tests {
             "should have at least 50 embedded skill files, got {}",
             paths.len()
         );
+    }
+
+    #[test]
+    fn list_skills_returns_skills() {
+        let skills = list_skills();
+        assert!(!skills.is_empty(), "should have at least one skill");
+        // Check that helen-syntax is in the list.
+        let has_syntax = skills.iter().any(|s| s.name == "helen-syntax");
+        assert!(has_syntax, "helen-syntax should be in skill list");
+    }
+
+    #[test]
+    fn build_skill_index_returns_xml() {
+        let index = build_skill_index();
+        assert!(index.contains("<available_skills>"));
+        assert!(index.contains("</available_skills>"));
+        assert!(index.contains("helen-syntax"));
+    }
+
+    #[test]
+    fn parse_skill_frontmatter_basic() {
+        let content = r#"---
+name: test-skill
+description: A test skill
+category: testing
+tags: [test, demo]
+---
+
+# Test Skill
+Content here.
+"#;
+        let meta = parse_skill_frontmatter(content, "fallback").unwrap();
+        assert_eq!(meta.name, "test-skill");
+        assert_eq!(meta.description, "A test skill");
+        assert_eq!(meta.category, "testing");
+        assert_eq!(meta.tags, vec!["test", "demo"]);
     }
 }

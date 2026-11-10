@@ -30,6 +30,7 @@ pub mod stdlib_math;
 pub mod stdlib_network;
 pub mod stdlib_string;
 pub mod stdlib_system;
+pub mod system_prompt;
 pub mod test_framework;
 pub mod tools;
 pub mod transcript;
