@@ -296,7 +296,11 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     } else {
                                         "Response timeout: exceeded 5 minute limit"
                                     };
-                                    if socket.send(Message::Text(build_error(error_msg))).await.is_err() {
+                                    if socket
+                                        .send(Message::Text(build_error(error_msg)))
+                                        .await
+                                        .is_err()
+                                    {
                                         break;
                                     }
                                 }

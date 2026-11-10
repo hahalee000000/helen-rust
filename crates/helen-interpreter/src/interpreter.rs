@@ -320,38 +320,39 @@ impl Interpreter {
         } else {
             self.session_id.clone()
         };
-        
+
         // Get session path from session manager
         let manager = self.session_manager.lock().expect("mutex poisoned");
         let path = manager.get_session_path(&session_id);
         drop(manager);
-        
+
         // Create parent directory if needed
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        
+
         // Create message and append to transcript
         let uuid = format!("msg_{}", uuid::Uuid::new_v4().simple());
         let msg = helen_runtime::transcript::Message::new(
             role,
             serde_json::Value::String(content.to_string()),
-            vec![],        // tool_calls
-            None,          // tool_call_id
-            uuid,          // uuid
-            None,          // message_type
-            0,             // priority
-            false,         // compressed
-            false,         // pinned
+            vec![],                       // tool_calls
+            None,                         // tool_call_id
+            uuid,                         // uuid
+            None,                         // message_type
+            0,                            // priority
+            false,                        // compressed
+            false,                        // pinned
             Some(agent_name.to_string()), // agent_name
-            String::new(), // invocation_id
-            String::new(), // parent_invocation_id
-            vec![],        // visible_to_invocation_ids
+            String::new(),                // invocation_id
+            String::new(),                // parent_invocation_id
+            vec![],                       // visible_to_invocation_ids
         );
-        
+
         // Load existing transcript and append
         let backend = helen_runtime::transcript::JsonlBackend::new(&path);
-        let mut store = helen_runtime::transcript::TranscriptStore::load_from_backend(backend, 1000);
+        let mut store =
+            helen_runtime::transcript::TranscriptStore::load_from_backend(backend, 1000);
         let mut msg_mut = msg;
         store.append(&mut msg_mut, true);
     }
@@ -2773,15 +2774,15 @@ impl Interpreter {
                 // v1.46.22: Don't write "Calling AgentName(...)" to transcript.
                 // This internal call summary was leaking into the chat UI as a user message.
                 // Only actual user input and assistant responses should be in the transcript.
-                
+
                 let result = match logic.as_ref() {
                     Stmt::MainBlock(mb) => s.execute_stmts(&mb.body),
                     other => s.execute_stmt(other),
                 };
-                
+
                 // v1.46.22: Don't write "AgentName returned: ..." to transcript either.
                 // These internal summaries clutter the chat history.
-                
+
                 result
             } else {
                 // Agent without explicit logic but with a prompt:
@@ -2793,13 +2794,13 @@ impl Interpreter {
                 if rendered.trim().is_empty() {
                     return Ok(Flow::Normal(Some(Value::Null)));
                 }
-                
+
                 // v1.29: Write user message to transcript if transcript="persistent"
                 let should_write_transcript = agent.transcript == "persistent";
                 if should_write_transcript {
                     s.write_transcript_message("user", &rendered, &agent.name);
                 }
-                
+
                 let tools = s.build_tools_list();
                 let s_ptr = s as *mut Interpreter;
                 let dispatch_fn = move |name: &str, args: &serde_json::Value| -> String {
@@ -2848,7 +2849,7 @@ impl Interpreter {
                             Some(t) => Value::Str(Rc::from(t.as_str())),
                             None => Value::Null,
                         })))
-                    },
+                    }
                     Err(e) => Err(e),
                 }
             };

@@ -421,7 +421,7 @@ pub async fn get_directory_messages(
 ) -> impl IntoResponse {
     let inner = state.lock().await;
     let sessions_dir = inner.directory_manager.get_sessions_dir();
-    
+
     let reader = TranscriptReader::from_path(&sessions_dir);
 
     // Find the most recent session for the current CWD
@@ -429,16 +429,13 @@ pub async fn get_directory_messages(
     // not SHA256-based IDs that the backend generates.
     // So we scan for the most recent session instead of generating a mismatched ID.
     let sessions = reader.list_sessions();
-    
-    let session_id = sessions
-        .first()
-        .map(|s| s.id.clone())
-        .unwrap_or_else(|| {
-            // Fallback: generate SHA256-based ID (for backwards compatibility)
-            let cwd = inner.directory_manager.get_cwd();
-            inner.directory_manager.cwd_to_session_id(&cwd)
-        });
-    
+
+    let session_id = sessions.first().map(|s| s.id.clone()).unwrap_or_else(|| {
+        // Fallback: generate SHA256-based ID (for backwards compatibility)
+        let cwd = inner.directory_manager.get_cwd();
+        inner.directory_manager.cwd_to_session_id(&cwd)
+    });
+
     let messages = reader.to_messages(&session_id);
 
     let api_messages: Vec<Message> = messages
