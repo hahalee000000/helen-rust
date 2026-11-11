@@ -3262,9 +3262,9 @@ impl Interpreter {
     }
 
     /// Build the system prompt for LLM calls (Python parity).
-    /// Includes: framework_instructions + helen_conventions + agent description + skill_index.
+    /// Includes: framework_instructions + helen_conventions + agent description + skill_index + working_memory.
     /// Port of `LlmMixin._build_system_prompt` (Python).
-    fn build_system_prompt(&self) -> String {
+    pub fn build_system_prompt(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
 
         // 1. Framework instructions (P0+P1: tool use, skills, parallel, completion)
@@ -3290,7 +3290,51 @@ impl Interpreter {
             parts.push(skill_index);
         }
 
+        // 5. Working Memory Instructions (v1.25: Python parity)
+        let wm_instructions = self.build_working_memory_instructions();
+        if !wm_instructions.is_empty() {
+            parts.push(wm_instructions);
+        }
+
         parts.join("\n\n")
+    }
+
+    /// Build working memory maintenance instructions for system prompt (Python parity).
+    /// v1.25: Instructs the LLM to include structured working memory updates in its response.
+    pub fn build_working_memory_instructions(&self) -> String {
+        // Check if working memory is enabled (via context config)
+        // For now, always include it (Python default behavior)
+        r#"## Working Memory Maintenance
+
+IMPORTANT: Always provide your complete response to the user FIRST. The working memory block is an OPTIONAL appendix that appears AFTER your full answer - it must NEVER be the only content of your response. If you have nothing else to say, still provide a brief summary or status to the user before the block.
+
+At the end of each task, you MAY include a working memory update using this format:
+
+<working_memory>
+active_files: [list of FILE PATHS you modified or referenced]
+decisions: [key decisions you made and why]
+todos: [remaining tasks or follow-up items]
+errors: [errors encountered and how you resolved them]
+</working_memory>
+
+Guidelines:
+- ALWAYS write your complete answer to the user BEFORE the <working_memory> block
+- NEVER make <working_memory> the only content of your response
+- `active_files` must contain ONLY file paths (e.g. "src/auth.py", "lib/utils.js"), NOT descriptions or analysis text
+- Only include fields that have meaningful updates
+- Keep each item concise (one line per item)
+- Focus on information that would help you continue the work in the next invocation
+- Omit the working memory block if there are no meaningful updates
+
+Example response:
+I've updated the authentication module to use JWT tokens. The main changes are in `src/auth.py`, and I've added corresponding tests in `tests/test_auth.py`. Token expiration handling now includes refresh logic.
+
+<working_memory>
+active_files: [src/auth.py, tests/test_auth.py]
+decisions: [Use JWT tokens instead of sessions for cross-device support]
+todos: [Add password strength validation, Implement 2FA]
+errors: [Fixed token expiration handling - was missing refresh logic]
+</working_memory>"#.to_string()
     }
 
     /// `llm act` (HLD 3.6.5): evaluate the prompt expression, call the LLM runtime, and

@@ -61,6 +61,27 @@ Details: `wiki/rust/migration-notes.md`. Key points:
 1. **TDD workflow required** — All development and maintenance MUST follow TDD (test-first). New test files must be included in regression testing. After any code change, run full regression tests (including page/frontend code) to verify correctness before considering the task done.
 2. **NEVER auto-exit or kill helen agent** — Do NOT automatically exit the helen agent session, and NEVER kill the helen agent process. If exit/kill is needed, notify the user to perform it manually.
 
+## Network Configuration
+When network is restricted (git push timeout, API connection failures, package downloads), use HTTP proxy:
+
+```
+http://wentian:wuyuwuyu@47.85.138.220:5457
+```
+
+**Usage:**
+```bash
+# Git operations
+git -c http.proxy=http://wentian:wuyuwuyu@47.85.138.220:5457 push
+
+# Environment variables
+export http_proxy=http://wentian:wuyuwuyu@47.85.138.220:5457
+export https_proxy=http://wentian:wuyuwuyu@47.85.138.220:5457
+
+# Cargo (~/.cargo/config.toml)
+[http]
+proxy = "http://wentian:wuyuwuyu@47.85.138.220:5457"
+```
+
 ## TDD Development Workflow
 
 ### Rust Code (Backend)
