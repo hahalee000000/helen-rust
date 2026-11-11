@@ -646,7 +646,90 @@ pub fn graduated_compress(
         }
     }
 
+    // Hard limit enforcement at 100% (v1.46.24 parity)
+    // Safety net: if still over 100% after all layers, apply aggressive trim
+    let current_ratio = calculate_usage_ratio(&current_history, max_tokens);
+    if current_ratio > 1.0 {
+        let new_history = hard_limit_trim(&current_history, max_tokens);
+        let new_ratio = calculate_usage_ratio(&new_history, max_tokens);
+        if new_ratio < current_ratio {
+            current_history = new_history;
+            last_layer = "hard_limit".to_string();
+        }
+    }
+
     (current_history, last_layer)
+}
+
+/// Hard limit trim — emergency trim to bring usage under 100% (Python parity).
+///
+/// This is a safety net applied after all graduated compression layers
+/// have been tried but usage is still over 100%. More aggressive than
+/// Layer 5 auto-compact.
+///
+/// Strategy:
+/// 1. Preserve all system messages (critical for context)
+/// 2. Preserve pinned messages (user explicitly requested)
+/// 3. Keep only the last 2 conversation messages for continuity
+/// 4. If still over 100%, truncate content of remaining messages
+pub fn hard_limit_trim(history: &[Message], max_tokens: usize) -> Vec<Message> {
+    if history.is_empty() || max_tokens == 0 {
+        return history.to_vec();
+    }
+
+    // Separate by category
+    let system_msgs: Vec<Message> = history.iter().filter(|m| m.role == "system").cloned().collect();
+    let pinned_msgs: Vec<Message> = history
+        .iter()
+        .filter(|m| m.pinned && m.role != "system")
+        .cloned()
+        .collect();
+    let conversation_msgs: Vec<Message> = history
+        .iter()
+        .filter(|m| m.role != "system" && !m.pinned)
+        .cloned()
+        .collect();
+
+    // Keep only last 2 conversation messages
+    let recent = if conversation_msgs.len() > 2 {
+        conversation_msgs[conversation_msgs.len() - 2..].to_vec()
+    } else {
+        conversation_msgs
+    };
+
+    let mut result: Vec<Message> = system_msgs;
+    result.extend(pinned_msgs);
+    result.extend(recent.clone());
+
+    // Check if we're still over budget
+    let current_tokens: usize = result.iter().map(|m| m.token_count()).sum();
+
+    // If still over, truncate message contents
+    if current_tokens > max_tokens && !recent.is_empty() {
+        // Calculate how much we need to cut
+        let excess = current_tokens - max_tokens;
+        // Try truncating the oldest "recent" message first
+        for msg in &mut result {
+            if excess == 0 {
+                break;
+            }
+            if msg.role != "system" && !msg.pinned {
+                let text = crate::transcript::message_text_parts(&msg.content).0;
+                if text.len() > 200 {
+                    // Truncate this message
+                    let truncated_content = format!(
+                        "{}... [truncated, was {} chars]",
+                        &text[..200],
+                        text.len()
+                    );
+                    msg.content = serde_json::Value::String(truncated_content);
+                    msg.compressed = true;
+                }
+            }
+        }
+    }
+
+    result
 }
 
 // ---------------------------------------------------------------------------

@@ -3261,8 +3261,84 @@ impl Interpreter {
         }
     }
 
+    /// Prepare conversation history for LLM calls (Python `_prepare_history_for_llm` parity).
+    ///
+    /// Converts JSON history entries to Message objects, applies graduated
+    /// compression, and returns compressed JSON entries ready for the LLM runtime.
+    fn prepare_history_for_llm(&self, system_prompt: &str) -> Vec<serde_json::Value> {
+        let json_history = self.history.borrow();
+        if json_history.is_empty() {
+            return Vec::new();
+        }
+
+        // Convert JSON entries to Message objects
+        let messages: Vec<helen_runtime::transcript::Message> = json_history
+            .iter()
+            .filter_map(|entry| {
+                let role = entry.get("role")?.as_str()?;
+                let content = entry.get("content")?.clone();
+                let tool_calls = entry
+                    .get("tool_calls")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                let tool_call_id = entry
+                    .get("tool_call_id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                Some(helen_runtime::transcript::Message::new(
+                    role,
+                    content,
+                    tool_calls,
+                    tool_call_id,
+                    helen_runtime::transcript::generate_uuid(),
+                    None,
+                    50,
+                    false,
+                    false,
+                    None,
+                    String::new(),
+                    String::new(),
+                    Vec::new(),
+                ))
+            })
+            .collect();
+
+        if messages.is_empty() {
+            return Vec::new();
+        }
+
+        // Calculate usage ratio
+        let max_tokens = helen_runtime::token::DEFAULT_CONTEXT_WINDOW;
+        let system_tokens = helen_runtime::token::estimate_tokens_simple(system_prompt);
+        let history_tokens: usize = messages.iter().map(|m| m.token_count()).sum();
+        let usage_ratio = (history_tokens + system_tokens) as f64 / max_tokens as f64;
+
+        // Apply graduated compression
+        let (compressed, _layer) =
+            helen_runtime::compression::graduated_compress(&messages, usage_ratio, Some(max_tokens));
+
+        // Convert back to JSON entries
+        compressed
+            .iter()
+            .map(|m| {
+                let mut entry = serde_json::json!({
+                    "role": m.role,
+                    "content": m.content,
+                });
+                if !m.tool_calls.is_empty() {
+                    entry["tool_calls"] = serde_json::Value::Array(m.tool_calls.clone());
+                }
+                if let Some(ref tcid) = m.tool_call_id {
+                    entry["tool_call_id"] = serde_json::Value::String(tcid.clone());
+                }
+                entry
+            })
+            .collect()
+    }
+
     /// Build the system prompt for LLM calls (Python parity).
-    /// Includes: framework_instructions + helen_conventions + agent description + skill_index + working_memory.
+    /// Includes: framework_instructions + helen_conventions + agent description + skill_index.
     /// Port of `LlmMixin._build_system_prompt` (Python).
     pub fn build_system_prompt(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
@@ -3514,7 +3590,8 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                 true
             };
 
-            // Call act_stream
+            // Call act_stream (with compressed history — Python parity)
+            let prepared_history = self.prepare_history_for_llm(&system_prompt);
             let stream_result = self.llm_runtime.act_stream(
                 &prompt,
                 model.as_deref(),
@@ -3522,7 +3599,7 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                 Some(&system_prompt),
                 &tools,
                 max_turns,
-                &[],
+                &prepared_history,
                 Some(&dispatch_fn),
                 &mut on_event,
                 thinking_enabled,
@@ -3565,7 +3642,8 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             return Ok(Value::Str(Rc::from(final_text.as_str())));
         }
 
-        // Non-streaming path: use act()
+        // Non-streaming path: use act() (with compressed history — Python parity)
+        let prepared_history = self.prepare_history_for_llm(&system_prompt);
         let response = self.llm_runtime.act(
             &prompt,
             &tools,
@@ -3573,7 +3651,7 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             temperature,
             max_turns,
             max_tokens,
-            &[],
+            &prepared_history,
             Some(&system_prompt),
             Some(&dispatch_fn),
             thinking_enabled,
