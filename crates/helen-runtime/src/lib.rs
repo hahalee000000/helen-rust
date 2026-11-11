@@ -36,6 +36,7 @@ pub mod transcript;
 pub mod transcript_replay;
 pub mod validator;
 pub mod working_memory;
+pub mod media_storage;
 
 pub use session::SessionManager;
 pub use tools::{

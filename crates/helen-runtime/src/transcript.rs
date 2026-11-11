@@ -54,6 +54,26 @@ pub struct Message {
     pub visible_to_invocation_ids: Vec<String>,
 }
 
+impl Default for Message {
+    fn default() -> Self {
+        Self {
+            role: String::new(),
+            content: serde_json::Value::Null,
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+            message_type: None,
+            priority: 50,
+            compressed: false,
+            pinned: false,
+            uuid: String::new(),
+            agent_name: None,
+            invocation_id: String::new(),
+            parent_invocation_id: String::new(),
+            visible_to_invocation_ids: Vec::new(),
+        }
+    }
+}
+
 /// Extract plain text and count of media parts from message content
 /// (Python `history._message_text` parity; handles str and multimodal lists).
 pub fn message_text_parts(content: &serde_json::Value) -> (String, usize) {
@@ -797,6 +817,11 @@ pub struct TranscriptStore {
     max_memory_items: usize,
     /// Number of items offloaded to backend only.
     pub offloaded_count: usize,
+    /// v1.27: UUIDs of messages loaded from a previous session (session resume).
+    /// These are the "resumed history" - at invocation entry, the new invocation_id
+    /// is added to each such message's visible_to_invocation_ids so the LLM in a
+    /// new agent invocation can see the prior session's conversation.
+    resumed_message_uuids: std::collections::HashSet<String>,
 }
 
 impl TranscriptStore {
@@ -809,6 +834,7 @@ impl TranscriptStore {
             cached_view: None,
             max_memory_items,
             offloaded_count: 0,
+            resumed_message_uuids: std::collections::HashSet::new(),
         }
     }
 
@@ -894,6 +920,63 @@ impl TranscriptStore {
             }
             _ => false,
         }
+    }
+
+    /// Mark messages as resumed (loaded from a previous session).
+    ///
+    /// v1.27: Called when loading transcript from backend to track which
+    /// messages are "resumed history" vs newly created in this session.
+    pub fn mark_as_resumed(&mut self, uuids: &[String]) {
+        for uuid in uuids {
+            self.resumed_message_uuids.insert(uuid.clone());
+        }
+    }
+
+    /// Check if a message UUID is from a resumed session.
+    pub fn is_resumed_message(&self, uuid: &str) -> bool {
+        self.resumed_message_uuids.contains(uuid)
+    }
+
+    /// Add invocation_id to visible_to_invocation_ids of all resumed messages.
+    ///
+    /// v1.27: Called at invocation entry so a resumed session's prior
+    /// conversation is visible to the LLM inside the new agent invocation.
+    /// Without this, per-invocation isolation (v1.22) would filter out the
+    /// loaded messages and llm act would start blind.
+    ///
+    /// Only messages loaded via load_from_backend (tracked in
+    /// resumed_message_uuids) are touched - new messages created during
+    /// this run keep their original visibility and remain isolated per
+    /// invocation. This method is idempotent and safe to call on every
+    /// invocation entry.
+    ///
+    /// Returns the number of messages newly exposed (0 if none or if
+    /// invocation_id is empty or there is no resumed history).
+    pub fn expose_resumed_messages_to(&mut self, invocation_id: &str) -> usize {
+        if invocation_id.is_empty() || self.resumed_message_uuids.is_empty() {
+            return 0;
+        }
+
+        let mut count = 0;
+        for item in &mut self.transcript {
+            if let Item::Message(msg) = item {
+                let uuid = msg.uuid.clone();
+                if !uuid.is_empty()
+                    && self.resumed_message_uuids.contains(&uuid)
+                    && !msg.visible_to_invocation_ids.contains(&invocation_id.to_string())
+                {
+                    msg.visible_to_invocation_ids.push(invocation_id.to_string());
+                    count += 1;
+                }
+            }
+        }
+
+        if count > 0 {
+            // Invalidate cached view so the filter sees the updated visibility.
+            self.dirty = true;
+        }
+
+        count
     }
 
     /// Evict oldest items from memory, keeping only recent items.
