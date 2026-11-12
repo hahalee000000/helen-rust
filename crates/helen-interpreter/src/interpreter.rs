@@ -3413,8 +3413,140 @@ errors: [Fixed token expiration handling - was missing refresh logic]
 </working_memory>"#.to_string()
     }
 
-    /// `llm act` (HLD 3.6.5): evaluate the prompt expression, call the LLM runtime, and
-    /// return the response text (Null when the runtime yields no text).
+    // ── Multimodal Support Helpers (v1.17) ──────────────────────────────────
+
+    /// Build a user message with optional multimodal content.
+    /// Returns a JSON value representing the message (either plain text or multimodal array).
+    fn build_user_message(
+        &mut self,
+        text: &str,
+        media_parts: &[Rc<helen_runtime::media::MediaPart>],
+        on_media_fn: Option<&Value>,
+        provider_hint: Option<&str>,
+    ) -> Result<serde_json::Value, ExceptionValue> {
+        if media_parts.is_empty() {
+            // No media: return plain text message
+            return Ok(serde_json::json!({
+                "role": "user",
+                "content": text
+            }));
+        }
+
+        // With media: build content parts array
+        let content_parts = if let Some(adapter_fn) = on_media_fn {
+            // User-provided adapter
+            self.call_media_adapter(adapter_fn, media_parts, provider_hint)?
+        } else {
+            // Default OpenAI-compatible adapter
+            self.default_media_adapter(media_parts, provider_hint)?
+        };
+
+        // Prepend text content
+        let mut full_content = vec![serde_json::json!({
+            "type": "text",
+            "text": text
+        })];
+        full_content.extend(content_parts);
+
+        Ok(serde_json::json!({
+            "role": "user",
+            "content": full_content
+        }))
+    }
+
+    /// Default media adapter: OpenAI-compatible format.
+    fn default_media_adapter(
+        &mut self,
+        media_parts: &[Rc<helen_runtime::media::MediaPart>],
+        _provider_hint: Option<&str>,
+    ) -> Result<Vec<serde_json::Value>, ExceptionValue> {
+        // Convert MediaParts to Values, then call to_openai_parts
+        let media_values: Vec<Value> = media_parts
+            .iter()
+            .map(|mp| Value::MediaPart(mp.clone()))
+            .collect();
+
+        let list_value = Value::List(Rc::new(RefCell::new(media_values)));
+        
+        // Call the stdlib to_openai_parts function
+        let result = crate::media::media_to_openai_parts(self, &[list_value])?;
+        
+        // Convert result back to JSON
+        self.value_to_json_parts(result)
+    }
+
+    /// Call a user-provided media adapter function.
+    fn call_media_adapter(
+        &mut self,
+        adapter_fn: &Value,
+        media_parts: &[Rc<helen_runtime::media::MediaPart>],
+        provider_hint: Option<&str>,
+    ) -> Result<Vec<serde_json::Value>, ExceptionValue> {
+        // Convert MediaParts to Values
+        let media_values: Vec<Value> = media_parts
+            .iter()
+            .map(|mp| Value::MediaPart(mp.clone()))
+            .collect();
+
+        let list_value = Value::List(Rc::new(RefCell::new(media_values)));
+        let provider_value = match provider_hint {
+            Some(p) => Value::Str(Rc::from(p)),
+            None => Value::Null,
+        };
+
+        // Call the adapter function
+        let result = self.call_value(adapter_fn.clone(), vec![list_value, provider_value])?;
+        
+        // Convert result back to JSON
+        self.value_to_json_parts(result)
+    }
+
+    /// Convert a Value (list of maps) to Vec<serde_json::Value> for message content.
+    fn value_to_json_parts(&self, value: Value) -> Result<Vec<serde_json::Value>, ExceptionValue> {
+        match value {
+            Value::List(list) => {
+                let mut result = Vec::new();
+                for item in list.borrow().iter() {
+                    match item {
+                        Value::Map(map) => {
+                            let mut json_map = serde_json::Map::new();
+                            for (k, v) in map.borrow().iter() {
+                                let key = match k {
+                                    Value::Str(s) => s.to_string(),
+                                    _ => continue,
+                                };
+                                let json_val = self.value_to_json(v)?;
+                                json_map.insert(key, json_val);
+                            }
+                            result.push(serde_json::Value::Object(json_map));
+                        }
+                        _ => {
+                            // Skip non-map items
+                        }
+                    }
+                }
+                Ok(result)
+            }
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    /// Convert a Value to serde_json::Value.
+    fn value_to_json(&self, value: &Value) -> Result<serde_json::Value, ExceptionValue> {
+        match value {
+            Value::Str(s) => Ok(serde_json::Value::String(s.to_string())),
+            Value::Int(n) => Ok(serde_json::Value::Number(
+                serde_json::Number::from(n.to_i64().unwrap_or(0))
+            )),
+            Value::Float(f) => Ok(serde_json::Value::Number(
+                serde_json::Number::from_f64(*f).unwrap_or_else(|| serde_json::Number::from(0))
+            )),
+            Value::Bool(b) => Ok(serde_json::Value::Bool(*b)),
+            Value::Null => Ok(serde_json::Value::Null),
+            _ => Ok(serde_json::Value::String(value.python_str().to_string())),
+        }
+    }
+
     /// Port of `LlmMixin.visit_llm_act_expr` (sync path, no callbacks).
     fn visit_llm_act(&mut self, la: &helen_core::ast::LlmAct) -> Result<Value, ExceptionValue> {
         // Build system prompt (Python parity: framework + conventions + description + skill_index)
@@ -3443,6 +3575,77 @@ errors: [Fixed token expiration handling - was missing refresh logic]
         } else {
             prompt
         };
+
+        // ── Multimodal Support (v1.17) ──────────────────────────────────────
+        // Evaluate media expressions and collect MediaPart objects
+        let mut media_parts: Vec<Rc<helen_runtime::media::MediaPart>> = Vec::new();
+        for media_expr in &la.media {
+            let media_val = self.eval_expr(media_expr)?;
+            match media_val {
+                Value::MediaPart(mp) => {
+                    media_parts.push(mp);
+                }
+                Value::List(list) => {
+                    // Flatten lists (e.g., from media(img1, img2) multi-arg form)
+                    for item in list.borrow().iter() {
+                        match item {
+                            Value::MediaPart(mp) => {
+                                media_parts.push(mp.clone());
+                            }
+                            Value::Null => {} // Skip nulls
+                            other => {
+                                return Err(ExceptionValue::new(
+                                    "TypeError",
+                                    format!(
+                                        "media() list must contain MediaPart, got {}",
+                                        other.type_name()
+                                    ),
+                                    Some(la.span.clone()),
+                                ));
+                            }
+                        }
+                    }
+                }
+                Value::Null => {} // Skip nulls
+                other => {
+                    return Err(ExceptionValue::new(
+                        "TypeError",
+                        format!(
+                            "media() must return MediaPart, got {}",
+                            other.type_name()
+                        ),
+                        Some(la.span.clone()),
+                    ));
+                }
+            }
+        }
+
+        // Evaluate on_media callback (custom format adapter)
+        let on_media_fn = if let Some(on_media_expr) = &la.on_media {
+            Some(self.eval_expr(on_media_expr)?)
+        } else {
+            None
+        };
+
+        // Evaluate on_generate callbacks (media generation tools)
+        let mut on_generate_fns: Vec<Value> = Vec::new();
+        for gen_expr in &la.on_generate {
+            let gen_fn = self.eval_expr(gen_expr)?;
+            on_generate_fns.push(gen_fn);
+        }
+
+        // Evaluate provider hint
+        let provider_hint = if let Some(provider_expr) = &la.provider {
+            match self.eval_expr(provider_expr)? {
+                Value::Str(s) => Some(s.to_string()),
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        // Build user message with multimodal content if media is present
+        let user_message = self.build_user_message(&prompt, &media_parts, on_media_fn.as_ref(), provider_hint.as_deref())?;
         // Extract agent settings (Python `_get_agent_setting`): model,
         // temperature, max-turns. M5: full signature passthrough.
         let model = self.agent_setting("model");
@@ -3607,9 +3810,14 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             );
 
             // Record history
+            // When media is present, store the full multimodal content
             {
                 let mut h = self.history.borrow_mut();
-                h.push(serde_json::json!({"role": "user", "content": prompt}));
+                if !media_parts.is_empty() {
+                    h.push(user_message.clone());
+                } else {
+                    h.push(serde_json::json!({"role": "user", "content": prompt}));
+                }
                 let text = full_text.borrow().clone();
                 if !text.is_empty() {
                     h.push(serde_json::json!({"role": "assistant", "content": text}));
@@ -3659,9 +3867,17 @@ errors: [Fixed token expiration handling - was missing refresh logic]
         )?;
 
         // Record history (Python `_add_to_history` parity).
+        // When media is present, store the full multimodal content (list[dict])
+        // Otherwise store plain text. This ensures session restore preserves media.
         {
             let mut h = self.history.borrow_mut();
-            h.push(serde_json::json!({"role": "user", "content": prompt}));
+            if !media_parts.is_empty() {
+                // Store multimodal content
+                h.push(user_message.clone());
+            } else {
+                // Store plain text
+                h.push(serde_json::json!({"role": "user", "content": prompt}));
+            }
             if let Some(t) = &response.text {
                 h.push(serde_json::json!({"role": "assistant", "content": t}));
             }
