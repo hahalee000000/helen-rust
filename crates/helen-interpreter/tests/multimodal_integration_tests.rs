@@ -3,9 +3,11 @@
 //! Tests the complete flow: parsing media expressions, evaluating them,
 //! building multimodal user messages, and storing in history.
 
+#![allow(clippy::arc_with_non_send_sync)]
+
 use helen_core::lexer::Scanner;
 use helen_interpreter::interpreter::Interpreter;
-use helen_interpreter::llm_runtime::{LlmResponse, MockLlmRuntime};
+use helen_interpreter::llm_runtime::MockLlmRuntime;
 use helen_interpreter::value::Value;
 use helen_parser::Parser;
 use std::sync::Arc;
