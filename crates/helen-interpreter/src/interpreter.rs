@@ -115,6 +115,13 @@ pub struct Interpreter {
     /// LLM call history (Python `_history`) — `{"role", "content"}` entries
     /// recorded by `llm if`/`llm act`; feeds `format_context_stats`.
     pub history: Rc<RefCell<Vec<serde_json::Value>>>,
+    /// v1.22: Current invocation ID (unique per agent call).
+    pub current_invocation_id: String,
+    /// v1.22: Stack of parent invocation IDs (for nested agent calls).
+    pub invocation_stack: Vec<String>,
+    /// v1.22: Invocation metadata index (tracks parent-child relationships).
+    /// Maps invocation_id -> metadata (agent_name, parent_id, start_time, etc.)
+    pub invocation_index: std::collections::HashMap<String, serde_json::Value>,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -227,6 +234,9 @@ impl Interpreter {
                 helen_runtime::data_lineage::DataLineageTracker::new_in_memory(),
             )),
             history: Rc::new(RefCell::new(Vec::new())),
+            current_invocation_id: String::new(),
+            invocation_stack: Vec::new(),
+            invocation_index: std::collections::HashMap::new(),
         };
         interp.register_core_builtins();
         interp
@@ -235,6 +245,33 @@ impl Interpreter {
     /// Inject a custom LLM runtime (tests use `MockLlmRuntime`).
     pub fn set_llm_runtime(&mut self, runtime: std::sync::Arc<dyn LlmRuntime>) {
         self.llm_runtime = runtime;
+    }
+
+    /// Deep copy a value (v1.12: L2/L3 isolation).
+    /// Recursively clones lists and maps to prevent reference sharing.
+    fn deep_copy_value(&self, value: &Value) -> Value {
+        match value {
+            Value::List(list) => {
+                let borrowed = list.borrow();
+                let copied: Vec<Value> = borrowed.iter().map(|v| self.deep_copy_value(v)).collect();
+                Value::List(Rc::new(RefCell::new(copied)))
+            }
+            Value::Map(map) => {
+                let borrowed = map.borrow();
+                let copied: indexmap::IndexMap<Value, Value> = borrowed
+                    .iter()
+                    .map(|(k, v)| (self.deep_copy_value(k), self.deep_copy_value(v)))
+                    .collect();
+                Value::Map(Rc::new(RefCell::new(copied)))
+            }
+            Value::ReadOnly(inner) => {
+                // Unwrap ReadOnlyView and deep copy the inner value
+                let borrowed = inner.borrow();
+                self.deep_copy_value(&borrowed)
+            }
+            // For immutable types, just clone (they're Copy or cheap to clone)
+            _ => value.clone(),
+        }
     }
 
     /// List all user-defined functions and agents (Python: `list_definitions`).
@@ -773,6 +810,16 @@ impl Interpreter {
                 },
             );
         }
+        
+        // v1.22: Invocation tracking builtins
+        self.register_builtin("get_invocation_id", |interp: &mut Interpreter, _args: &[Value]| {
+            Ok(Value::Str(Rc::from(interp.current_invocation_id.clone())))
+        });
+        
+        self.register_builtin("get_parent_invocation_id", |interp: &mut Interpreter, _args: &[Value]| {
+            let parent_id = interp.invocation_stack.last().cloned().unwrap_or_default();
+            Ok(Value::Str(Rc::from(parent_id)))
+        });
     }
 
     // ------------------------------------------------------------------
@@ -2639,6 +2686,55 @@ impl Interpreter {
         let prev_agent = self.current_agent.clone();
         self.current_agent = Some(Rc::new(agent.clone()));
 
+        // v1.22: Generate and track invocation ID for this agent call
+        let prev_invocation_id = self.current_invocation_id.clone();
+        let uuid_str = uuid::Uuid::new_v4().simple().to_string();
+        let new_invocation_id = format!(
+            "inv_{}_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            &uuid_str[..8]
+        );
+        
+        // Push current invocation ID onto stack (for nested calls)
+        if !self.current_invocation_id.is_empty() {
+            self.invocation_stack.push(self.current_invocation_id.clone());
+        }
+        self.current_invocation_id = new_invocation_id.clone();
+        
+        // v1.22: Record invocation metadata in index
+        let parent_id = if !prev_invocation_id.is_empty() {
+            Some(prev_invocation_id.clone())
+        } else {
+            None
+        };
+        self.invocation_index.insert(
+            new_invocation_id.clone(),
+            serde_json::json!({
+                "invocation_id": new_invocation_id,
+                "agent_name": agent.name,
+                "parent_invocation_id": parent_id,
+                "start_time": std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                "end_time": null,
+                "children": []
+            }),
+        );
+        // Update parent's children list
+        if let Some(parent_id) = &parent_id {
+            if let Some(parent_meta) = self.invocation_index.get_mut(parent_id) {
+                if let Some(children) = parent_meta.get_mut("children") {
+                    if let Some(arr) = children.as_array_mut() {
+                        arr.push(serde_json::json!(new_invocation_id));
+                    }
+                }
+            }
+        }
+
         // v1.12 isolation: agent gets a completely isolated env (HLD 3.5.2).
         // - stdlib builtins are injected (Python `stdlib_cache` loop)
         // - module-level consts injected read-only (L1 standard)
@@ -2682,15 +2778,41 @@ impl Interpreter {
                     }
                 }
             }
+            // 4. L0 (open) isolation: inject module-level `let` variables (writable).
+            // Python parity: `_call_agent` injects module-level let when isolation_level == "open".
+            if agent.isolation_level == "open" {
+                let mut cur = Some(self.environment.clone());
+                while let Some(scope) = cur {
+                    let borrowed = scope.borrow();
+                    let mut to_inject: Vec<(String, Value)> = Vec::new();
+                    for (name, value) in borrowed.store_ref() {
+                        // Inject non-const variables (let declarations are mutable by default)
+                        if !borrowed.is_const(name) {
+                            to_inject.push((name.clone(), value.clone()));
+                        }
+                    }
+                    drop(borrowed);
+                    for (name, value) in to_inject {
+                        if env.get(&name).is_none() {
+                            // let variables are mutable (is_const = false)
+                            env.define(&name, value, false);
+                        }
+                    }
+                    let next = scope.borrow().parent.clone();
+                    drop(scope);
+                    cur = next;
+                }
+            }
         }
 
-        // 4. Bind params. v1.12: wrap mutable reference types (list, dict)
-        //    in a ReadOnlyView so the agent cannot modify the caller's
-        //    data (L1 isolation; Python ReadOnlyView). Missing params with
-        //    a default are evaluated in the agent's isolated env (Python
-        //    `_call_agent` parity); missing without a default bind Null.
+        // 4. Bind params. v1.12: Isolation level handling
+        //    L1 (standard): Wrap mutable reference types in ReadOnlyView
+        //    L2 (strict) / L3 (sandbox): Deep copy mutable types
+        //    Missing params with a default are evaluated in the agent's isolated env
+        //    (Python `_call_agent` parity); missing without a default bind Null.
         //    Values are computed first (defaults may evaluate expressions,
         //    which need `self.environment` unborrowed), then defined.
+        let isolation_level = agent.isolation_level.as_str();
         let mut param_values: Vec<(String, Value)> = Vec::new();
         for p in &agent.params {
             let value = if let Some(v) = args.get(&p.name).cloned() {
@@ -2706,8 +2828,15 @@ impl Interpreter {
             } else {
                 Value::Null
             };
+            // Apply isolation level
             let bound = if value.is_mutable_type() {
-                Value::ReadOnly(Rc::new(RefCell::new(value)))
+                if isolation_level == "strict" || isolation_level == "sandbox" {
+                    // L2/L3: Deep copy mutable types
+                    self.deep_copy_value(&value)
+                } else {
+                    // L1: Read-only wrapper
+                    Value::ReadOnly(Rc::new(RefCell::new(value)))
+                }
             } else {
                 value
             };
@@ -2865,10 +2994,35 @@ impl Interpreter {
         });
 
         self.current_agent = prev_agent;
-        match result? {
-            Flow::Return(v) => Ok(v.unwrap_or(Value::Null)),
-            Flow::Normal(v) => Ok(v.unwrap_or(Value::Null)),
-            _ => Ok(Value::Null),
+        
+        // v1.22: Record end_time in invocation metadata
+        if let Some(meta) = self.invocation_index.get_mut(&self.current_invocation_id) {
+            meta["end_time"] = serde_json::json!(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+            );
+        }
+        
+        // v1.22: Restore invocation tracking state
+        self.current_invocation_id = prev_invocation_id;
+        if !self.invocation_stack.is_empty() {
+            self.invocation_stack.pop();
+        }
+        
+        // v1.12: Deep copy return value for L2/L3 to prevent reference escape
+        let final_result = match result? {
+            Flow::Return(v) => v.unwrap_or(Value::Null),
+            Flow::Normal(v) => v.unwrap_or(Value::Null),
+            _ => Value::Null,
+        };
+        
+        // Apply deep copy for strict/sandbox isolation levels
+        if (isolation_level == "strict" || isolation_level == "sandbox") && final_result.is_mutable_type() {
+            Ok(self.deep_copy_value(&final_result))
+        } else {
+            Ok(final_result)
         }
     }
 
@@ -3144,12 +3298,15 @@ impl Interpreter {
         };
 
         // Record history (Python `_add_to_history` parity).
+        // v1.22: Include invocation_id for per-agent context isolation.
         {
             let mut h = self.history.borrow_mut();
-            h.push(serde_json::json!({"role": "user", "content": format!("[route] {desc_str}")}));
+            let inv_id = self.current_invocation_id.clone();
+            h.push(serde_json::json!({"role": "user", "content": format!("[route] {desc_str}"), "invocation_id": inv_id}));
             h.push(serde_json::json!({
                 "role": "assistant",
-                "content": format!("[routed to: {}]", selected.as_deref().unwrap_or("default"))
+                "content": format!("[routed to: {}]", selected.as_deref().unwrap_or("default")),
+                "invocation_id": inv_id
             }));
         }
 
@@ -3265,14 +3422,41 @@ impl Interpreter {
     ///
     /// Converts JSON history entries to Message objects, applies graduated
     /// compression, and returns compressed JSON entries ready for the LLM runtime.
+    /// v1.22: Filters by current invocation_id for per-agent context isolation.
     fn prepare_history_for_llm(&self, system_prompt: &str) -> Vec<serde_json::Value> {
         let json_history = self.history.borrow();
         if json_history.is_empty() {
             return Vec::new();
         }
 
+        // v1.22: Filter by current invocation_id for per-agent context isolation.
+        // Empty current_invocation_id means no invocation active (top-level code) — no filter.
+        let current_inv_id = self.current_invocation_id.clone();
+        let filtered_history: Vec<_> = if current_inv_id.is_empty() {
+            // No invocation active, return all history
+            json_history.clone()
+        } else {
+            // Filter to only include messages from current invocation
+            json_history
+                .iter()
+                .filter(|entry| {
+                    let msg_inv_id = entry
+                        .get("invocation_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    // Include if invocation_id matches or is empty (legacy messages)
+                    msg_inv_id.is_empty() || msg_inv_id == current_inv_id
+                })
+                .cloned()
+                .collect()
+        };
+
+        if filtered_history.is_empty() {
+            return Vec::new();
+        }
+
         // Convert JSON entries to Message objects
-        let messages: Vec<helen_runtime::transcript::Message> = json_history
+        let messages: Vec<helen_runtime::transcript::Message> = filtered_history
             .iter()
             .filter_map(|entry| {
                 let role = entry.get("role")?.as_str()?;
@@ -3867,19 +4051,25 @@ errors: [Fixed token expiration handling - was missing refresh logic]
         )?;
 
         // Record history (Python `_add_to_history` parity).
+        // v1.22: Include invocation_id for per-agent context isolation.
         // When media is present, store the full multimodal content (list[dict])
         // Otherwise store plain text. This ensures session restore preserves media.
         {
             let mut h = self.history.borrow_mut();
+            let inv_id = self.current_invocation_id.clone();
             if !media_parts.is_empty() {
-                // Store multimodal content
-                h.push(user_message.clone());
+                // Store multimodal content - add invocation_id to the message
+                let mut msg = user_message.clone();
+                if let Some(obj) = msg.as_object_mut() {
+                    obj.insert("invocation_id".to_string(), serde_json::json!(inv_id));
+                }
+                h.push(msg);
             } else {
                 // Store plain text
-                h.push(serde_json::json!({"role": "user", "content": prompt}));
+                h.push(serde_json::json!({"role": "user", "content": prompt, "invocation_id": inv_id}));
             }
             if let Some(t) = &response.text {
-                h.push(serde_json::json!({"role": "assistant", "content": t}));
+                h.push(serde_json::json!({"role": "assistant", "content": t, "invocation_id": inv_id}));
             }
         }
 
