@@ -13,21 +13,26 @@ use helen_parser::Parser;
 use std::sync::Arc;
 
 #[allow(clippy::arc_with_non_send_sync)]
-fn run_code(code: &str) -> (Result<Option<Value>, helen_interpreter::exceptions::ExceptionValue>, Arc<MockLlmRuntime>) {
+fn run_code(
+    code: &str,
+) -> (
+    Result<Option<Value>, helen_interpreter::exceptions::ExceptionValue>,
+    Arc<MockLlmRuntime>,
+) {
     let mut interp = Interpreter::new();
     let mock_runtime = Arc::new(MockLlmRuntime::with_act_text("mock response"));
     interp.set_llm_runtime(mock_runtime.clone());
-    
+
     let tokens = Scanner::new(code, "test.helen").scan_all();
     let mut parser = Parser::new(tokens);
     let program = parser.parse();
-    
+
     assert!(
         parser.errors().is_empty(),
         "Parse errors: {:?}",
         parser.errors()
     );
-    
+
     let result = interp.interpret(&program);
     (result, mock_runtime)
 }
@@ -129,7 +134,7 @@ let r2 = Agent2()
 "#;
     let (result, mock_runtime) = run_code(code);
     assert!(result.is_ok());
-    
+
     // Verify that act was called twice
     let history = mock_runtime.act_history.borrow();
     assert_eq!(history.len(), 2);

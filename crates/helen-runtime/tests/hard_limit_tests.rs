@@ -116,9 +116,7 @@ fn hard_limit_trim_returns_empty_for_empty_history() {
 
 #[test]
 fn hard_limit_trim_returns_original_when_under_budget() {
-    let history = vec![
-        make_message("user", "Short message"),
-    ];
+    let history = vec![make_message("user", "Short message")];
 
     let result = hard_limit_trim(&history, 10000);
     assert_eq!(result.len(), history.len());

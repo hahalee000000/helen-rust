@@ -3,9 +3,9 @@
 //! Verifies that the interpreter passes conversation history to the LLM runtime
 //! and applies graduated compression before sending.
 
+use helen_interpreter::exceptions::ExceptionValue;
 use helen_interpreter::interpreter::Interpreter;
 use helen_interpreter::llm_runtime::{LlmResponse, LlmRuntime};
-use helen_interpreter::exceptions::ExceptionValue;
 use std::sync::{Arc, Mutex};
 
 // Type alias to simplify complex nested type
@@ -143,7 +143,10 @@ fn interpreter_passes_history_to_llm_act_stream() {
 
     // Verify that history was passed to the LLM runtime
     let history_calls = stream_history.lock().unwrap();
-    assert!(!history_calls.is_empty(), "LLM act_stream should have been called");
+    assert!(
+        !history_calls.is_empty(),
+        "LLM act_stream should have been called"
+    );
 
     let last_history = history_calls.last().unwrap();
     assert!(
@@ -183,10 +186,7 @@ fn interpreter_applies_compression_to_large_history() {
     let last_history = history_calls.last().unwrap();
 
     // The history should be passed (not empty)
-    assert!(
-        !last_history.is_empty(),
-        "History should be passed to LLM"
-    );
+    assert!(!last_history.is_empty(), "History should be passed to LLM");
 
     // Note: Compression may or may not reduce message count depending on content size.
     // The important thing is that history is passed and compression is attempted.

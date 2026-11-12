@@ -202,7 +202,10 @@ fn graduated_compress_reduces_usage_ratio() {
         final_ratio,
         initial_ratio
     );
-    assert_ne!(layer, "none", "Some compression layer should have been applied");
+    assert_ne!(
+        layer, "none",
+        "Some compression layer should have been applied"
+    );
 }
 
 #[test]

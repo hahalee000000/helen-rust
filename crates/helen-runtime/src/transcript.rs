@@ -963,9 +963,12 @@ impl TranscriptStore {
                 let uuid = msg.uuid.clone();
                 if !uuid.is_empty()
                     && self.resumed_message_uuids.contains(&uuid)
-                    && !msg.visible_to_invocation_ids.contains(&invocation_id.to_string())
+                    && !msg
+                        .visible_to_invocation_ids
+                        .contains(&invocation_id.to_string())
                 {
-                    msg.visible_to_invocation_ids.push(invocation_id.to_string());
+                    msg.visible_to_invocation_ids
+                        .push(invocation_id.to_string());
                     count += 1;
                 }
             }

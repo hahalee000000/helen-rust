@@ -112,7 +112,10 @@ impl MediaStorage {
                         // Return new message with media_ref
                         let mut new_content = content.clone();
                         new_content.as_object_mut().unwrap().remove("source");
-                        new_content.as_object_mut().unwrap().insert("media_ref".to_string(), media_ref);
+                        new_content
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("media_ref".to_string(), media_ref);
 
                         return Ok(Message {
                             content: new_content,
@@ -161,7 +164,9 @@ impl MediaStorage {
 
                         if actual_size != expected_size || actual_checksum != expected_checksum {
                             // Integrity check failed - degrade
-                            return Ok(self.create_degraded_message(message, "Media file corrupted"));
+                            return Ok(
+                                self.create_degraded_message(message, "Media file corrupted")
+                            );
                         }
                     }
 
@@ -186,11 +191,17 @@ impl MediaStorage {
 
                     let mut new_content = content.clone();
                     new_content.as_object_mut().unwrap().remove("media_ref");
-                    new_content.as_object_mut().unwrap().insert("source".to_string(), source);
+                    new_content
+                        .as_object_mut()
+                        .unwrap()
+                        .insert("source".to_string(), source);
 
                     // Ensure type field is set
                     if !new_content.get("type").is_some() {
-                        new_content.as_object_mut().unwrap().insert("type".to_string(), json!(media_type));
+                        new_content
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("type".to_string(), json!(media_type));
                     }
 
                     Ok(Message {
@@ -200,7 +211,8 @@ impl MediaStorage {
                 }
                 Err(_) => {
                     // File missing - degrade
-                    Ok(self.create_degraded_message(message, &format!("Media file missing: {}", path)))
+                    Ok(self
+                        .create_degraded_message(message, &format!("Media file missing: {}", path)))
                 }
             }
         } else {

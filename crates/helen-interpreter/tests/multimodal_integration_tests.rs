@@ -13,21 +13,26 @@ use helen_parser::Parser;
 use std::sync::Arc;
 
 /// Helper to parse and run Helen code
-fn run_code(code: &str) -> (Result<Option<Value>, helen_interpreter::exceptions::ExceptionValue>, Arc<MockLlmRuntime>) {
+fn run_code(
+    code: &str,
+) -> (
+    Result<Option<Value>, helen_interpreter::exceptions::ExceptionValue>,
+    Arc<MockLlmRuntime>,
+) {
     let mut interp = Interpreter::new();
     let mock = Arc::new(MockLlmRuntime::with_act_text("test response"));
     interp.set_llm_runtime(mock.clone());
-    
+
     let tokens = Scanner::new(code, "test.helen").scan_all();
     let mut parser = Parser::new(tokens);
     let program = parser.parse();
-    
+
     assert!(
         parser.errors().is_empty(),
         "Parse errors: {:?}",
         parser.errors()
     );
-    
+
     let result = interp.interpret(&program);
     (result, mock)
 }
@@ -41,15 +46,19 @@ fn test_llm_act_with_single_media_base64() {
         let img = media_base64("iVBORw0KGgo=", "image/png")
         let result = llm act "Describe this image" media(img)
     "#;
-    
+
     let (result, mock) = run_code(code);
-    
-    assert!(result.is_ok(), "Should parse and execute without error: {:?}", result.err());
-    
+
+    assert!(
+        result.is_ok(),
+        "Should parse and execute without error: {:?}",
+        result.err()
+    );
+
     // Verify that media was evaluated and passed to LLM
     let history = mock.act_history.borrow();
     assert!(!history.is_empty(), "LLM act should have been called");
-    
+
     // The prompt should contain the text
     let (prompt, _) = &history[0];
     assert!(prompt.contains("Describe this image"));
@@ -63,10 +72,14 @@ fn test_llm_act_with_multiple_media() {
         let img2 = media_base64("data2", "image/png")
         let result = llm act "Compare these images" media(img1, img2)
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should handle multiple media expressions: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should handle multiple media expressions: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -76,10 +89,14 @@ fn test_llm_act_with_media_url() {
         let img = media("https://example.com/image.png")
         let result = llm act "Describe this" media(img)
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should handle media from URL: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should handle media from URL: {:?}",
+        result.err()
+    );
 }
 
 // ── Multimodal Message Building ─────────────────────────────────────────────
@@ -91,11 +108,11 @@ fn test_multimodal_message_structure() {
         let img = media_base64("test_data", "image/png")
         let result = llm act "Analyze this image" media(img)
     "#;
-    
+
     let (result, mock) = run_code(code);
-    
+
     assert!(result.is_ok(), "Should execute: {:?}", result.err());
-    
+
     // Check that history contains multimodal content
     let history = mock.act_history.borrow();
     assert!(!history.is_empty());
@@ -106,14 +123,14 @@ fn test_text_only_message_when_no_media() {
     let code = r#"
         let result = llm act "Just text, no media"
     "#;
-    
+
     let (result, mock) = run_code(code);
-    
+
     assert!(result.is_ok());
-    
+
     let history = mock.act_history.borrow();
     assert!(!history.is_empty());
-    
+
     // Without media, should be plain text
     let (prompt, _) = &history[0];
     assert_eq!(prompt, "Just text, no media");
@@ -128,10 +145,14 @@ fn test_llm_act_with_provider_hint() {
         let img = media_base64("test", "image/png")
         let result = llm act "Process" media(img) provider("claude")
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should accept provider hint: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should accept provider hint: {:?}",
+        result.err()
+    );
 }
 
 // ── on_media Callback ───────────────────────────────────────────────────────
@@ -147,10 +168,14 @@ fn test_llm_act_with_on_media_callback() {
         let img = media_base64("test", "image/png")
         let result = llm act "Process" media(img) on_media custom_adapter
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should accept on_media callback: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should accept on_media callback: {:?}",
+        result.err()
+    );
 }
 
 // ── on_generate Callbacks ───────────────────────────────────────────────────
@@ -165,10 +190,14 @@ fn test_llm_act_with_on_generate_callback() {
         
         let result = llm act "Create an image" on_generate generate_image
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should accept on_generate callback: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should accept on_generate callback: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -185,10 +214,14 @@ fn test_llm_act_with_multiple_on_generate_callbacks() {
         
         let result = llm act "Create media" on_generate generate_image on_generate generate_video
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should accept multiple on_generate callbacks: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should accept multiple on_generate callbacks: {:?}",
+        result.err()
+    );
 }
 
 // ── History Management ──────────────────────────────────────────────────────
@@ -201,11 +234,11 @@ fn test_multimodal_content_in_history() {
         let result = llm act "First message" media(img)
         let result2 = llm act "Second message"
     "#;
-    
+
     let (result, mock) = run_code(code);
-    
+
     assert!(result.is_ok());
-    
+
     let history = mock.act_history.borrow();
     // Should have 2 LLM calls
     assert_eq!(history.len(), 2);
@@ -219,11 +252,14 @@ fn test_media_expression_type_error() {
         import std.media.*
         let result = llm act "Test" media(42)
     "#;
-    
+
     let (result, _) = run_code(code);
-    
+
     // Should error: media() must return MediaPart
-    assert!(result.is_err(), "Should error when media expression returns non-MediaPart");
+    assert!(
+        result.is_err(),
+        "Should error when media expression returns non-MediaPart"
+    );
 }
 
 // ── Integration with Agent Context ──────────────────────────────────────────
@@ -244,10 +280,14 @@ fn test_multimodal_in_agent() {
         
         let result = ImageAnalyzer("test_data")
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Should work within agent context: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Should work within agent context: {:?}",
+        result.err()
+    );
 }
 
 // ── Format Adapters ─────────────────────────────────────────────────────────
@@ -260,10 +300,14 @@ fn test_openai_format_adapter() {
         let parts = to_openai_parts([img])
         // Just verify it executes without error
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "OpenAI format adapter should work: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "OpenAI format adapter should work: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -273,10 +317,14 @@ fn test_claude_format_adapter() {
         let img = media_base64("test_data", "image/png")
         let parts = to_claude_parts([img])
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Claude format adapter should work: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Claude format adapter should work: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -286,8 +334,12 @@ fn test_gemini_format_adapter() {
         let img = media_base64("test_data", "image/png")
         let parts = to_gemini_parts([img])
     "#;
-    
+
     let (result, _) = run_code(code);
-    
-    assert!(result.is_ok(), "Gemini format adapter should work: {:?}", result.err());
+
+    assert!(
+        result.is_ok(),
+        "Gemini format adapter should work: {:?}",
+        result.err()
+    );
 }

@@ -678,7 +678,11 @@ pub fn hard_limit_trim(history: &[Message], max_tokens: usize) -> Vec<Message> {
     }
 
     // Separate by category
-    let system_msgs: Vec<Message> = history.iter().filter(|m| m.role == "system").cloned().collect();
+    let system_msgs: Vec<Message> = history
+        .iter()
+        .filter(|m| m.role == "system")
+        .cloned()
+        .collect();
     let pinned_msgs: Vec<Message> = history
         .iter()
         .filter(|m| m.pinned && m.role != "system")
@@ -717,11 +721,8 @@ pub fn hard_limit_trim(history: &[Message], max_tokens: usize) -> Vec<Message> {
                 let text = crate::transcript::message_text_parts(&msg.content).0;
                 if text.len() > 200 {
                     // Truncate this message
-                    let truncated_content = format!(
-                        "{}... [truncated, was {} chars]",
-                        &text[..200],
-                        text.len()
-                    );
+                    let truncated_content =
+                        format!("{}... [truncated, was {} chars]", &text[..200], text.len());
                     msg.content = serde_json::Value::String(truncated_content);
                     msg.compressed = true;
                 }

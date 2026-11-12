@@ -216,7 +216,9 @@ fn transcript_store_expose_resumed_messages() {
     let view = store.read_view();
     assert_eq!(view.len(), 1);
     // Verify the message now has inv-2 in its visibility list
-    assert!(view[0].visible_to_invocation_ids.contains(&"inv-2".to_string()));
+    assert!(view[0]
+        .visible_to_invocation_ids
+        .contains(&"inv-2".to_string()));
 }
 
 #[test]
@@ -252,12 +254,16 @@ fn transcript_store_expose_only_resumed_messages() {
     // Verify only resumed message has inv-2 in visibility
     let view = store.read_view();
     assert_eq!(view.len(), 2);
-    
+
     // Find msg1 and verify it has inv-2
     let msg1_view = view.iter().find(|m| m.uuid == "uuid-1").unwrap();
-    assert!(msg1_view.visible_to_invocation_ids.contains(&"inv-2".to_string()));
-    
+    assert!(msg1_view
+        .visible_to_invocation_ids
+        .contains(&"inv-2".to_string()));
+
     // Find msg2 and verify it does NOT have inv-2
     let msg2_view = view.iter().find(|m| m.uuid == "uuid-2").unwrap();
-    assert!(!msg2_view.visible_to_invocation_ids.contains(&"inv-2".to_string()));
+    assert!(!msg2_view
+        .visible_to_invocation_ids
+        .contains(&"inv-2".to_string()));
 }

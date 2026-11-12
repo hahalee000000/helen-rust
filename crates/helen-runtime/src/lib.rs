@@ -21,6 +21,7 @@ pub mod http_llm;
 pub mod llm;
 pub mod mcp;
 pub mod media;
+pub mod media_storage;
 pub mod memory;
 pub mod model_caps;
 pub mod observability;
@@ -36,7 +37,6 @@ pub mod transcript;
 pub mod transcript_replay;
 pub mod validator;
 pub mod working_memory;
-pub mod media_storage;
 
 pub use session::SessionManager;
 pub use tools::{

@@ -810,16 +810,22 @@ impl Interpreter {
                 },
             );
         }
-        
+
         // v1.22: Invocation tracking builtins
-        self.register_builtin("get_invocation_id", |interp: &mut Interpreter, _args: &[Value]| {
-            Ok(Value::Str(Rc::from(interp.current_invocation_id.clone())))
-        });
-        
-        self.register_builtin("get_parent_invocation_id", |interp: &mut Interpreter, _args: &[Value]| {
-            let parent_id = interp.invocation_stack.last().cloned().unwrap_or_default();
-            Ok(Value::Str(Rc::from(parent_id)))
-        });
+        self.register_builtin(
+            "get_invocation_id",
+            |interp: &mut Interpreter, _args: &[Value]| {
+                Ok(Value::Str(Rc::from(interp.current_invocation_id.clone())))
+            },
+        );
+
+        self.register_builtin(
+            "get_parent_invocation_id",
+            |interp: &mut Interpreter, _args: &[Value]| {
+                let parent_id = interp.invocation_stack.last().cloned().unwrap_or_default();
+                Ok(Value::Str(Rc::from(parent_id)))
+            },
+        );
     }
 
     // ------------------------------------------------------------------
@@ -2697,13 +2703,14 @@ impl Interpreter {
                 .as_secs(),
             &uuid_str[..8]
         );
-        
+
         // Push current invocation ID onto stack (for nested calls)
         if !self.current_invocation_id.is_empty() {
-            self.invocation_stack.push(self.current_invocation_id.clone());
+            self.invocation_stack
+                .push(self.current_invocation_id.clone());
         }
         self.current_invocation_id = new_invocation_id.clone();
-        
+
         // v1.22: Record invocation metadata in index
         let parent_id = if !prev_invocation_id.is_empty() {
             Some(prev_invocation_id.clone())
@@ -2994,32 +3001,32 @@ impl Interpreter {
         });
 
         self.current_agent = prev_agent;
-        
+
         // v1.22: Record end_time in invocation metadata
         if let Some(meta) = self.invocation_index.get_mut(&self.current_invocation_id) {
-            meta["end_time"] = serde_json::json!(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs()
-            );
+            meta["end_time"] = serde_json::json!(std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs());
         }
-        
+
         // v1.22: Restore invocation tracking state
         self.current_invocation_id = prev_invocation_id;
         if !self.invocation_stack.is_empty() {
             self.invocation_stack.pop();
         }
-        
+
         // v1.12: Deep copy return value for L2/L3 to prevent reference escape
         let final_result = match result? {
             Flow::Return(v) => v.unwrap_or(Value::Null),
             Flow::Normal(v) => v.unwrap_or(Value::Null),
             _ => Value::Null,
         };
-        
+
         // Apply deep copy for strict/sandbox isolation levels
-        if (isolation_level == "strict" || isolation_level == "sandbox") && final_result.is_mutable_type() {
+        if (isolation_level == "strict" || isolation_level == "sandbox")
+            && final_result.is_mutable_type()
+        {
             Ok(self.deep_copy_value(&final_result))
         } else {
             Ok(final_result)
@@ -3499,8 +3506,11 @@ impl Interpreter {
         let usage_ratio = (history_tokens + system_tokens) as f64 / max_tokens as f64;
 
         // Apply graduated compression
-        let (compressed, _layer) =
-            helen_runtime::compression::graduated_compress(&messages, usage_ratio, Some(max_tokens));
+        let (compressed, _layer) = helen_runtime::compression::graduated_compress(
+            &messages,
+            usage_ratio,
+            Some(max_tokens),
+        );
 
         // Convert back to JSON entries
         compressed
@@ -3651,10 +3661,10 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             .collect();
 
         let list_value = Value::List(Rc::new(RefCell::new(media_values)));
-        
+
         // Call the stdlib to_openai_parts function
         let result = crate::media::media_to_openai_parts(self, &[list_value])?;
-        
+
         // Convert result back to JSON
         self.value_to_json_parts(result)
     }
@@ -3680,7 +3690,7 @@ errors: [Fixed token expiration handling - was missing refresh logic]
 
         // Call the adapter function
         let result = self.call_value(adapter_fn.clone(), vec![list_value, provider_value])?;
-        
+
         // Convert result back to JSON
         self.value_to_json_parts(result)
     }
@@ -3719,11 +3729,11 @@ errors: [Fixed token expiration handling - was missing refresh logic]
     fn value_to_json(&self, value: &Value) -> Result<serde_json::Value, ExceptionValue> {
         match value {
             Value::Str(s) => Ok(serde_json::Value::String(s.to_string())),
-            Value::Int(n) => Ok(serde_json::Value::Number(
-                serde_json::Number::from(n.to_i64().unwrap_or(0))
-            )),
+            Value::Int(n) => Ok(serde_json::Value::Number(serde_json::Number::from(
+                n.to_i64().unwrap_or(0),
+            ))),
             Value::Float(f) => Ok(serde_json::Value::Number(
-                serde_json::Number::from_f64(*f).unwrap_or_else(|| serde_json::Number::from(0))
+                serde_json::Number::from_f64(*f).unwrap_or_else(|| serde_json::Number::from(0)),
             )),
             Value::Bool(b) => Ok(serde_json::Value::Bool(*b)),
             Value::Null => Ok(serde_json::Value::Null),
@@ -3794,10 +3804,7 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                 other => {
                     return Err(ExceptionValue::new(
                         "TypeError",
-                        format!(
-                            "media() must return MediaPart, got {}",
-                            other.type_name()
-                        ),
+                        format!("media() must return MediaPart, got {}", other.type_name()),
                         Some(la.span.clone()),
                     ));
                 }
@@ -3829,7 +3836,12 @@ errors: [Fixed token expiration handling - was missing refresh logic]
         };
 
         // Build user message with multimodal content if media is present
-        let user_message = self.build_user_message(&prompt, &media_parts, on_media_fn.as_ref(), provider_hint.as_deref())?;
+        let user_message = self.build_user_message(
+            &prompt,
+            &media_parts,
+            on_media_fn.as_ref(),
+            provider_hint.as_deref(),
+        )?;
         // Extract agent settings (Python `_get_agent_setting`): model,
         // temperature, max-turns. M5: full signature passthrough.
         let model = self.agent_setting("model");
@@ -4066,10 +4078,14 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                 h.push(msg);
             } else {
                 // Store plain text
-                h.push(serde_json::json!({"role": "user", "content": prompt, "invocation_id": inv_id}));
+                h.push(
+                    serde_json::json!({"role": "user", "content": prompt, "invocation_id": inv_id}),
+                );
             }
             if let Some(t) = &response.text {
-                h.push(serde_json::json!({"role": "assistant", "content": t, "invocation_id": inv_id}));
+                h.push(
+                    serde_json::json!({"role": "assistant", "content": t, "invocation_id": inv_id}),
+                );
             }
         }
 
