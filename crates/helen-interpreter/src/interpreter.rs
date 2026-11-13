@@ -141,6 +141,144 @@ pub struct Interpreter {
 /// Shared items use `Arc` (`llm_runtime`, `stdout`, the endpoint).
 /// Python's GIL makes the equivalent Python code "safe"; Rust documents this
 /// single-owner transfer as intentionally stricter.
+/// v1.46.23: Filter for stripping <working_memory> blocks from streaming content.
+/// Python parity: llm_mixin.py WorkingMemoryStreamFilter.
+/// Buffers content during streaming to detect and discard
+/// <working_memory>...</working_memory> blocks before they reach the user.
+struct WorkingMemoryFilter {
+    buffer: String,
+    in_wm_block: bool,
+    just_closed_block: bool,
+}
+
+impl WorkingMemoryFilter {
+    fn new() -> Self {
+        Self {
+            buffer: String::new(),
+            in_wm_block: false,
+            just_closed_block: false,
+        }
+    }
+
+    /// Process a chunk and return filtered content (may be empty).
+    fn process(&mut self, content: &str) -> String {
+        // Skip leading whitespace if we just closed a block
+        let content = if self.just_closed_block {
+            self.just_closed_block = false;
+            content.trim_start_matches(|c| c == '\n' || c == '\r' || c == ' ' || c == '\t')
+        } else {
+            content
+        };
+
+        self.buffer.push_str(content);
+        let mut result = String::new();
+
+        while !self.buffer.is_empty() {
+            if !self.in_wm_block {
+                // Look for start of <working_memory> block (case-insensitive)
+                let buffer_lower = self.buffer.to_lowercase();
+                if let Some(pos) = buffer_lower.find("<working_memory") {
+                    // Output everything before the match
+                    result.push_str(&self.buffer[..pos]);
+                    // Keep the potential tag start in buffer
+                    self.buffer = self.buffer[pos..].to_string();
+
+                    // Check if we have the complete opening tag
+                    let buffer_lower = self.buffer.to_lowercase();
+                    if let Some(tag_end) = buffer_lower.find('>') {
+                        if buffer_lower[..=tag_end].starts_with("<working_memory") {
+                            self.in_wm_block = true;
+                            self.buffer = self.buffer[tag_end + 1..].to_string();
+                        } else if self.buffer.len() < 50 {
+                            // Not enough chars to confirm tag, wait for more
+                            break;
+                        } else {
+                            // Too many chars without proper tag, output first char
+                            result.push_str(&self.buffer[..1]);
+                            self.buffer = self.buffer[1..].to_string();
+                        }
+                    } else if self.buffer.len() < 50 {
+                        // Not enough chars to confirm tag, wait for more
+                        break;
+                    } else {
+                        // Too many chars without closing '>', probably not a tag
+                        result.push_str(&self.buffer[..1]);
+                        self.buffer = self.buffer[1..].to_string();
+                    }
+                } else {
+                    // No working memory block start found
+                    // Check if buffer ends with potential tag prefix
+                    let prefixes = [
+                        "<", "<w", "<wo", "<wor", "<work", "<worki", "<workin", "<working",
+                        "<working_", "<working_m", "<working_me", "<working_mem", "<working_memo",
+                        "<working_memor", "<working_memory",
+                    ];
+                    let mut found_prefix = false;
+                    for prefix in &prefixes {
+                        if self.buffer.to_lowercase().ends_with(prefix) {
+                            // Might be incomplete tag, keep last part in buffer
+                            let safe_len = self.buffer.len().saturating_sub(20);
+                            if safe_len > 0 {
+                                result.push_str(&self.buffer[..safe_len]);
+                                self.buffer = self.buffer[safe_len..].to_string();
+                            }
+                            found_prefix = true;
+                            break;
+                        }
+                    }
+                    if !found_prefix {
+                        // Safe to output everything
+                        result.push_str(&self.buffer);
+                        self.buffer.clear();
+                        break;
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                // Inside <working_memory> block, look for closing tag
+                let buffer_lower = self.buffer.to_lowercase();
+                if let Some(pos) = buffer_lower.find("</working_memory") {
+                    // Find the closing '>'
+                    let after_tag = &buffer_lower[pos..];
+                    if let Some(tag_end) = after_tag.find('>') {
+                        // Discard everything up to and including closing tag
+                        let actual_end = pos + tag_end + 1;
+                        self.buffer = self.buffer[actual_end..].to_string();
+                        self.in_wm_block = false;
+                        self.just_closed_block = true;
+                        // Also skip any trailing whitespace in current buffer
+                        let trimmed = self.buffer.trim_start();
+                        self.buffer = trimmed.to_string();
+                    } else {
+                        // Still inside block, discard all buffered content
+                        self.buffer.clear();
+                        break;
+                    }
+                } else {
+                    // Still inside block, discard all buffered content
+                    self.buffer.clear();
+                    break;
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Flush any remaining buffered content (call at end of stream).
+    fn flush(&mut self) -> String {
+        if self.in_wm_block {
+            // Still inside unclosed block, discard everything
+            self.buffer.clear();
+            self.in_wm_block = false;
+        }
+        let result = self.buffer.clone();
+        self.buffer.clear();
+        result
+    }
+}
+
 struct SpawnPayload {
     env: Environment,
     functions: HashMap<String, Rc<FunctionDecl>>,
@@ -3921,6 +4059,9 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             let full_text = Rc::new(RefCell::new(String::new()));
             let interrupted = Rc::new(RefCell::new(false));
 
+            // v1.46.23: Working memory filter to strip <working_memory> blocks from streaming output
+            let wm_filter = Rc::new(RefCell::new(WorkingMemoryFilter::new()));
+
             // Prepare callbacks for streaming
             let chunk_fn_opt = if let Some(oc) = &la.on_chunk {
                 Some(self.eval_expr(oc)?)
@@ -3937,6 +4078,7 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             let self_ptr_stream = self as *mut Interpreter;
             let full_text_clone = full_text.clone();
             let interrupted_clone = interrupted.clone();
+            let wm_filter_clone = wm_filter.clone();
             let mut on_event = move |event: serde_json::Value| -> bool {
                 if *interrupted_clone.borrow() {
                     return false;
@@ -3957,22 +4099,26 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                         "content" => {
                             if let Some(content) = event.get("content").and_then(|c| c.as_str()) {
                                 if !content.is_empty() {
-                                    full_text_clone.borrow_mut().push_str(content);
-                                    // Call Helen on_chunk callback
-                                    if let Some(ref chunk_fn) = chunk_fn_opt {
-                                        let interp = unsafe { &mut *self_ptr_stream };
-                                        match interp.call_value(
-                                            chunk_fn.clone(),
-                                            vec![Value::Str(Rc::from(content))],
-                                        ) {
-                                            Ok(result) => {
-                                                if matches!(result, Value::Bool(false)) {
-                                                    *interrupted_clone.borrow_mut() = true;
-                                                    return false;
+                                    // v1.46.23: Filter working memory blocks before storing/calling callback
+                                    let filtered = wm_filter_clone.borrow_mut().process(content);
+                                    if !filtered.is_empty() {
+                                        full_text_clone.borrow_mut().push_str(&filtered);
+                                        // Call Helen on_chunk callback
+                                        if let Some(ref chunk_fn) = chunk_fn_opt {
+                                            let interp = unsafe { &mut *self_ptr_stream };
+                                            match interp.call_value(
+                                                chunk_fn.clone(),
+                                                vec![Value::Str(Rc::from(filtered.as_str()))],
+                                            ) {
+                                                Ok(result) => {
+                                                    if matches!(result, Value::Bool(false)) {
+                                                        *interrupted_clone.borrow_mut() = true;
+                                                        return false;
+                                                    }
                                                 }
-                                            }
-                                            Err(_) => {
-                                                // Callback error — continue streaming
+                                                Err(_) => {
+                                                    // Callback error — continue streaming
+                                                }
                                             }
                                         }
                                     }
@@ -4058,6 +4204,11 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                     h.push(user_message.clone());
                 } else {
                     h.push(serde_json::json!({"role": "user", "content": prompt}));
+                }
+                // v1.46.23: Flush remaining filtered content
+                let remaining = wm_filter.borrow_mut().flush();
+                if !remaining.is_empty() {
+                    full_text.borrow_mut().push_str(&remaining);
                 }
                 let text = full_text.borrow().clone();
                 if !text.is_empty() {
@@ -4148,7 +4299,15 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             }
         }
 
-        match response.text {
+        // v1.46.23: Filter <working_memory> blocks from non-streaming response (Python parity)
+        let filtered_text = response.text.map(|t| {
+            let mut filter = WorkingMemoryFilter::new();
+            let filtered = filter.process(&t);
+            let remaining = filter.flush();
+            filtered + &remaining
+        });
+
+        match filtered_text {
             Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
             None => Ok(Value::Null),
         }
@@ -4231,5 +4390,74 @@ mod tests {
         let result = format_tool_args(&args);
         assert!(result.contains("config="));
         assert!(result.contains("key"));
+    }
+
+    // v1.46.23: WorkingMemoryFilter tests (Python parity)
+    #[test]
+    fn test_working_memory_filter_no_block() {
+        let mut filter = WorkingMemoryFilter::new();
+        let result = filter.process("Hello, world!");
+        assert_eq!(result, "Hello, world!");
+        let remaining = filter.flush();
+        assert_eq!(remaining, "");
+    }
+
+    #[test]
+    fn test_working_memory_filter_strips_block() {
+        let mut filter = WorkingMemoryFilter::new();
+        // Filter strips trailing whitespace after closing tag
+        let result = filter.process("Before <working_memory>secret</working_memory> After");
+        assert_eq!(result, "Before After");
+        let remaining = filter.flush();
+        assert_eq!(remaining, "");
+    }
+
+    #[test]
+    fn test_working_memory_filter_strips_block_with_newlines() {
+        let mut filter = WorkingMemoryFilter::new();
+        let input = "Before\n<working_memory>\nactive_files: []\n</working_memory>\nAfter";
+        let result = filter.process(input);
+        // Filter preserves content before block, strips block and trailing whitespace
+        assert_eq!(result, "Before\nAfter");
+        let remaining = filter.flush();
+        assert_eq!(remaining, "");
+    }
+
+    #[test]
+    fn test_working_memory_filter_streaming_chunks() {
+        let mut filter = WorkingMemoryFilter::new();
+        // Simulate streaming in chunks
+        let r1 = filter.process("Hello ");
+        assert_eq!(r1, "Hello ");
+        let r2 = filter.process("<working_");
+        // Buffer holds incomplete tag
+        assert_eq!(r2, "");
+        let r3 = filter.process("memory>secret</working_");
+        // Still inside block, content discarded
+        assert_eq!(r3, "");
+        let r4 = filter.process("memory>");
+        // Block closed, trailing whitespace stripped
+        assert_eq!(r4, "");
+        let remaining = filter.flush();
+        assert_eq!(remaining, "");
+    }
+
+    #[test]
+    fn test_working_memory_filter_unclosed_block() {
+        let mut filter = WorkingMemoryFilter::new();
+        let result = filter.process("Before <working_memory>unclosed");
+        assert_eq!(result, "Before ");
+        let remaining = filter.flush();
+        assert_eq!(remaining, ""); // Unclosed block is discarded
+    }
+
+    #[test]
+    fn test_working_memory_filter_case_insensitive() {
+        let mut filter = WorkingMemoryFilter::new();
+        let result = filter.process("Before <Working_Memory>secret</Working_Memory> After");
+        // Filter strips trailing whitespace after closing tag
+        assert_eq!(result, "Before After");
+        let remaining = filter.flush();
+        assert_eq!(remaining, "");
     }
 }
