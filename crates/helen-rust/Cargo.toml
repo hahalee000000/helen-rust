@@ -12,14 +12,14 @@ name = "helen"
 path = "src/main.rs"
 
 [dependencies]
-helen-core = { version = "0.1.0", path = "../helen-core" }
-helen-parser = { version = "0.1.0", path = "../helen-parser" }
-helen-semantic = { version = "0.1.0", path = "../helen-semantic" }
-helen-interpreter = { version = "0.1.0", path = "../helen-interpreter" }
-helen-runtime = { version = "0.1.0", path = "../helen-runtime" }
-helen-lsp = { version = "0.1.0", path = "../helen-lsp" }
-helen-ffi = { version = "0.1.0", path = "../helen-ffi", optional = true }
-helen-agent = { version = "0.1.3", path = "../helen-agent" }
+helen-core = { version = "0.1.5", path = "../helen-core" }
+helen-parser = { version = "0.1.5", path = "../helen-parser" }
+helen-semantic = { version = "0.1.5", path = "../helen-semantic" }
+helen-interpreter = { version = "0.1.5", path = "../helen-interpreter" }
+helen-runtime = { version = "0.1.5", path = "../helen-runtime" }
+helen-lsp = { version = "0.1.5", path = "../helen-lsp" }
+helen-ffi = { version = "0.1.5", path = "../helen-ffi", optional = true }
+helen-agent = { version = "0.1.5", path = "../helen-agent" }
 serde_json.workspace = true
 chrono.workspace = true
 tokio = { version = "1", features = ["full"] }
