@@ -33,7 +33,8 @@ pub struct Channel<T: Queueable> {
     /// Spawned agent -> main thread direction.
     from_spawned: Mutex<VecDeque<T>>,
     closed: AtomicBool,
-    cancelled: AtomicBool,
+    /// Cancellation signal (shared with spawned interpreters for streaming cancel).
+    pub cancelled: std::sync::Arc<AtomicBool>,
     cv: Condvar,
 }
 
@@ -44,7 +45,7 @@ impl<T: Queueable> Channel<T> {
             to_spawned: Mutex::new(VecDeque::new()),
             from_spawned: Mutex::new(VecDeque::new()),
             closed: AtomicBool::new(false),
-            cancelled: AtomicBool::new(false),
+            cancelled: std::sync::Arc::new(AtomicBool::new(false)),
             cv: Condvar::new(),
         }
     }
@@ -55,6 +56,12 @@ impl<T: Queueable> Channel<T> {
 
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::SeqCst)
+    }
+
+    /// Get a reference to the cancel event for external checking.
+    /// Used by spawned interpreters to check cancellation during streaming.
+    pub fn cancel_event(&self) -> std::sync::Arc<AtomicBool> {
+        self.cancelled.clone()
     }
 
     fn mark_closed(&self) {

@@ -10,6 +10,7 @@ use helen_interpreter::value::Value;
 use helen_parser::Parser;
 use num_bigint::BigInt;
 
+#[allow(dead_code)]
 fn int(n: i64) -> Value {
     Value::Int(BigInt::from(n))
 }

@@ -124,6 +124,10 @@ pub struct Interpreter {
     pub invocation_index: std::collections::HashMap<String, serde_json::Value>,
     /// P1: Compression callback (invoked after each context compression).
     pub compression_callback: Option<Value>,
+    /// P0: Agent cancel event for streaming cancellation (spawn scenario).
+    /// Python: `interp._agent_cancel_event = spawned_endpoint.cancel_event`
+    /// When set, the interpreter checks this during LLM streaming to abort on cancel.
+    pub agent_cancel_event: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -157,6 +161,9 @@ struct SpawnPayload {
     resume_session_id: Option<String>,
     /// v1.46.22: Session manager from parent (so spawned agent writes to same sessions dir).
     session_manager: std::sync::Arc<std::sync::Mutex<helen_runtime::SessionManager>>,
+    /// P0: Cancel event from channel endpoint (for streaming cancellation).
+    /// Python: `spawned_interp._agent_cancel_event = spawned_endpoint.cancel_event`
+    cancel_event: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 // SAFETY: see the struct doc — single-owner Rc discipline.
@@ -184,6 +191,9 @@ fn run_spawned(p: SpawnPayload) {
     if let Some(sid) = &p.resume_session_id {
         interp.session_id = sid.clone();
     }
+    // P0: Inject cancel_event so spawned interpreter can check cancellation during streaming
+    // Python: spawned_interp._agent_cancel_event = spawned_endpoint.cancel_event
+    interp.agent_cancel_event = Some(p.cancel_event);
 
     let result = interp.call_agent(&p.agent, p.args, &p.span);
     if let Err(e) = result {
@@ -240,6 +250,7 @@ impl Interpreter {
             invocation_stack: Vec::new(),
             invocation_index: std::collections::HashMap::new(),
             compression_callback: None,
+            agent_cancel_event: None,
         };
         interp.register_core_builtins();
         interp
@@ -1190,9 +1201,10 @@ impl Interpreter {
             span: sp.span.clone(),
             llm_runtime,
             stdout,
-            endpoint: spawned_endpoint,
+            endpoint: spawned_endpoint.clone(),
             resume_session_id,
             session_manager: self.session_manager.clone(),
+            cancel_event: spawned_endpoint.channel().cancel_event(),
         };
 
         std::thread::Builder::new()
