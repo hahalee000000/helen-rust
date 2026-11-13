@@ -76,7 +76,7 @@ def main() -> int:
         )
     lines.append("];")
     lines.append("")
-    lines.append("/// All 351 localized aliases: alias -> canonical name.")
+    lines.append(f"/// All {len(aliases)} localized aliases: alias -> canonical name.")
     lines.append("pub static BUILTIN_ALIASES: &[(&str, &str)] = &[")
     for alias, canon in aliases.items():
         lines.append(
