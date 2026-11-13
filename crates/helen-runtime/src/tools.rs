@@ -6,6 +6,7 @@
 //!   patch_file, find_files, search_files, load_skill, list_skill_references.
 
 use crate::mcp::MCPToolRegistry;
+use regex::Regex;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -589,10 +590,90 @@ fn tool_write_file(args: &Value) -> String {
     }
 }
 
+/// v1.46: Self-preservation guard — blocks commands that would kill the agent.
+/// Port of Python `_check_self_destruct()`.
+fn check_self_destruct(command: &str) -> Option<String> {
+    let own_pid = std::process::id();
+    let cmd_lower = command.to_lowercase();
+
+    let dangerous_patterns = [
+        // pkill -f "helen agent" (with quotes or escaped space)
+        r#"\bpkill\b.*-[a-z]*f[a-z]*\s+["']?helen[\s\\]+agent"#,
+        // pkill -f helen.agent (dot matches any char)
+        r#"\bpkill\b.*-[a-z]*f[a-z]*\s+["']?helen.agent"#,
+        // killall -f "helen agent"
+        r#"\bkillall\b.*-[a-z]*f[a-z]*\s+["']?helen[\s\\]+agent"#,
+        r#"\bkillall\b.*-[a-z]*f[a-z]*\s+["']?helen(?:\s|$|["'])"#,
+        r#"\bkillall\b\s+["']?helen(?:\s|\\|$|["'])"#,
+        // kill <own_pid>
+        &format!(r"\bkill\b.*\b{own_pid}\b"),
+        // kill -9 helen (process name match)
+        r#"\bkill\b\s+-\d+\s+["']?helen"#,
+    ];
+
+    for pattern in &dangerous_patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if re.is_match(&cmd_lower) {
+                return Some(format!(
+                    "Command would kill the agent process itself (matched: {pattern:?}). \
+                     This is blocked for self-preservation. If you need to kill a previous \
+                     helen agent, use a more specific pattern that excludes the current process."
+                ));
+            }
+        }
+    }
+
+    // Detect indirect kill patterns (ps | grep | xargs kill)
+    if check_indirect_kill_pattern(&cmd_lower) {
+        return Some(
+            "Command would kill the agent process itself (indirect kill pattern: \
+             grep for helen + xargs kill). This is blocked for self-preservation. \
+             If you need to kill a previous helen agent, use a more specific pattern \
+             that excludes the current process."
+                .to_string(),
+        );
+    }
+
+    None
+}
+
+/// v1.46.14: Detect indirect kill patterns: grep for helen + xargs kill.
+/// Port of Python `_check_indirect_kill_pattern()`.
+fn check_indirect_kill_pattern(command: &str) -> bool {
+    // Check if command has xargs kill (with optional sudo)
+    let has_xargs_kill = Regex::new(r"\bxargs\s+(sudo\s+)?kill\b")
+        .map(|re| re.is_match(command))
+        .unwrap_or(false);
+    if !has_xargs_kill {
+        return false;
+    }
+
+    // Check if command greps for helen-related patterns
+    let helen_grep_patterns = [
+        r"\bgrep\b[^|]*\bhelen\b",
+        r#"\bgrep\b[^|]*["']helen"#,
+    ];
+
+    for pattern in &helen_grep_patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if re.is_match(command) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 fn tool_shell_exec(args: &Value) -> String {
     let command = arg_str(args, "command").unwrap_or_default();
     let timeout = arg_int(args, "timeout", 120) as u64;
     let shell = arg_bool(args, "shell", true);
+
+    // v1.46: Self-preservation — block commands that would kill the agent
+    if let Some(blocked) = check_self_destruct(command) {
+        return format!("[blocked] {blocked}");
+    }
 
     let result = run_command(command, timeout, shell);
     match result {
@@ -1244,5 +1325,37 @@ mod tests {
         assert!(glob_match("**/*.rs", "src/a.rs"));
         assert!(glob_match("src/**/*.js", "src/deep/x.js"));
         assert!(!glob_match("src/**/*.js", "other/x.js"));
+    }
+
+    #[test]
+    fn shell_exec_self_destruct_blocked() {
+        // Test direct kill patterns
+        let r1 = dispatch_tool("shell_exec", &json!({"command": "pkill -f \"helen agent\""}));
+        assert!(r1.contains("[blocked]"), "pkill should be blocked: {}", r1);
+
+        let r2 = dispatch_tool("shell_exec", &json!({"command": "killall helen"}));
+        assert!(r2.contains("[blocked]"), "killall should be blocked: {}", r2);
+
+        let own_pid = std::process::id();
+        let r3 = dispatch_tool("shell_exec", &json!({"command": format!("kill {}", own_pid)}));
+        assert!(r3.contains("[blocked]"), "kill own pid should be blocked: {}", r3);
+
+        // Test indirect kill patterns
+        let r4 = dispatch_tool("shell_exec", &json!({"command": "ps aux | grep helen | xargs kill"}));
+        assert!(r4.contains("[blocked]"), "indirect kill should be blocked: {}", r4);
+    }
+
+    #[test]
+    fn shell_exec_safe_commands_allowed() {
+        // These should NOT be blocked
+        let r1 = dispatch_tool("shell_exec", &json!({"command": "echo hello"}));
+        assert!(!r1.contains("[blocked]"), "echo should be allowed: {}", r1);
+
+        let r2 = dispatch_tool("shell_exec", &json!({"command": "ls -la"}));
+        assert!(!r2.contains("[blocked]"), "ls should be allowed: {}", r2);
+
+        // Kill other processes (not helen) should be allowed
+        let r3 = dispatch_tool("shell_exec", &json!({"command": "kill 12345"}));
+        assert!(!r3.contains("[blocked]"), "kill other pid should be allowed: {}", r3);
     }
 }
