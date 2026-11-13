@@ -122,6 +122,8 @@ pub struct Interpreter {
     /// v1.22: Invocation metadata index (tracks parent-child relationships).
     /// Maps invocation_id -> metadata (agent_name, parent_id, start_time, etc.)
     pub invocation_index: std::collections::HashMap<String, serde_json::Value>,
+    /// P1: Compression callback (invoked after each context compression).
+    pub compression_callback: Option<Value>,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -237,6 +239,7 @@ impl Interpreter {
             current_invocation_id: String::new(),
             invocation_stack: Vec::new(),
             invocation_index: std::collections::HashMap::new(),
+            compression_callback: None,
         };
         interp.register_core_builtins();
         interp

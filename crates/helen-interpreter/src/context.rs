@@ -605,9 +605,55 @@ pub fn context_compress_context(
                 Value::Str(Rc::from("strategy")),
                 Value::Str(Rc::from(strategy.as_str())),
             );
+
+            // Invoke compression callback if registered
+            if let Some(callback) = &interp.compression_callback {
+                let stats = Value::Map(Rc::new(RefCell::new(result.clone())));
+                let _ = interp.call_value(callback.clone(), vec![stats]);
+            }
+
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
-        None => Ok(make_error_map("No interpreter context available")),
+        None => {
+            // No transcript store - return error but still invoke callback with default stats
+            let mut result = indexmap::IndexMap::new();
+            result.insert(
+                Value::Str(Rc::from("status")),
+                Value::Str(Rc::from("error")),
+            );
+            result.insert(
+                Value::Str(Rc::from("error")),
+                Value::Str(Rc::from("No interpreter context available")),
+            );
+            result.insert(
+                Value::Str(Rc::from("original_messages")),
+                Value::Int(BigInt::from(0)),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed_messages")),
+                Value::Int(BigInt::from(0)),
+            );
+            result.insert(
+                Value::Str(Rc::from("original_tokens")),
+                Value::Int(BigInt::from(0)),
+            );
+            result.insert(
+                Value::Str(Rc::from("compressed_tokens")),
+                Value::Int(BigInt::from(0)),
+            );
+            result.insert(
+                Value::Str(Rc::from("strategy")),
+                Value::Str(Rc::from(strategy.as_str())),
+            );
+            
+            // Invoke compression callback if registered (even on error)
+            if let Some(callback) = &interp.compression_callback {
+                let stats = Value::Map(Rc::new(RefCell::new(result.clone())));
+                let _ = interp.call_value(callback.clone(), vec![stats]);
+            }
+            
+            Ok(Value::Map(Rc::new(RefCell::new(result))))
+        }
     }
 }
 
@@ -1099,11 +1145,24 @@ pub fn context_compress_context_target(
 /// Python: `_on_compression(callback)`.
 /// Registers a callback to be invoked when compression occurs.
 pub fn context_on_compression(
-    _interp: &mut Interpreter,
-    _args: &[Value],
+    interp: &mut Interpreter,
+    args: &[Value],
 ) -> Result<Value, ExceptionValue> {
+    let callback = args.first().cloned();
+    let previous = interp.compression_callback.take();
+
+    // Store the new callback (None clears it)
+    interp.compression_callback = match &callback {
+        Some(Value::Null) => None,
+        Some(v) => Some(v.clone()),
+        None => None,
+    };
+
     let mut result = make_ok_map();
-    result.insert(Value::Str(Rc::from("note")), Value::Str(Rc::from("Compression callback registered (callback invocation requires event system integration)")));
+    result.insert(
+        Value::Str(Rc::from("previous")),
+        previous.unwrap_or(Value::Null),
+    );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
 
