@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "helen-rust"
-version = "0.1.4"
+version = "0.1.5"
 description = "Helen language Rust runtime — Python bridge (import and call Helen agents from Python)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,6 +12,12 @@ license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.optional-dependencies]
+dev = [
+    "maturin>=1.0,<2.0",
+    "pytest>=7.0",
 ]
 
 [tool.maturin]
