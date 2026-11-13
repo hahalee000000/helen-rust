@@ -8,10 +8,10 @@
 //! spawned_interp._agent_cancel_event = spawned_endpoint.cancel_event
 //! ```
 
+use helen_core::lexer::Scanner;
 use helen_interpreter::exceptions::ExceptionValue;
 use helen_interpreter::interpreter::Interpreter;
 use helen_interpreter::value::Value;
-use helen_core::lexer::Scanner;
 use helen_parser::Parser;
 use std::sync::{Arc, Mutex};
 
@@ -167,7 +167,7 @@ fn agent_cancel_event_attribute_injection() {
     //
     // In Rust, this translates to:
     // interp.agent_cancel_event = Some(endpoint.cancel_event.clone())
-    
+
     let (r, _) = run_src(
         r#"
         agent Worker(mb) {
@@ -202,32 +202,48 @@ fn interpreter_has_agent_cancel_event_field() {
     //
     // Python: interp._agent_cancel_event = threading.Event()
     // Rust: interp.agent_cancel_event: Option<Arc<AtomicBool>>
-    
+
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
-    
+
     let mut interp = Interpreter::new();
-    
+
     // Initially, agent_cancel_event should be None
-    assert!(interp.agent_cancel_event.is_none(), 
-            "agent_cancel_event should be None initially");
-    
+    assert!(
+        interp.agent_cancel_event.is_none(),
+        "agent_cancel_event should be None initially"
+    );
+
     // Set the cancel event
     let cancel_event = Arc::new(AtomicBool::new(false));
     interp.agent_cancel_event = Some(cancel_event.clone());
-    
+
     // Verify it's set
-    assert!(interp.agent_cancel_event.is_some(), 
-            "agent_cancel_event should be set");
-    
+    assert!(
+        interp.agent_cancel_event.is_some(),
+        "agent_cancel_event should be set"
+    );
+
     // Verify we can check the cancel status
-    assert!(!interp.agent_cancel_event.as_ref().unwrap().load(Ordering::SeqCst),
-            "cancel_event should not be set initially");
-    
+    assert!(
+        !interp
+            .agent_cancel_event
+            .as_ref()
+            .unwrap()
+            .load(Ordering::SeqCst),
+        "cancel_event should not be set initially"
+    );
+
     // Set the cancel event
     cancel_event.store(true, Ordering::SeqCst);
-    
+
     // Verify the interpreter sees the cancel
-    assert!(interp.agent_cancel_event.as_ref().unwrap().load(Ordering::SeqCst),
-            "cancel_event should be set after store");
+    assert!(
+        interp
+            .agent_cancel_event
+            .as_ref()
+            .unwrap()
+            .load(Ordering::SeqCst),
+        "cancel_event should be set after store"
+    );
 }

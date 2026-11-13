@@ -66,7 +66,7 @@ fn external_cancel_interrupts_streaming() {
     // 3. It can be checked during streaming
 
     let mut interp = Interpreter::new();
-    
+
     // Verify agent_cancel_event field exists and is None initially
     assert!(
         interp.agent_cancel_event.is_none(),
@@ -85,11 +85,17 @@ fn external_cancel_interrupts_streaming() {
 
     // Verify we can check its state
     if let Some(ref ce) = interp.agent_cancel_event {
-        assert!(!ce.load(Ordering::SeqCst), "Cancel should be false initially");
-        
+        assert!(
+            !ce.load(Ordering::SeqCst),
+            "Cancel should be false initially"
+        );
+
         // Set it to true
         ce.store(true, Ordering::SeqCst);
-        assert!(ce.load(Ordering::SeqCst), "Cancel should be true after setting");
+        assert!(
+            ce.load(Ordering::SeqCst),
+            "Cancel should be true after setting"
+        );
     } else {
         panic!("agent_cancel_event should be Some");
     }
@@ -110,7 +116,7 @@ fn streaming_infrastructure_checks_cancel() {
     // 3. The field can be used to interrupt streaming
 
     let mut interp = Interpreter::new();
-    
+
     // Create a cancel event
     let cancel_event = Arc::new(AtomicBool::new(false));
     interp.agent_cancel_event = Some(cancel_event.clone());
@@ -122,7 +128,10 @@ fn streaming_infrastructure_checks_cancel() {
         .map(|ce| ce.load(Ordering::SeqCst))
         .unwrap_or(false);
 
-    assert!(!should_interrupt, "Should not interrupt when cancel is false");
+    assert!(
+        !should_interrupt,
+        "Should not interrupt when cancel is false"
+    );
 
     // Set cancel to true
     cancel_event.store(true, Ordering::SeqCst);
@@ -161,12 +170,15 @@ fn cancel_propagates_from_channel_to_streaming() {
 
     // Create a channel
     let channel = Channel::<TestMsg>::new("test");
-    
+
     // Get the cancel_event
     let cancel_event = channel.cancel_event();
-    
+
     // Verify it's not cancelled initially
-    assert!(!cancel_event.load(Ordering::SeqCst), "Should not be cancelled initially");
+    assert!(
+        !cancel_event.load(Ordering::SeqCst),
+        "Should not be cancelled initially"
+    );
 
     // Create an interpreter and inject the cancel_event
     let mut interp = Interpreter::new();
@@ -189,5 +201,8 @@ fn cancel_propagates_from_channel_to_streaming() {
         .as_ref()
         .map(|ce| ce.load(Ordering::SeqCst))
         .unwrap_or(false);
-    assert!(is_cancelled, "Interpreter should see cancel as true after setting cancelled flag");
+    assert!(
+        is_cancelled,
+        "Interpreter should see cancel as true after setting cancelled flag"
+    );
 }

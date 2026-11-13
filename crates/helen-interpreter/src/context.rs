@@ -645,13 +645,13 @@ pub fn context_compress_context(
                 Value::Str(Rc::from("strategy")),
                 Value::Str(Rc::from(strategy.as_str())),
             );
-            
+
             // Invoke compression callback if registered (even on error)
             if let Some(callback) = &interp.compression_callback {
                 let stats = Value::Map(Rc::new(RefCell::new(result.clone())));
                 let _ = interp.call_value(callback.clone(), vec![stats]);
             }
-            
+
             Ok(Value::Map(Rc::new(RefCell::new(result))))
         }
     }

@@ -128,8 +128,11 @@ fn on_compression_callback_invoked_on_compression() {
     );
     assert!(r.is_ok());
     // The callback should have been invoked and printed
-    assert!(out.contains("Callback invoked!"), 
-            "Expected callback to be invoked, but output was: {}", out);
+    assert!(
+        out.contains("Callback invoked!"),
+        "Expected callback to be invoked, but output was: {}",
+        out
+    );
 }
 
 #[test]
@@ -158,6 +161,9 @@ fn on_compression_callback_receives_stats() {
     );
     assert!(r.is_ok());
     // The callback should have received stats
-    assert!(out.contains("Original tokens:") || out.contains("Compressed tokens:"),
-            "Expected callback to receive stats, but output was: {}", out);
+    assert!(
+        out.contains("Original tokens:") || out.contains("Compressed tokens:"),
+        "Expected callback to receive stats, but output was: {}",
+        out
+    );
 }
