@@ -308,15 +308,36 @@ impl HelenActorBridge {
             }
 
             // 4. Message loop: receive messages from Rust and call Helen functions
+            // ChatSessionActor has a 300s timeout — send heartbeat every 60s to keep it alive
+            let mut last_user_msg_time = std::time::Instant::now();
+            let heartbeat_interval = std::time::Duration::from_secs(60);
+
             loop {
                 // Check if we should exit
                 if !alive_clone.load(Ordering::Relaxed) {
                     break;
                 }
 
+                // Send heartbeat if no user message for 60 seconds
+                if last_user_msg_time.elapsed() >= heartbeat_interval {
+                    if let Some(heartbeat_func) = interp.functions.get("send_heartbeat").cloned() {
+                        let span = helen_core::source::SourceSpan::new(
+                            "chat_actor.helen".to_string(),
+                            0,
+                            0,
+                            0,
+                            0,
+                        );
+                        // Heartbeat is fire-and-forget; ignore errors
+                        let _ = interp.call_function(&heartbeat_func, vec![], None, &span);
+                    }
+                    last_user_msg_time = std::time::Instant::now();
+                }
+
                 // Try to receive a message from Rust (blocking with timeout)
                 match input_rx_for_thread.recv_timeout(std::time::Duration::from_millis(100)) {
                     Ok(input) => {
+                        last_user_msg_time = std::time::Instant::now();
                         // Call tui_chat_handler_actor_stream(user_input, file_paths, streaming_channel)
                         if let Some(func) = interp
                             .functions
