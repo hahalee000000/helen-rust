@@ -165,7 +165,7 @@ impl WorkingMemoryFilter {
         // Skip leading whitespace if we just closed a block
         let content = if self.just_closed_block {
             self.just_closed_block = false;
-            content.trim_start_matches(|c| c == '\n' || c == '\r' || c == ' ' || c == '\t')
+            content.trim_start_matches(['\n', '\r', ' ', '\t'])
         } else {
             content
         };
@@ -209,9 +209,21 @@ impl WorkingMemoryFilter {
                     // No working memory block start found
                     // Check if buffer ends with potential tag prefix
                     let prefixes = [
-                        "<", "<w", "<wo", "<wor", "<work", "<worki", "<workin", "<working",
-                        "<working_", "<working_m", "<working_me", "<working_mem", "<working_memo",
-                        "<working_memor", "<working_memory",
+                        "<",
+                        "<w",
+                        "<wo",
+                        "<wor",
+                        "<work",
+                        "<worki",
+                        "<workin",
+                        "<working",
+                        "<working_",
+                        "<working_m",
+                        "<working_me",
+                        "<working_mem",
+                        "<working_memo",
+                        "<working_memor",
+                        "<working_memory",
                     ];
                     let mut found_prefix = false;
                     for prefix in &prefixes {

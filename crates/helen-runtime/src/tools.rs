@@ -649,10 +649,7 @@ fn check_indirect_kill_pattern(command: &str) -> bool {
     }
 
     // Check if command greps for helen-related patterns
-    let helen_grep_patterns = [
-        r"\bgrep\b[^|]*\bhelen\b",
-        r#"\bgrep\b[^|]*["']helen"#,
-    ];
+    let helen_grep_patterns = [r"\bgrep\b[^|]*\bhelen\b", r#"\bgrep\b[^|]*["']helen"#];
 
     for pattern in &helen_grep_patterns {
         if let Ok(re) = Regex::new(pattern) {
@@ -1330,19 +1327,40 @@ mod tests {
     #[test]
     fn shell_exec_self_destruct_blocked() {
         // Test direct kill patterns
-        let r1 = dispatch_tool("shell_exec", &json!({"command": "pkill -f \"helen agent\""}));
+        let r1 = dispatch_tool(
+            "shell_exec",
+            &json!({"command": "pkill -f \"helen agent\""}),
+        );
         assert!(r1.contains("[blocked]"), "pkill should be blocked: {}", r1);
 
         let r2 = dispatch_tool("shell_exec", &json!({"command": "killall helen"}));
-        assert!(r2.contains("[blocked]"), "killall should be blocked: {}", r2);
+        assert!(
+            r2.contains("[blocked]"),
+            "killall should be blocked: {}",
+            r2
+        );
 
         let own_pid = std::process::id();
-        let r3 = dispatch_tool("shell_exec", &json!({"command": format!("kill {}", own_pid)}));
-        assert!(r3.contains("[blocked]"), "kill own pid should be blocked: {}", r3);
+        let r3 = dispatch_tool(
+            "shell_exec",
+            &json!({"command": format!("kill {}", own_pid)}),
+        );
+        assert!(
+            r3.contains("[blocked]"),
+            "kill own pid should be blocked: {}",
+            r3
+        );
 
         // Test indirect kill patterns
-        let r4 = dispatch_tool("shell_exec", &json!({"command": "ps aux | grep helen | xargs kill"}));
-        assert!(r4.contains("[blocked]"), "indirect kill should be blocked: {}", r4);
+        let r4 = dispatch_tool(
+            "shell_exec",
+            &json!({"command": "ps aux | grep helen | xargs kill"}),
+        );
+        assert!(
+            r4.contains("[blocked]"),
+            "indirect kill should be blocked: {}",
+            r4
+        );
     }
 
     #[test]
@@ -1356,6 +1374,10 @@ mod tests {
 
         // Kill other processes (not helen) should be allowed
         let r3 = dispatch_tool("shell_exec", &json!({"command": "kill 12345"}));
-        assert!(!r3.contains("[blocked]"), "kill other pid should be allowed: {}", r3);
+        assert!(
+            !r3.contains("[blocked]"),
+            "kill other pid should be allowed: {}",
+            r3
+        );
     }
 }
