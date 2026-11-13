@@ -360,6 +360,19 @@ impl Interpreter {
     /// v1.29: Write a message to the transcript file (for `transcript "persistent"`).
     /// This ensures messages are persisted to disk so they survive page refreshes.
     pub fn write_transcript_message(&self, role: &str, content: &str, agent_name: &str) {
+        self.write_transcript_message_with_tools(role, content, agent_name, vec![], None);
+    }
+
+    /// v1.46.23: Write a message to the transcript file with tool calls support.
+    /// This ensures tool calls are persisted to disk for debugging and replay.
+    pub fn write_transcript_message_with_tools(
+        &self,
+        role: &str,
+        content: &str,
+        agent_name: &str,
+        tool_calls: Vec<serde_json::Value>,
+        tool_call_id: Option<String>,
+    ) {
         // If no session is active, generate a temporary session ID
         let session_id = if self.session_id.is_empty() {
             let timestamp = std::time::SystemTime::now()
@@ -387,8 +400,8 @@ impl Interpreter {
         let msg = helen_runtime::transcript::Message::new(
             role,
             serde_json::Value::String(content.to_string()),
-            vec![],                       // tool_calls
-            None,                         // tool_call_id
+            tool_calls,                   // tool_calls
+            tool_call_id,                 // tool_call_id
             uuid,                         // uuid
             None,                         // message_type
             0,                            // priority
@@ -2991,9 +3004,16 @@ impl Interpreter {
                 ) {
                     Ok(resp) => {
                         // v1.29: Write assistant message to transcript if transcript="persistent"
+                        // v1.46.23: Include tool_calls in transcript for debugging
                         if should_write_transcript {
                             if let Some(text) = &resp.text {
-                                s.write_transcript_message("assistant", text, &agent.name);
+                                s.write_transcript_message_with_tools(
+                                    "assistant",
+                                    text,
+                                    &agent.name,
+                                    resp.tool_calls.clone(),
+                                    None,
+                                );
                             }
                         }
                         Ok(Flow::Normal(Some(match resp.text {
