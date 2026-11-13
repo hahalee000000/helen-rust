@@ -3922,6 +3922,16 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                     return false;
                 }
 
+                // P1: Check agent_cancel_event during streaming (Python parity: llm_mixin.py:1180-1190)
+                // Python checks both stream_handle.cancelled and external_cancel (agent_cancel_event)
+                let interp = unsafe { &mut *self_ptr_stream };
+                if let Some(ref cancel_event) = interp.agent_cancel_event {
+                    if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                        *interrupted_clone.borrow_mut() = true;
+                        return false;
+                    }
+                }
+
                 if let Some(event_type) = event.get("type").and_then(|t| t.as_str()) {
                     match event_type {
                         "content" => {
