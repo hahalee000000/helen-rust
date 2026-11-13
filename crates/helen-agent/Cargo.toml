@@ -6,6 +6,12 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Helen Agent WebUI — pure Rust web server for Helen agent"
+exclude = [
+    "frontend/dist/bg.png",
+    "frontend/dist/wallpaper.png",
+    "frontend/public/bg.png",
+    "frontend/public/wallpaper.png",
+]
 
 [dependencies]
 helen-core = { version = "0.1.3", path = "../helen-core" }
