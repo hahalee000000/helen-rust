@@ -62,6 +62,14 @@ shared store SessionStats {
         last_has_snapshot = true
     }
 
+    /** 重置快照（/clear 时调用，避免 /context 显示旧的 message_count） */
+    fn reset_snapshot() {
+        last_message_count = 0
+        last_total_tokens = 0
+        last_usage_ratio = 0.0
+        last_has_snapshot = false
+    }
+
     fn get_stats(): map {
         return {
             "start_time": start_time,

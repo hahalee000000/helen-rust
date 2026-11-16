@@ -240,6 +240,10 @@ shared store ContextManager {
         try { working_memory_clear() } catch {
             // working_memory 不可用时静默降级
         }
+        // v1.23 fix: 重置 SessionStats 快照，避免 /context 显示旧的 message_count
+        try { SessionStats.reset_snapshot() } catch {
+            // SessionStats 不可用时静默降级
+        }
     }
 }
 
