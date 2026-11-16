@@ -143,22 +143,54 @@ pub fn is_slash_command(content: &str) -> bool {
     content.trim().starts_with('/')
 }
 
+/// Result of stripping protocol markers from slash command responses
+#[derive(Debug, Default)]
+pub struct StrippedResponse {
+    /// Cleaned content (markers removed)
+    pub content: Option<String>,
+    /// Whether __HELEN_CLEAR_OK__ was found (frontend should clear messages)
+    pub should_clear_messages: bool,
+    /// Whether __HELEN_CLEAR_SESSION_OK__ was found (session was deleted)
+    pub should_clear_session: bool,
+}
+
 /// Strip internal protocol markers from slash command responses.
 /// These markers are used for backend coordination and should not be shown to users.
-/// Returns None if the result is empty after stripping.
+/// Returns StrippedResponse with detected markers for backend action.
 pub fn strip_protocol_markers(content: &str) -> Option<String> {
+    strip_protocol_markers_detailed(content).content
+}
+
+/// Strip internal protocol markers and return detailed marker detection info.
+pub fn strip_protocol_markers_detailed(content: &str) -> StrippedResponse {
+    let mut result = StrippedResponse::default();
     let mut c = content.to_string();
-    c = c.replace("__HELEN_CLEAR_OK__", "").trim().to_string();
-    c = c
-        .replace("__HELEN_CLEAR_SESSION_OK__", "")
-        .trim()
-        .to_string();
-    c = c.replace("__HELEN_RESTART_ACTOR__", "").trim().to_string();
-    if c.is_empty() {
-        None
-    } else {
-        Some(c)
+    
+    // Detect markers before stripping
+    if c.contains("__HELEN_CLEAR_OK__") {
+        result.should_clear_messages = true;
     }
+    if c.contains("__HELEN_CLEAR_SESSION_OK__") {
+        result.should_clear_session = true;
+        // Session deletion also implies clearing messages
+        result.should_clear_messages = true;
+    }
+    
+    // Strip markers
+    c = c.replace("__HELEN_CLEAR_OK__", "").trim().to_string();
+    c = c.replace("__HELEN_CLEAR_SESSION_OK__", "").trim().to_string();
+    c = c.replace("__HELEN_RESTART_ACTOR__", "").trim().to_string();
+    
+    result.content = if c.is_empty() { None } else { Some(c) };
+    result
+}
+
+/// Build a JSON response string for clear_messages event
+pub fn build_clear_messages() -> String {
+    json!({
+        "type": "clear_messages"
+    })
+    .to_string()
 }
 
 /// Handle WebSocket connection
@@ -310,19 +342,30 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 // → send with is_slash_response=true so frontend displays as user bubble.
                                 // For normal LLM: content already streamed via chunks
                                 // → send with is_slash_response=false.
-                                let slash_content =
+                                let stripped =
                                     if is_slash && !chunks_received && !complete_content.is_empty()
                                     {
-                                        // Strip internal protocol markers (same as Python reference)
-                                        strip_protocol_markers(&complete_content)
+                                        // Strip internal protocol markers and detect actions
+                                        strip_protocol_markers_detailed(&complete_content)
                                     } else {
-                                        None
+                                        StrippedResponse::default()
                                     };
+
+                                // Send clear_messages event if /clear or /clear-session was executed
+                                // This must be sent BEFORE processing_complete so frontend clears first
+                                if stripped.should_clear_messages
+                                    && socket
+                                        .send(Message::Text(build_clear_messages()))
+                                        .await
+                                        .is_err()
+                                {
+                                    break;
+                                }
 
                                 if socket
                                     .send(Message::Text(build_processing_complete(
-                                        slash_content.is_some(),
-                                        slash_content.as_deref(),
+                                        stripped.content.is_some(),
+                                        stripped.content.as_deref(),
                                         None,
                                     )))
                                     .await
@@ -548,10 +591,37 @@ mod tests {
     }
 
     #[test]
+    fn test_strip_protocol_markers_detailed_clear_ok() {
+        let input = "Session cleared successfully\n__HELEN_CLEAR_OK__";
+        let result = strip_protocol_markers_detailed(input);
+        assert_eq!(result.content, Some("Session cleared successfully".to_string()));
+        assert!(result.should_clear_messages, "should_clear_messages must be true for __HELEN_CLEAR_OK__");
+        assert!(!result.should_clear_session);
+    }
+
+    #[test]
     fn test_strip_protocol_markers_clear_session_ok() {
         let input = "Session deleted\n__HELEN_CLEAR_SESSION_OK__";
         let result = strip_protocol_markers(input);
         assert_eq!(result, Some("Session deleted".to_string()));
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_detailed_clear_session_ok() {
+        let input = "Session deleted\n__HELEN_CLEAR_SESSION_OK__";
+        let result = strip_protocol_markers_detailed(input);
+        assert_eq!(result.content, Some("Session deleted".to_string()));
+        assert!(result.should_clear_messages, "session deletion implies clearing messages");
+        assert!(result.should_clear_session, "should_clear_session must be true for __HELEN_CLEAR_SESSION_OK__");
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_detailed_no_markers() {
+        let input = "Hello world";
+        let result = strip_protocol_markers_detailed(input);
+        assert_eq!(result.content, Some("Hello world".to_string()));
+        assert!(!result.should_clear_messages);
+        assert!(!result.should_clear_session);
     }
 
     #[test]
