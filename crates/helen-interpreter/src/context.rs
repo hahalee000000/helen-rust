@@ -166,22 +166,71 @@ fn set_working_memory(interp: &Interpreter, wm: HashMap<String, Vec<Value>>) {
 
 /// Clear the current conversation context.
 /// Python: `_clear_context()` → clears history and transcript.
+///
+/// This inserts a BoundaryMarker that covers ALL current messages,
+/// so read_view() will skip them. New messages appended after
+/// clear_context() will appear normally.
 pub fn context_clear_context(
-    _interp: &mut Interpreter,
+    interp: &mut Interpreter,
     _args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    // We can't truly clear a transcript (append-only), but we can
-    // record a boundary marker to indicate a fresh start.
+    let mut cleared_items: Vec<String> = Vec::new();
+    let mut cleared_message_count: i64 = 0;
+
+    // Clear working memory
+    {
+        let mut wm = interp.working_memory.lock().expect("mutex poisoned");
+        wm.clear();
+        cleared_items.push("working_memory".to_string());
+    }
+
+    // Record boundary in TranscriptStore if available
+    match load_store(interp) {
+        Some(mut store) => {
+            // Get all messages to find head/tail UUIDs
+            let messages = store.read_view();
+            cleared_message_count = messages.len() as i64;
+
+            if !messages.is_empty() {
+                let head_uuid = &messages[0].uuid;
+                let tail_uuid = &messages[messages.len() - 1].uuid;
+
+                // Insert a BoundaryMarker that covers all messages
+                let summary = format!("[Context Cleared: {} messages]", cleared_message_count);
+                store.record_compression(
+                    head_uuid,
+                    tail_uuid,
+                    "", // No anchor — entire context is cleared
+                    &summary,
+                    "clear_context",
+                    0, // original_token_count (not tracked here)
+                    0, // compressed_token_count
+                );
+                cleared_items.push("transcript_boundary".to_string());
+            }
+        }
+        None => {
+            // No transcript store available
+        }
+    }
+
     let mut result = make_ok_map();
     result.insert(
         Value::Str(Rc::from("cleared_messages")),
-        Value::Int(BigInt::from(0)),
+        Value::Int(BigInt::from(cleared_message_count)),
     );
     result.insert(
-        Value::Str(Rc::from("note")),
-        Value::Str(Rc::from(
-            "Transcript is append-only; use compress_context() to reduce size",
-        )),
+        Value::Str(Rc::from("cleared_items")),
+        Value::List(Rc::new(RefCell::new(
+            cleared_items
+                .into_iter()
+                .map(|s| Value::Str(Rc::from(s.as_str())))
+                .collect(),
+        ))),
+    );
+    result.insert(
+        Value::Str(Rc::from("warning")),
+        Value::Str(Rc::from("LLM will lose all previous context")),
     );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }

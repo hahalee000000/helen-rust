@@ -221,6 +221,11 @@ impl HelenActorBridge {
                 );
             }
 
+            // 1c. Set HELEN_VERSION environment variable for Rust agent
+            //     This allows Helen programs to detect they're running under Rust interpreter
+            //     and display the correct version number (e.g., "0.1.5" instead of Python's "1.46.21")
+            std::env::set_var("HELEN_VERSION", env!("CARGO_PKG_VERSION"));
+
             // 2. Load Helen agent files
             let agent_dir = std::env::var("HELEN_AGENT_DIR").unwrap_or_else(|_| {
                 // Use CARGO_MANIFEST_DIR at compile time for reliable path resolution

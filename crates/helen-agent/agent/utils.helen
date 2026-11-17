@@ -96,9 +96,16 @@ fn ensure_python_path() {
 // ── 环境事实检测（共享，避免 context.helen / context_manager.helen 各自重复）──
 
 /** 检测当前 Helen 语言版本。
- *  优先用 `helen --version` 命令(最准确);失败时从 changelog 读取;最后回退 "1.20"。 */
+ *  优先用 `helen --version` 命令(最准确);失败时从 changelog 读取;最后回退 "1.20"。
+ *  v1.46.22 fix: 只提取第一个版本号（如 "0.1.5"），忽略后续的描述文本。
+ *  v1.46.22 fix: 优先检查 HELEN_VERSION 环境变量（Rust agent 设置）。 */
 fn detect_helen_version(): str {
-    // 优先:helen --version 命令(输出格式 "Helen 1.27.1")
+    // 优先 0: 检查 HELEN_VERSION 环境变量（Rust agent 设置）
+    try {
+        let env_ver = env_get("HELEN_VERSION", "")
+        if env_ver != "" { return env_ver }
+    } catch { }
+    // 优先:helen --version 命令(输出格式 "Helen 1.27.1" 或 "Helen 0.1.5 (Rust, ...)")
     try {
         // 跨平台：Windows 用 NUL，Unix 用 /dev/null
         let null_dev = "/dev/null"
@@ -107,12 +114,43 @@ fn detect_helen_version(): str {
         let marker = "Helen "
         let start = find(out, marker)
         if start >= 0 {
-            let ver = strip(substring(out, start + len(marker), len(out)))
+            let after_marker = substring(out, start + len(marker), len(out))
+            // 只提取第一个版本号（到空格为止）
+            let space_pos = find(after_marker, " ")
+            let ver = ""
+            if space_pos >= 0 {
+                ver = strip(substring(after_marker, 0, space_pos))
+            } else {
+                ver = strip(after_marker)
+            }
             if ver != "" { return ver }
         }
         if out != "" { return out }
     } catch { }
-    // 兜底 1:从 ~/helen/wiki/appendix/changelog.md 读取
+    // 兜底 1: 从 Python 包元数据读取 (importlib.metadata)
+    try {
+        let ver = strip(shell_exec("python3 -c \"import importlib.metadata; print(importlib.metadata.version('helen-lang'))\" 2>/dev/null"))
+        if ver != "" && find(ver, ".") >= 0 { return ver }
+    } catch { }
+    // 兜底 2: 从 ~/helen/helen/__init__.py 读取 __version__
+    try {
+        let home = get_home()
+        let init_file = path_join(home, "helen", "helen", "__init__.py")
+        if path_exists(init_file) {
+            let content = read_file(init_file)
+            let marker = "__version__ = \""
+            let start = find(content, marker)
+            if start >= 0 {
+                let after = substring(content, start + len(marker), len(content))
+                let end = find(after, "\"")
+                if end >= 0 {
+                    let ver = substring(after, 0, end)
+                    if ver != "" { return ver }
+                }
+            }
+        }
+    } catch { }
+    // 兜底 3: 从 ~/helen/wiki/appendix/changelog.md 读取
     try {
         let home = get_home()
         let changelog = path_join(home, "helen", "wiki", "appendix", "changelog.md")
