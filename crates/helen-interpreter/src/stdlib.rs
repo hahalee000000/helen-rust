@@ -44,6 +44,7 @@ pub const CORE_EXPORTS: &[&str] = &[
     "dict",
     "input",
     "multiline_input",
+    "read_file",
 ];
 
 // ---------------------------------------------------------------------------
@@ -1932,10 +1933,6 @@ pub static TOOLS_EXPORTS: &[StdlibExport] = &[
     StdlibExport {
         name: "list_skill_references",
         func: crate::tools::tools_list_skill_references,
-    },
-    StdlibExport {
-        name: "read_file",
-        func: crate::tools::tools_read_file,
     },
     StdlibExport {
         name: "write_file",

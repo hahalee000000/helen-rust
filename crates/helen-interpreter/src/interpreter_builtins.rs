@@ -12,6 +12,7 @@ use num_traits::{Signed, ToPrimitive, Zero};
 
 use crate::exceptions::ExceptionValue;
 use crate::interpreter::Interpreter;
+use crate::stdlib_helpers::arg_str;
 use crate::value::Value;
 
 use helen_core::ast::TypeRef;
@@ -753,6 +754,19 @@ pub fn builtin_dict(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, 
         other => Err(ExceptionValue::new(
             "RuntimeError",
             format!("cannot convert '{}' to dict", other.type_name()),
+            None,
+        )),
+    }
+}
+
+/// std.core read_file — read file content directly (Python parity: returns string, not JSON)
+pub fn builtin_read_file(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    let path = arg_str(args, 0)?;
+    match std::fs::read_to_string(&path) {
+        Ok(content) => Ok(Value::Str(Rc::from(content.as_str()))),
+        Err(_) => Err(ExceptionValue::new(
+            "RuntimeError",
+            format!("Python OSError: [Errno 2] No such file or directory: '{path}'"),
             None,
         )),
     }
