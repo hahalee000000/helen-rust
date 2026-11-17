@@ -165,7 +165,7 @@ pub fn strip_protocol_markers(content: &str) -> Option<String> {
 pub fn strip_protocol_markers_detailed(content: &str) -> StrippedResponse {
     let mut result = StrippedResponse::default();
     let mut c = content.to_string();
-    
+
     // Detect markers before stripping
     if c.contains("__HELEN_CLEAR_OK__") {
         result.should_clear_messages = true;
@@ -175,12 +175,15 @@ pub fn strip_protocol_markers_detailed(content: &str) -> StrippedResponse {
         // Session deletion also implies clearing messages
         result.should_clear_messages = true;
     }
-    
+
     // Strip markers
     c = c.replace("__HELEN_CLEAR_OK__", "").trim().to_string();
-    c = c.replace("__HELEN_CLEAR_SESSION_OK__", "").trim().to_string();
+    c = c
+        .replace("__HELEN_CLEAR_SESSION_OK__", "")
+        .trim()
+        .to_string();
     c = c.replace("__HELEN_RESTART_ACTOR__", "").trim().to_string();
-    
+
     result.content = if c.is_empty() { None } else { Some(c) };
     result
 }
@@ -594,8 +597,14 @@ mod tests {
     fn test_strip_protocol_markers_detailed_clear_ok() {
         let input = "Session cleared successfully\n__HELEN_CLEAR_OK__";
         let result = strip_protocol_markers_detailed(input);
-        assert_eq!(result.content, Some("Session cleared successfully".to_string()));
-        assert!(result.should_clear_messages, "should_clear_messages must be true for __HELEN_CLEAR_OK__");
+        assert_eq!(
+            result.content,
+            Some("Session cleared successfully".to_string())
+        );
+        assert!(
+            result.should_clear_messages,
+            "should_clear_messages must be true for __HELEN_CLEAR_OK__"
+        );
         assert!(!result.should_clear_session);
     }
 
@@ -611,8 +620,14 @@ mod tests {
         let input = "Session deleted\n__HELEN_CLEAR_SESSION_OK__";
         let result = strip_protocol_markers_detailed(input);
         assert_eq!(result.content, Some("Session deleted".to_string()));
-        assert!(result.should_clear_messages, "session deletion implies clearing messages");
-        assert!(result.should_clear_session, "should_clear_session must be true for __HELEN_CLEAR_SESSION_OK__");
+        assert!(
+            result.should_clear_messages,
+            "session deletion implies clearing messages"
+        );
+        assert!(
+            result.should_clear_session,
+            "should_clear_session must be true for __HELEN_CLEAR_SESSION_OK__"
+        );
     }
 
     #[test]
