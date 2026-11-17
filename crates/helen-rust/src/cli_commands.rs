@@ -365,7 +365,9 @@ pub fn watch_command(file: &str) -> i32 {
             let ss = now % 60;
             println!("\n🔄 [{hh:02}:{mm:02}:{ss:02}] Change detected, running {file}...");
             println!("{}", "=".repeat(60));
-            let code = crate::cli_commands::run_command(file, None);
+            // For watch mode, construct minimal argv
+            let watch_argv = vec![file.to_string()];
+            let code = crate::cli_commands::run_command(file, None, &watch_argv);
             if code == 0 {
                 println!("✅ Program completed successfully");
             } else {
@@ -770,7 +772,7 @@ pub fn extract_session_flags(argv: &[String]) -> (Option<String>, Vec<String>) {
 
 /// Run a Helen program. Exit codes: 0 success, 1 file-not-found/syntax,
 /// 2 semantic, 3 runtime.
-pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
+pub fn run_command(file: &str, session_id: Option<&str>, program_args: &[String]) -> i32 {
     let source_path = std::path::Path::new(file);
     if !source_path.exists() {
         eprintln!("Error: file not found: {file}");
@@ -819,6 +821,18 @@ pub fn run_command(file: &str, session_id: Option<&str>) -> i32 {
         interp.session_id = sid.to_string();
     }
     interp.set_source_file(file);
+    // Set program arguments for get_cli_args() / parse_cli_args()
+    interp.program_args = program_args.to_vec();
+    
+    // Python parity: define `argv` as a pre-defined const (CLI arguments)
+    // Must be done AFTER setting program_args
+    let argv_items: Vec<helen_interpreter::value::Value> = interp
+        .program_args
+        .iter()
+        .map(|a| helen_interpreter::value::Value::Str(std::rc::Rc::from(a.as_str())))
+        .collect();
+    let argv_value = helen_interpreter::value::Value::List(std::rc::Rc::new(std::cell::RefCell::new(argv_items)));
+    interp.environment.borrow_mut().define("argv", argv_value, true);
 
     // Set up LLM runtime from config (so `llm act` works)
     let runtime = helen_runtime::http_llm::HttpLLMRuntime::new(None, None, None);

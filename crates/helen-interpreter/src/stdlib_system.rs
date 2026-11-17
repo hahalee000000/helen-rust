@@ -76,34 +76,67 @@ fn system_get_cli_args(interp: &mut Interpreter, _args: &[Value]) -> Result<Valu
     Ok(Value::List(Rc::new(RefCell::new(items))))
 }
 
-fn system_parse_cli_args(_i: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
-    let args_list = arg_list(args, 0).unwrap_or_default();
+fn system_parse_cli_args(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+    // Python parity: parse_cli_args() uses global program_args when called without arguments
+    // Skip argv[0] (program name) - Python behavior
+    let args_list: Vec<String> = if args.is_empty() {
+        // Use global program_args, skip first element (program name)
+        if interp.program_args.len() > 1 {
+            interp.program_args[1..].to_vec()
+        } else {
+            vec![]
+        }
+    } else {
+        // If argument provided, use it (should be a list)
+        let list = arg_list(args, 0)?;
+        list.iter().map(|v| v.python_str()).collect()
+    };
+    
     let mut m = indexmap::IndexMap::new();
+    // Python parity: always initialize _positional array
+    let mut positional: Vec<Value> = Vec::new();
+    
     let mut i = 0;
     while i < args_list.len() {
-        let a = args_list[i].python_str();
+        let a = &args_list[i];
         if a.starts_with("--") {
+            // Long flag: --verbose, --output=json
             let key = a.trim_start_matches("--").to_string();
-            if i + 1 < args_list.len() && !args_list[i + 1].python_str().starts_with('-') {
-                m.insert(Value::Str(Rc::from(key.as_str())), args_list[i + 1].clone());
-                i += 2;
-            } else {
-                m.insert(Value::Str(Rc::from(key.as_str())), Value::Bool(true));
+            if key.contains('=') {
+                // --key=value format
+                let parts: Vec<&str> = key.splitn(2, '=').collect();
+                m.insert(
+                    Value::Str(Rc::from(parts[0])),
+                    Value::Str(Rc::from(parts[1])),
+                );
+            } else if i + 1 < args_list.len() && !args_list[i + 1].starts_with('-') {
+                // --key value format
+                m.insert(
+                    Value::Str(Rc::from(key.as_str())),
+                    Value::Str(Rc::from(args_list[i + 1].as_str())),
+                );
                 i += 1;
+            } else {
+                // --flag (boolean)
+                m.insert(Value::Str(Rc::from(key.as_str())), Value::Bool(true));
             }
-        } else if a.starts_with('-') && a.len() > 1 {
+        } else if a.starts_with('-') && a.len() == 2 {
+            // Short flag: -v, -q (single char only, Python parity)
             let key = a.trim_start_matches('-').to_string();
-            if i + 1 < args_list.len() && !args_list[i + 1].python_str().starts_with('-') {
-                m.insert(Value::Str(Rc::from(key.as_str())), args_list[i + 1].clone());
-                i += 2;
-            } else {
-                m.insert(Value::Str(Rc::from(key.as_str())), Value::Bool(true));
-                i += 1;
-            }
+            m.insert(Value::Str(Rc::from(key.as_str())), Value::Bool(true));
         } else {
-            i += 1;
+            // Positional argument
+            positional.push(Value::Str(Rc::from(a.as_str())));
         }
+        i += 1;
     }
+    
+    // Python parity: always include _positional key
+    m.insert(
+        Value::Str(Rc::from("_positional")),
+        Value::List(Rc::new(RefCell::new(positional))),
+    );
+    
     Ok(Value::Map(Rc::new(RefCell::new(m))))
 }
 

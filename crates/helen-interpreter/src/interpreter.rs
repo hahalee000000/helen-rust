@@ -82,6 +82,8 @@ pub struct Interpreter {
     pub shared_vars: HashSet<String>,
     /// v1.39: maps imported function name -> its defining module env.
     pub function_module_envs: HashMap<String, Rc<RefCell<Environment>>>,
+    /// v1.46.23: maps agent name -> its defining module env (for stdlib import inheritance).
+    pub agent_module_envs: HashMap<String, Rc<RefCell<Environment>>>,
     /// Task 3.7b: `.helen`/data-file import resolution (fresh per instance).
     pub import_resolver: crate::import_resolver::ImportResolver,
     /// Absolute path of the file being interpreted (relative-import base).
@@ -372,6 +374,7 @@ impl Interpreter {
             impls: HashMap::new(),
             shared_vars: HashSet::new(),
             function_module_envs: HashMap::new(),
+            agent_module_envs: HashMap::new(),
             import_resolver: crate::import_resolver::ImportResolver::new(std::path::PathBuf::from(
                 ".",
             )),
@@ -866,6 +869,8 @@ impl Interpreter {
         // 4. Agents -> self.agents.
         for a in &reg.agents {
             self.agents.insert(a.name.clone(), Rc::new(a.clone()));
+            self.agent_module_envs
+                .insert(a.name.clone(), module_env.clone());
         }
         Ok(())
     }
@@ -2925,7 +2930,9 @@ impl Interpreter {
         // - module-level consts injected read-only (L1 standard)
         // - module-level `let` hidden (unless L0 open)
         // - shared lets injected writable (Python `_shared_vars` loop)
-        let call_env = Rc::new(RefCell::new(Environment::new(None)));
+        // v1.46.23: Use agent's module_env as parent (for stdlib import inheritance)
+        let agent_module_env = self.agent_module_envs.get(&agent.name).cloned();
+        let call_env = Rc::new(RefCell::new(Environment::new(agent_module_env)));
         {
             let mut env = call_env.borrow_mut();
             // 1. Builtins.

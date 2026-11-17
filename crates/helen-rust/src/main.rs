@@ -677,7 +677,7 @@ fn main() {
             // Extract session flags before running
             let (session_id, _remaining_argv) =
                 helen_rust::cli_commands::extract_session_flags(&argv[1..]);
-            let code = helen_rust::cli_commands::run_command(first, session_id.as_deref());
+            let code = helen_rust::cli_commands::run_command(first, session_id.as_deref(), &argv);
             std::process::exit(code);
         }
     }

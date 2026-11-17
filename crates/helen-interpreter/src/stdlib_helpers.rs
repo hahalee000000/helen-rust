@@ -43,6 +43,7 @@ pub(crate) fn arg_int(args: &[Value], i: usize) -> Result<BigInt, ExceptionValue
 }
 
 /// Python slice semantics on byte indices (Helen is byte-based; D4).
+/// Respects UTF-8 character boundaries to avoid panics.
 pub(crate) fn py_slice(s: &str, start: Option<i64>, end: Option<i64>) -> &str {
     let len = s.len() as i64;
     let start = start.unwrap_or(0);
@@ -57,9 +58,31 @@ pub(crate) fn py_slice(s: &str, start: Option<i64>, end: Option<i64>) -> &str {
     } else {
         end.min(len)
     };
-    let start = start.max(0);
-    let end = end.max(start);
-    &s[start as usize..end as usize]
+    let start = start.max(0) as usize;
+    let end = end.max(start as i64) as usize;
+    
+    // Find valid UTF-8 character boundaries
+    let start = if s.is_char_boundary(start) {
+        start
+    } else {
+        // Find the next valid boundary
+        s.char_indices()
+            .map(|(i, _)| i)
+            .find(|&i| i >= start)
+            .unwrap_or(s.len())
+    };
+    
+    let end = if s.is_char_boundary(end) {
+        end
+    } else {
+        // Find the next valid boundary
+        s.char_indices()
+            .map(|(i, _)| i)
+            .find(|&i| i >= end)
+            .unwrap_or(s.len())
+    };
+    
+    &s[start..end]
 }
 
 pub(crate) fn arg_f64(args: &[Value], i: usize) -> Result<f64, ExceptionValue> {
