@@ -60,7 +60,7 @@ pub(crate) fn py_slice(s: &str, start: Option<i64>, end: Option<i64>) -> &str {
     };
     let start = start.max(0) as usize;
     let end = end.max(start as i64) as usize;
-    
+
     // Find valid UTF-8 character boundaries
     let start = if s.is_char_boundary(start) {
         start
@@ -71,7 +71,7 @@ pub(crate) fn py_slice(s: &str, start: Option<i64>, end: Option<i64>) -> &str {
             .find(|&i| i >= start)
             .unwrap_or(s.len())
     };
-    
+
     let end = if s.is_char_boundary(end) {
         end
     } else {
@@ -81,7 +81,7 @@ pub(crate) fn py_slice(s: &str, start: Option<i64>, end: Option<i64>) -> &str {
             .find(|&i| i >= end)
             .unwrap_or(s.len())
     };
-    
+
     &s[start..end]
 }
 

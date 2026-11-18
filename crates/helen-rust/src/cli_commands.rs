@@ -823,7 +823,7 @@ pub fn run_command(file: &str, session_id: Option<&str>, program_args: &[String]
     interp.set_source_file(file);
     // Set program arguments for get_cli_args() / parse_cli_args()
     interp.program_args = program_args.to_vec();
-    
+
     // Python parity: define `argv` as a pre-defined const (CLI arguments)
     // Must be done AFTER setting program_args
     let argv_items: Vec<helen_interpreter::value::Value> = interp
@@ -831,8 +831,13 @@ pub fn run_command(file: &str, session_id: Option<&str>, program_args: &[String]
         .iter()
         .map(|a| helen_interpreter::value::Value::Str(std::rc::Rc::from(a.as_str())))
         .collect();
-    let argv_value = helen_interpreter::value::Value::List(std::rc::Rc::new(std::cell::RefCell::new(argv_items)));
-    interp.environment.borrow_mut().define("argv", argv_value, true);
+    let argv_value = helen_interpreter::value::Value::List(std::rc::Rc::new(
+        std::cell::RefCell::new(argv_items),
+    ));
+    interp
+        .environment
+        .borrow_mut()
+        .define("argv", argv_value, true);
 
     // Set up LLM runtime from config (so `llm act` works)
     let runtime = helen_runtime::http_llm::HttpLLMRuntime::new(None, None, None);

@@ -760,7 +760,10 @@ pub fn builtin_dict(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, 
 }
 
 /// std.core read_file — read file content directly (Python parity: returns string, not JSON)
-pub fn builtin_read_file(_interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+pub fn builtin_read_file(
+    _interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?;
     match std::fs::read_to_string(&path) {
         Ok(content) => Ok(Value::Str(Rc::from(content.as_str()))),

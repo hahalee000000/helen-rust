@@ -76,7 +76,10 @@ fn system_get_cli_args(interp: &mut Interpreter, _args: &[Value]) -> Result<Valu
     Ok(Value::List(Rc::new(RefCell::new(items))))
 }
 
-fn system_parse_cli_args(interp: &mut Interpreter, args: &[Value]) -> Result<Value, ExceptionValue> {
+fn system_parse_cli_args(
+    interp: &mut Interpreter,
+    args: &[Value],
+) -> Result<Value, ExceptionValue> {
     // Python parity: parse_cli_args() uses global program_args when called without arguments
     // Skip argv[0] (program name) - Python behavior
     let args_list: Vec<String> = if args.is_empty() {
@@ -91,11 +94,11 @@ fn system_parse_cli_args(interp: &mut Interpreter, args: &[Value]) -> Result<Val
         let list = arg_list(args, 0)?;
         list.iter().map(|v| v.python_str()).collect()
     };
-    
+
     let mut m = indexmap::IndexMap::new();
     // Python parity: always initialize _positional array
     let mut positional: Vec<Value> = Vec::new();
-    
+
     let mut i = 0;
     while i < args_list.len() {
         let a = &args_list[i];
@@ -130,13 +133,13 @@ fn system_parse_cli_args(interp: &mut Interpreter, args: &[Value]) -> Result<Val
         }
         i += 1;
     }
-    
+
     // Python parity: always include _positional key
     m.insert(
         Value::Str(Rc::from("_positional")),
         Value::List(Rc::new(RefCell::new(positional))),
     );
-    
+
     Ok(Value::Map(Rc::new(RefCell::new(m))))
 }
 
