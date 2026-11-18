@@ -266,8 +266,8 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 let mut chunks_received = false;
                                 let mut complete_content = String::new();
                                 let start = std::time::Instant::now();
-                                let total_timeout = std::time::Duration::from_secs(300); // 5 minutes total timeout
-                                let activity_timeout = std::time::Duration::from_secs(60); // 60 seconds without activity
+                                let total_timeout = std::time::Duration::from_secs(600); // 10 minutes total timeout
+                                let activity_timeout = std::time::Duration::from_secs(180); // 3 minutes without activity (tool calls can be slow)
                                 let mut last_activity = std::time::Instant::now();
 
                                 while start.elapsed() < total_timeout {
@@ -327,9 +327,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 
                                 if !response_received {
                                     let error_msg = if last_activity.elapsed() > activity_timeout {
-                                        "Response timeout: no activity for 60 seconds"
+                                        "Response timeout: no activity for 3 minutes"
                                     } else {
-                                        "Response timeout: exceeded 5 minute limit"
+                                        "Response timeout: exceeded 10 minute limit"
                                     };
                                     if socket
                                         .send(Message::Text(build_error(error_msg)))
