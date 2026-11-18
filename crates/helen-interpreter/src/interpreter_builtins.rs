@@ -765,7 +765,7 @@ pub fn builtin_read_file(
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
     let path = arg_str(args, 0)?;
-    match std::fs::read_to_string(&path) {
+    match std::fs::read_to_string(path) {
         Ok(content) => Ok(Value::Str(Rc::from(content.as_str()))),
         Err(_) => Err(ExceptionValue::new(
             "RuntimeError",
