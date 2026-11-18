@@ -34,6 +34,10 @@ pub enum WsInput {
         content: String,
         client_id: Option<String>,
     },
+    Hint {
+        content: String,
+        client_id: Option<String>,
+    },
     Cancel,
     Unknown(String),
     InvalidJson,
@@ -60,6 +64,18 @@ pub fn parse_ws_message(text: &str) -> WsInput {
                 .and_then(|s| s.as_str())
                 .map(|s| s.to_string());
             WsInput::Message { content, client_id }
+        }
+        "hint" => {
+            let content = data
+                .get("content")
+                .and_then(|i| i.as_str())
+                .unwrap_or("")
+                .to_string();
+            let client_id = data
+                .get("client_id")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string());
+            WsInput::Hint { content, client_id }
         }
         "cancel" => WsInput::Cancel,
         other => WsInput::Unknown(other.to_string()),
@@ -407,6 +423,31 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 }
                             }
                         }
+                        WsInput::Hint { content, client_id } => {
+                            // v1.46.24: Hint injection — enqueue hint for mid-processing injection
+                            if !content.trim().is_empty() {
+                                let queue = crate::hint_queue::get_hint_queue();
+                                let client_id_str = client_id.clone().unwrap_or_default();
+                                queue.add_hint(content.clone(), client_id_str.clone());
+                                // Send hint_queued confirmation to frontend
+                                if socket
+                                    .send(Message::Text(
+                                        serde_json::json!({
+                                            "type": "hint_queued",
+                                            "data": {
+                                                "content": content,
+                                                "client_id": client_id_str
+                                            }
+                                        })
+                                        .to_string(),
+                                    ))
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
+                        }
                         WsInput::Unknown(msg_type) => {
                             if socket
                                 .send(Message::Text(build_error(&format!(
@@ -471,6 +512,30 @@ mod tests {
         match parse_ws_message(input) {
             WsInput::Cancel => {}
             other => panic!("Expected Cancel, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_hint() {
+        let input = r#"{"type":"hint","content":"additional context","client_id":"456"}"#;
+        match parse_ws_message(input) {
+            WsInput::Hint { content, client_id } => {
+                assert_eq!(content, "additional context");
+                assert_eq!(client_id, Some("456".to_string()));
+            }
+            other => panic!("Expected Hint, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_hint_defaults() {
+        let input = r#"{"type":"hint"}"#;
+        match parse_ws_message(input) {
+            WsInput::Hint { content, client_id } => {
+                assert_eq!(content, "");
+                assert_eq!(client_id, None);
+            }
+            other => panic!("Expected Hint, got {:?}", other),
         }
     }
 

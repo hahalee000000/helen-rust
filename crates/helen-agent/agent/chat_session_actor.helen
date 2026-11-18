@@ -328,14 +328,12 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             } catch {}
             _actor_emit_statusline()
             try {
-                import "ui.hint_queue" as _HintQueueMod
-                let q = _HintQueueMod.get_hint_queue()
-                // v1.39.4: HintQueue 已简化为单例模式，session_id 参数被忽略
-                let hints = q.pop_all_hints("")
+                // v1.46.24: Use global built-in functions instead of Python FFI module
+                let hints = hint_queue_pop_all()
                 if len(hints) == 0 { return null }
                 let parts = []
                 for h in hints {
-                    parts = parts + ["[用户追加提示] " + h.text]
+                    parts = parts + ["[用户追加提示] " + h["text"]]
                 }
                 let merged = join(parts, "\n\n")
                 _emit_actor_stream_event("hint_injected", merged)

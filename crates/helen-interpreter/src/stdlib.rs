@@ -2151,6 +2151,23 @@ pub static TRANSCRIPT_EXPORTS: &[StdlibExport] = &[
         name: "get_compression_audit",
         func: crate::transcript::transcript_get_compression_audit,
     },
+    // v1.46.24: Hint queue for mid-processing user hints
+    StdlibExport {
+        name: "hint_queue_add",
+        func: crate::transcript::transcript_hint_queue_add,
+    },
+    StdlibExport {
+        name: "hint_queue_pop_all",
+        func: crate::transcript::transcript_hint_queue_pop_all,
+    },
+    StdlibExport {
+        name: "hint_queue_has_pending",
+        func: crate::transcript::transcript_hint_queue_has_pending,
+    },
+    StdlibExport {
+        name: "hint_queue_clear",
+        func: crate::transcript::transcript_hint_queue_clear,
+    },
 ];
 
 pub static CONCURRENCY_EXPORTS: &[StdlibExport] = &[StdlibExport {
