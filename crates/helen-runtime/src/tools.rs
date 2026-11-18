@@ -681,8 +681,9 @@ fn tool_write_file(args: &Value) -> String {
         std::fs::write(path, content)
     })() {
         Ok(()) => {
-            let bytes = content.len();
-            json!({"path": path, "bytes_written": bytes, "status": "ok"}).to_string()
+            // Use character count (not byte count) for consistency with Python
+            let chars = content.chars().count();
+            json!({"path": path, "bytes_written": chars, "status": "ok"}).to_string()
         }
         Err(e) => json!({"error": format!("Write failed: {e}")}).to_string(),
     }
