@@ -130,6 +130,11 @@ pub struct Interpreter {
     /// Python: `interp._agent_cancel_event = spawned_endpoint.cancel_event`
     /// When set, the interpreter checks this during LLM streaming to abort on cancel.
     pub agent_cancel_event: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// v1.46.24: Transcript store for persistent session history.
+    /// Python: `agent_ctx.transcript_store` — stores conversation history across sessions.
+    /// When set, `prepare_history_for_llm` reads from this store instead of `self.history`.
+    pub transcript_store:
+        Option<std::sync::Arc<std::sync::Mutex<helen_runtime::transcript::TranscriptStore>>>,
 }
 
 /// Everything a spawned agent thread needs, deep-owned so it can be moved
@@ -404,6 +409,7 @@ impl Interpreter {
             invocation_index: std::collections::HashMap::new(),
             compression_callback: None,
             agent_cancel_event: None,
+            transcript_store: None,
         };
         interp.register_core_builtins();
         interp
@@ -3624,8 +3630,54 @@ impl Interpreter {
     /// Converts JSON history entries to Message objects, applies graduated
     /// compression, and returns compressed JSON entries ready for the LLM runtime.
     /// v1.22: Filters by current invocation_id for per-agent context isolation.
+    /// v1.46.24: Reads from transcript_store if available (persistent session history).
     fn prepare_history_for_llm(&self, system_prompt: &str) -> Vec<serde_json::Value> {
-        let json_history = self.history.borrow();
+        // v1.46.24: Prefer transcript_store over self.history for persistent sessions
+        let json_history: Vec<serde_json::Value> = if let Some(store_arc) = &self.transcript_store {
+            // Read from TranscriptStore
+            let mut store = store_arc.lock().expect("mutex poisoned");
+            let messages = store.read_view();
+            messages
+                .iter()
+                .map(|msg| {
+                    let mut entry = serde_json::Map::new();
+                    entry.insert(
+                        "role".to_string(),
+                        serde_json::Value::String(msg.role.clone()),
+                    );
+                    entry.insert("content".to_string(), msg.content.clone());
+                    if !msg.tool_calls.is_empty() {
+                        entry.insert(
+                            "tool_calls".to_string(),
+                            serde_json::Value::Array(msg.tool_calls.clone()),
+                        );
+                    }
+                    if let Some(ref tcid) = msg.tool_call_id {
+                        entry.insert(
+                            "tool_call_id".to_string(),
+                            serde_json::Value::String(tcid.clone()),
+                        );
+                    }
+                    if !msg.invocation_id.is_empty() {
+                        entry.insert(
+                            "invocation_id".to_string(),
+                            serde_json::Value::String(msg.invocation_id.clone()),
+                        );
+                    }
+                    if let Some(ref agent) = msg.agent_name {
+                        entry.insert(
+                            "agent_name".to_string(),
+                            serde_json::Value::String(agent.clone()),
+                        );
+                    }
+                    serde_json::Value::Object(entry)
+                })
+                .collect()
+        } else {
+            // Fallback to self.history
+            self.history.borrow().clone()
+        };
+
         if json_history.is_empty() {
             return Vec::new();
         }

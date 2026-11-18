@@ -848,7 +848,8 @@ pub fn transcript_replay_full_session(
     }
 }
 
-/// Resume a session (set interpreter's session_id).
+/// Resume a session (set interpreter's session_id and load history).
+/// v1.46.24: Now loads transcript from file into TranscriptStore.
 pub fn transcript_resume_session(
     interp: &mut Interpreter,
     args: &[Value],
@@ -880,14 +881,47 @@ pub fn transcript_resume_session(
         );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
+    let transcript_path = manager.get_session_path(sid);
     drop(manager);
 
     interp.session_id = sid.to_string();
+
+    // v1.46.24: Load transcript from file into TranscriptStore
+    let mut imported_count = 0;
+    if transcript_path.exists() {
+        let backend = helen_runtime::transcript::JsonlBackend::new(&transcript_path);
+        let items = backend.load_all();
+        imported_count = items.len();
+
+        // Create or update transcript_store
+        let store = if let Some(existing) = &interp.transcript_store {
+            existing.clone()
+        } else {
+            let new_store = std::sync::Arc::new(std::sync::Mutex::new(
+                helen_runtime::transcript::TranscriptStore::new(None, 1000),
+            ));
+            interp.transcript_store = Some(new_store.clone());
+            new_store
+        };
+
+        // Load items into store
+        let mut store_guard = store.lock().expect("mutex poisoned");
+        for item in items {
+            if let helen_runtime::transcript::Item::Message(mut msg) = item {
+                store_guard.append(&mut msg, false); // Don't persist (already in file)
+            }
+        }
+    }
+
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
     result.insert(
         Value::Str(Rc::from("session_id")),
         Value::Str(Rc::from(sid)),
+    );
+    result.insert(
+        Value::Str(Rc::from("imported_messages")),
+        Value::Int((imported_count as i64).into()),
     );
     Ok(Value::Map(Rc::new(RefCell::new(result))))
 }
