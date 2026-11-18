@@ -450,7 +450,8 @@ fn tool_web_search(args: &Value) -> String {
             snippet = strip_html(dm);
         }
         snippet = snippet.split_whitespace().collect::<Vec<_>>().join(" ");
-        snippet = snippet.replace("&ensp;", " ").replace("&amp;", "&");
+        // Decode HTML entities
+        snippet = decode_html_entities(&snippet);
 
         results.push(format!("- {title}\n  {snippet}\n  {url}"));
         if results.len() >= num_results {
@@ -479,6 +480,93 @@ fn strip_html(html: &str) -> String {
         }
     }
     out
+}
+
+/// Decode HTML entities (named and numeric) to their Unicode characters.
+/// Handles common entities: &amp;, &lt;, &gt;, &quot;, &apos;, &nbsp;, &ensp;,
+/// and numeric entities like &#0183; (·) or &#x00B7; (·).
+fn decode_html_entities(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '&' {
+            // Try to find the entity
+            let mut entity = String::new();
+            let mut found_semicolon = false;
+
+            for next_ch in chars.by_ref() {
+                if next_ch == ';' {
+                    found_semicolon = true;
+                    break;
+                }
+                if next_ch == '&' || next_ch == '<' || next_ch.is_whitespace() {
+                    // Not a valid entity, push what we have
+                    result.push('&');
+                    result.push_str(&entity);
+                    result.push(next_ch);
+                    break;
+                }
+                entity.push(next_ch);
+                if entity.len() > 10 {
+                    // Too long, not a valid entity
+                    result.push('&');
+                    result.push_str(&entity);
+                    break;
+                }
+            }
+
+            if found_semicolon {
+                // Decode the entity
+                let decoded = if let Some(num_str) = entity.strip_prefix('#') {
+                    // Numeric entity
+                    let code_point = if num_str.starts_with('x') || num_str.starts_with('X') {
+                        // Hexadecimal: &#x00B7;
+                        u32::from_str_radix(&num_str[1..], 16).ok()
+                    } else {
+                        // Decimal: &#0183;
+                        num_str.parse::<u32>().ok()
+                    };
+                    code_point.and_then(char::from_u32)
+                } else {
+                    // Named entity
+                    match entity.as_str() {
+                        "amp" => Some('&'),
+                        "lt" => Some('<'),
+                        "gt" => Some('>'),
+                        "quot" => Some('"'),
+                        "apos" => Some('\''),
+                        "nbsp" => Some(' '),
+                        "ensp" => Some(' '),
+                        "emsp" => Some(' '),
+                        "thinsp" => Some(' '),
+                        "middot" => Some('·'),
+                        "mdash" => Some('—'),
+                        "ndash" => Some('–'),
+                        "hellip" => Some('…'),
+                        "bull" => Some('•'),
+                        "copy" => Some('©'),
+                        "reg" => Some('®'),
+                        "trade" => Some('™'),
+                        _ => None,
+                    }
+                };
+
+                if let Some(decoded_ch) = decoded {
+                    result.push(decoded_ch);
+                } else {
+                    // Unknown entity, keep as-is
+                    result.push('&');
+                    result.push_str(&entity);
+                    result.push(';');
+                }
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
 }
 
 /// Find text between `open` marker and first `close` occurrence (from open end).
