@@ -965,6 +965,13 @@ fn process_sse_line(
         if let Some(rc) = parsed.get("reasoning_content").and_then(|v| v.as_str()) {
             if !rc.is_empty() {
                 reasoning_chunks.push_str(rc);
+                // v1.46.23: Also emit reasoning_content as event to keep WebSocket alive.
+                // Models like qwen3.7-plus have long "thinking" phases where only
+                // reasoning_content is sent (no content). Without this, the 60s
+                // activity_timeout triggers prematurely.
+                if !on_event(json!({"type": "reasoning", "content": rc})) {
+                    return;
+                }
             }
         }
         // Accumulate tool call deltas by index

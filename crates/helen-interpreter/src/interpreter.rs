@@ -4195,6 +4195,28 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                                 }
                             }
                         }
+                        "reasoning" => {
+                            // v1.46.23: Forward reasoning_content to on_chunk callback.
+                            // Models like qwen3.7-plus have long "thinking" phases where only
+                            // reasoning_content is sent. Without forwarding this, the WebSocket
+                            // 60s activity_timeout triggers prematurely.
+                            if let Some(content) = event.get("content").and_then(|c| c.as_str()) {
+                                if !content.is_empty() {
+                                    if let Some(ref chunk_fn) = chunk_fn_opt {
+                                        let interp = unsafe { &mut *self_ptr_stream };
+                                        if let Ok(result) = interp.call_value(
+                                            chunk_fn.clone(),
+                                            vec![Value::Str(Rc::from(content))],
+                                        ) {
+                                            if matches!(result, Value::Bool(false)) {
+                                                *interrupted_clone.borrow_mut() = true;
+                                                return false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
