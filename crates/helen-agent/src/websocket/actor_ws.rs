@@ -387,7 +387,25 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             }
                         }
                         WsInput::Cancel => {
-                            // Cancel current processing (no-op for now)
+                            // Cancel current processing
+                            let bridge_guard = bridge.lock().await;
+                            if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                bridge_ref.cancel();
+                                // Send cancellation confirmation to frontend
+                                if socket
+                                    .send(Message::Text(
+                                        serde_json::json!({
+                                            "type": "cancelled",
+                                            "data": {"content": "Processing cancelled"}
+                                        })
+                                        .to_string(),
+                                    ))
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
                         }
                         WsInput::Unknown(msg_type) => {
                             if socket
