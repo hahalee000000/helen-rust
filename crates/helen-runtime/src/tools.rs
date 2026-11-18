@@ -434,8 +434,18 @@ fn tool_web_search(args: &Value) -> String {
 
         // Description from <p class="b_lineclamp..."> or <div class="b_caption">
         let mut snippet = String::new();
-        if let Some(dm) = find_between(item, r#"<p class="b_lineclamp"#, "</p>") {
-            snippet = strip_html(dm);
+        // Find <p class="b_lineclamp..." ...>CONTENT</p>
+        // Need to skip past the opening tag's attributes to get to the content
+        if let Some(p_tag_start) = item.find(r#"<p class="b_lineclamp"#) {
+            let after_p_tag = &item[p_tag_start..];
+            // Find the end of the opening <p> tag
+            if let Some(tag_end) = after_p_tag.find('>') {
+                let content_start = p_tag_start + tag_end + 1;
+                let remaining = &item[content_start..];
+                if let Some(p_close) = remaining.find("</p>") {
+                    snippet = strip_html(&remaining[..p_close]);
+                }
+            }
         } else if let Some(dm) = find_between(item, r#"<div class="b_caption""#, "</div>") {
             snippet = strip_html(dm);
         }
