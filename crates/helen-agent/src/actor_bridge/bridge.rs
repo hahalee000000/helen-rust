@@ -128,8 +128,9 @@ pub struct HelenActorBridge {
     alive: Arc<AtomicBool>,
     /// Channel to send user input to the interpreter thread (tokio for async)
     input_tx: mpsc::Sender<UserInput>,
-    /// Channel to receive agent output from the interpreter thread
-    output_rx: Arc<tokio::sync::Mutex<std_mpsc::Receiver<AgentOutput>>>,
+    /// Channel to receive agent output from the interpreter thread (tokio for async)
+    /// v1.46.25: Changed from std::sync::mpsc to tokio::sync::mpsc to eliminate 50ms polling delay
+    output_rx: Arc<tokio::sync::Mutex<tokio::sync::mpsc::Receiver<AgentOutput>>>,
     /// Broadcast channel for streaming chunks
     stream_tx: broadcast::Sender<StreamChunk>,
     /// Last activity timestamp (seconds since UNIX epoch)
@@ -150,7 +151,8 @@ impl HelenActorBridge {
         let alive = Arc::new(AtomicBool::new(true));
         let (input_tx, mut input_rx_std) = mpsc::channel::<UserInput>(32);
         let (input_tx_std, input_rx_std_sync) = std_mpsc::channel::<UserInput>();
-        let (output_tx, output_rx) = std_mpsc::channel::<AgentOutput>();
+        // v1.46.25: Use tokio::sync::mpsc for output channel to eliminate 50ms polling delay
+        let (output_tx, output_rx) = tokio::sync::mpsc::channel::<AgentOutput>(32);
         let (stream_tx, _) = broadcast::channel(100);
 
         // Initialize last activity timestamp
@@ -472,7 +474,8 @@ impl HelenActorBridge {
                                         request_id: input.request_id.clone(),
                                         content: response_str,
                                     };
-                                    if let Err(e) = output_tx.send(output) {
+                                    // v1.46.25: Use blocking_send for tokio::sync::mpsc in std thread
+                                    if let Err(e) = output_tx.blocking_send(output) {
                                         eprintln!(
                                             "Failed to send response to output channel: {:?}",
                                             e
@@ -485,7 +488,8 @@ impl HelenActorBridge {
                                         request_id: input.request_id.clone(),
                                         error_msg: format!("{:?}", e),
                                     };
-                                    if let Err(e) = output_tx.send(output) {
+                                    // v1.46.25: Use blocking_send for tokio::sync::mpsc in std thread
+                                    if let Err(e) = output_tx.blocking_send(output) {
                                         eprintln!(
                                             "Failed to send error to output channel: {:?}",
                                             e
@@ -574,11 +578,20 @@ impl HelenActorBridge {
         self.cancel_event.load(Ordering::SeqCst)
     }
 
-    /// Receive agent output (non-blocking)
+    /// Receive agent output (async, non-blocking check then blocking wait)
+    ///
+    /// v1.46.25: Returns a future that resolves when output is available.
+    /// Use `recv_output()` for async waiting in tokio::select!.
+    pub async fn receive_output(&self) -> Option<AgentOutput> {
+        let mut rx = self.output_rx.lock().await;
+        rx.recv().await
+    }
+
+    /// Try to receive agent output (non-blocking)
     ///
     /// Returns the next available output, or None if no output is available.
-    pub async fn receive_output(&self) -> Option<AgentOutput> {
-        let rx = self.output_rx.lock().await;
+    pub async fn try_receive_output(&self) -> Option<AgentOutput> {
+        let mut rx = self.output_rx.lock().await;
         rx.try_recv().ok()
     }
 

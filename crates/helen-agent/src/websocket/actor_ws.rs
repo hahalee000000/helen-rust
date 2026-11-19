@@ -306,9 +306,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                 Err(_) => break,
                                             }
                                         }
-                                        // Check for complete response
-                                        _ = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {
-                                            if let Some(output) = bridge_ref.receive_output().await {
+                                        // v1.46.25: Check for complete response (async, no polling delay)
+                                        output_result = bridge_ref.receive_output() => {
+                                            if let Some(output) = output_result {
                                                 last_activity = std::time::Instant::now(); // Reset activity timer
                                                 match output {
                                                     AgentOutput::ResponseComplete { content: ref c, .. } => {

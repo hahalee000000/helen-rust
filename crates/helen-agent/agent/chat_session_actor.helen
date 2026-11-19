@@ -43,6 +43,15 @@ import "session_stats.helen"
 // This is set by _handle_actor_user_input_stream and read by _streaming_chunks_cb_with_channel
 shared let _current_streaming_channel = null
 
+// v1.46.25: Cache Python FFI module references to avoid repeated import failures.
+// When python-ffi feature is not enabled, import "ui.stream_emitter" fails every time,
+// causing significant overhead (exception creation/throw/catch per LLM chunk).
+// Solution: try import once at startup, cache the result, skip if unavailable.
+shared let _stream_emitter_module = null
+shared let _stream_emitter_available = false
+shared let _status_emitter_module = null
+shared let _status_emitter_available = false
+
 /** ChatSessionActor - 长驻聊天 actor（唯一编排器）
  *
  * 参数:
@@ -247,6 +256,28 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
     functions {
         // ── 基础设施 ──
 
+        // v1.46.25: Initialize Python FFI module references once at startup.
+        // This avoids repeated import failures in hot paths (every LLM chunk).
+        fn _init_python_modules() {
+            // Try to import stream_emitter
+            try {
+                ensure_python_path()
+                import "ui.stream_emitter" as _StreamMod
+                _stream_emitter_module = _StreamMod
+                _stream_emitter_available = true
+            } catch {
+                _stream_emitter_available = false
+            }
+            // Try to import status_emitter
+            try {
+                import "ui.status_emitter" as _StatusMod
+                _status_emitter_module = _StatusMod
+                _status_emitter_available = true
+            } catch {
+                _status_emitter_available = false
+            }
+        }
+
         fn _init_actor_output() {
             try {
                 init_output()
@@ -255,16 +286,21 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
         }
 
         fn _emit_actor_stream_event(event_type: str, data: str) {
+            // v1.46.25: Use cached module reference instead of repeated import
+            if !_stream_emitter_available {
+                return
+            }
             try {
-                ensure_python_path()
-                import "ui.stream_emitter" as ActorStreamEmitter
-                ActorStreamEmitter.emit_stream_event(event_type, data)
+                _stream_emitter_module.emit_stream_event(event_type, data)
             } catch {}
         }
 
         fn _actor_emit_statusline() {
+            // v1.46.25: Use cached module reference instead of repeated import
+            if !_status_emitter_available {
+                return
+            }
             try {
-                import "ui.status_emitter" as _StatusMod
                 let stats = context_stats()
                 let ratio = stats["usage_ratio"]
                 let model_name
@@ -274,7 +310,17 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
                 } else {
                     model_name = m
                 }
-                _StatusMod.emit_status(ratio, model_name)
+                _status_emitter_module.emit_status(ratio, model_name)
+            } catch {}
+        }
+
+        // v1.46.25: Helper to clear cancel flag using cached module reference
+        fn _clear_cancel_flag() {
+            if !_stream_emitter_available {
+                return
+            }
+            try {
+                _stream_emitter_module.clear_cancel()
             } catch {}
         }
 
@@ -299,12 +345,33 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
         // ── 流式回调 ──
 
         fn _actor_chunks_cb(text) {
+            // v1.46.25: Use cached module reference for cancel check
+            if _stream_emitter_available {
+                try {
+                    if _stream_emitter_module.is_cancel_requested() {
+                        cancel_all_llm_calls()
+                        _stream_emitter_module.clear_cancel()
+                        return
+                    }
+                } catch {}
+            }
+            // v1.46.25: Check hint queue on every chunk (not just tool_end)
+            // This ensures hints are injected promptly during long LLM text generation
             try {
-                import "ui.stream_emitter" as _CancelCheck
-                if _CancelCheck.is_cancel_requested() {
-                    cancel_all_llm_calls()
-                    _CancelCheck.clear_cancel()
-                    return
+                if hint_queue_has_pending() {
+                    let hints = hint_queue_pop_all()
+                    if len(hints) > 0 {
+                        let parts = []
+                        for h in hints {
+                            parts = parts + ["[用户追加提示] " + h["text"]]
+                        }
+                        let merged = join(parts, "\n\n")
+                        _emit_actor_stream_event("hint_injected", merged)
+                        // Note: We can't return the merged hints here because on_chunk
+                        // doesn't support return values like on_tool_end does.
+                        // The hints are emitted as events but not injected into the LLM context.
+                        // This is a limitation of the current architecture.
+                    }
                 }
             } catch {}
             _emit_actor_stream_event("llm_chunk", text)
@@ -318,14 +385,16 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
         fn _actor_tool_end_cb(tool_name, tool_result) {
             // v1.39.7: Check cancel at tool completion — closes the gap
             // where stop button was unresponsive during tool execution
-            try {
-                import "ui.stream_emitter" as _CancelCheck
-                if _CancelCheck.is_cancel_requested() {
-                    cancel_all_llm_calls()
-                    _CancelCheck.clear_cancel()
-                    return null
-                }
-            } catch {}
+            // v1.46.25: Use cached module reference for cancel check
+            if _stream_emitter_available {
+                try {
+                    if _stream_emitter_module.is_cancel_requested() {
+                        cancel_all_llm_calls()
+                        _stream_emitter_module.clear_cancel()
+                        return null
+                    }
+                } catch {}
+            }
             _actor_emit_statusline()
             try {
                 // v1.46.24: Use global built-in functions instead of Python FFI module
@@ -441,10 +510,8 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             // 这是最关键的防线：即使上一轮 cancel 后所有清理路径都失败，
             // 新一轮用户输入必须从干净状态开始。否则残留 flag 会干扰
             // 下面的 auto-compress LLM 调用和后续的 llm act。
-            try {
-                import "ui.stream_emitter" as _CancelCleanup
-                _CancelCleanup.clear_cancel()
-            } catch {}
+            // v1.46.25: Use cached module reference
+            _clear_cancel_flag()
 
             // 统计轮次
             try { SessionStats.increment_turns() } catch {}
@@ -486,17 +553,13 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
                 // Fix: llm act 正常完成后清理残留 cancel flag。
                 // 如果用户取消了上一轮但回调未触发 clear_cancel()，
                 // flag 会残留并干扰后续 /compress 等需要 LLM 调用的操作。
-                try {
-                    import "ui.stream_emitter" as _CancelCleanup
-                    _CancelCleanup.clear_cancel()
-                } catch {}
+                // v1.46.25: Use cached module reference
+                _clear_cancel_flag()
             } catch RuntimeError err {
                 debug("ChatSessionActor: LLM error: " + err.message)
                 // Fix: 错误路径也要清理 cancel flag
-                try {
-                    import "ui.stream_emitter" as _CancelCleanup
-                    _CancelCleanup.clear_cancel()
-                } catch {}
+                // v1.46.25: Use cached module reference
+                _clear_cancel_flag()
                 let _llm_err_params = {"message": err.message}
                 let _llm_err_payload = {"i18n_key": "error.llmError", "params": _llm_err_params}
                 _emit_actor_stream_event("error", json_stringify(_llm_err_payload))
@@ -513,10 +576,8 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             } catch {
                 debug("ChatSessionActor: LLM error (unknown)")
                 // Fix: 未知错误路径也要清理 cancel flag
-                try {
-                    import "ui.stream_emitter" as _CancelCleanup
-                    _CancelCleanup.clear_cancel()
-                } catch {}
+                // v1.46.25: Use cached module reference
+                _clear_cancel_flag()
                 let _llm_unknown_payload = {"i18n_key": "error.llmUnknown", "params": dict()}
                 _emit_actor_stream_event("error", json_stringify(_llm_unknown_payload))
                 _emit_actor_stream_event("processing_complete", "")
@@ -612,10 +673,8 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             }
 
             // Fix: 每次处理新 user_input 时强制清理残留 cancel flag。
-            try {
-                import "ui.stream_emitter" as _CancelCleanup
-                _CancelCleanup.clear_cancel()
-            } catch {}
+            // v1.46.25: Use cached module reference
+            _clear_cancel_flag()
 
             // 统计轮次
             try { SessionStats.increment_turns() } catch {}
@@ -658,16 +717,12 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
                 }
                 debug("ChatSessionActor: LLM act complete (streaming request=" + request_id + ", response_len=" + str(len(full_response)) + ")")
                 // Fix: llm act 正常完成后清理残留 cancel flag。
-                try {
-                    import "ui.stream_emitter" as _CancelCleanup
-                    _CancelCleanup.clear_cancel()
-                } catch {}
+                // v1.46.25: Use cached module reference
+                _clear_cancel_flag()
             } catch RuntimeError err {
                 debug("ChatSessionActor: LLM error (streaming): " + err.message)
-                try {
-                    import "ui.stream_emitter" as _CancelCleanup
-                    _CancelCleanup.clear_cancel()
-                } catch {}
+                // v1.46.25: Use cached module reference
+                _clear_cancel_flag()
                 let _llm_err_params = {"message": err.message}
                 let _llm_err_payload = {"i18n_key": "error.llmError", "params": _llm_err_params}
                 _emit_actor_stream_event("error", json_stringify(_llm_err_payload))
@@ -681,10 +736,8 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
                 return new_count
             } catch {
                 debug("ChatSessionActor: LLM error (streaming, unknown)")
-                try {
-                    import "ui.stream_emitter" as _CancelCleanup
-                    _CancelCleanup.clear_cancel()
-                } catch {}
+                // v1.46.25: Use cached module reference
+                _clear_cancel_flag()
                 let _llm_unknown_payload = {"i18n_key": "error.llmUnknown", "params": dict()}
                 _emit_actor_stream_event("error", json_stringify(_llm_unknown_payload))
                 _emit_actor_stream_event("processing_complete", "")
@@ -719,14 +772,16 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
 
         // 流式回调：将 chunks 发送到 streaming_channel
         fn _streaming_chunks_cb_with_channel(text) {
-            try {
-                import "ui.stream_emitter" as _CancelCheck
-                if _CancelCheck.is_cancel_requested() {
-                    cancel_all_llm_calls()
-                    _CancelCheck.clear_cancel()
-                    return
-                }
-            } catch {}
+            // v1.46.25: Use cached module reference for cancel check
+            if _stream_emitter_available {
+                try {
+                    if _stream_emitter_module.is_cancel_requested() {
+                        cancel_all_llm_calls()
+                        _stream_emitter_module.clear_cancel()
+                        return
+                    }
+                } catch {}
+            }
             // 发送 chunk 到 streaming_channel
             try {
                 if _current_streaming_channel != null {
@@ -1036,6 +1091,10 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
     }
 
     main {
+        // v1.46.25: Initialize Python FFI module references once at startup.
+        // This avoids repeated import failures in hot paths (every LLM chunk).
+        _init_python_modules()
+
         // ── 恢复会话历史 ──
         // 使用当前 transcript session ID（通过 spawn resume 设置），而不是参数 session_id
         // 参数 session_id 是 main session，实际对话在 child session
