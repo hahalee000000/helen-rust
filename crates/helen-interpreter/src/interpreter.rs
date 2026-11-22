@@ -360,6 +360,18 @@ fn run_spawned(p: SpawnPayload) {
     interp.session_manager = p.session_manager;
     if let Some(sid) = &p.resume_session_id {
         interp.session_id = sid.clone();
+        
+        // v1.46.30: Load transcript from file into transcript_store so the spawned agent
+        // has conversation history (fixes "agent doesn't remember recent tasks" bug).
+        let manager = interp.session_manager.lock().expect("mutex poisoned");
+        let transcript_path = manager.get_session_path(sid);
+        drop(manager);
+        
+        if transcript_path.exists() {
+            let backend = helen_runtime::transcript::JsonlBackend::new(&transcript_path);
+            let store = helen_runtime::transcript::TranscriptStore::load_from_backend(backend, 1000);
+            interp.transcript_store = Some(std::sync::Arc::new(std::sync::Mutex::new(store)));
+        }
     }
     // P0: Inject cancel_event so spawned interpreter can check cancellation during streaming
     // Python: spawned_interp._agent_cancel_event = spawned_endpoint.cancel_event
