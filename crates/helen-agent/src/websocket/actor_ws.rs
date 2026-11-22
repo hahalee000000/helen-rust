@@ -212,6 +212,44 @@ pub fn build_clear_messages() -> String {
     .to_string()
 }
 
+/// Build a JSON response string for directory_changed event
+pub fn build_directory_changed(
+    cwd: &str,
+    display_name: &str,
+    session_id: &str,
+    helen_session_id: Option<&str>,
+) -> String {
+    let mut data = json!({
+        "type": "directory_changed",
+        "data": {
+            "cwd": cwd,
+            "display_name": display_name,
+            "session_id": session_id
+        }
+    });
+    if let Some(sid) = helen_session_id {
+        data["data"]["helen_session_id"] = json!(sid);
+    }
+    data.to_string()
+}
+
+/// Check if a message is a /dir command and extract the path argument
+pub fn parse_dir_command(content: &str) -> Option<Option<String>> {
+    let trimmed = content.trim();
+    if !trimmed.starts_with("/dir") {
+        return None;
+    }
+    
+    let rest = trimmed[4..].trim();
+    if rest.is_empty() {
+        // /dir with no arguments - query current directory
+        Some(None)
+    } else {
+        // /dir <path> - switch to new directory
+        Some(Some(rest.to_string()))
+    }
+}
+
 /// Handle WebSocket connection
 async fn handle_socket(mut socket: WebSocket, state: AppState) {
     // Send initial status update
@@ -267,6 +305,124 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 
                             // Detect slash commands (messages starting with /)
                             let is_slash = is_slash_command(&content);
+
+                            // Handle /dir command specially (don't send to Helen)
+                            if let Some(path_arg) = parse_dir_command(&content) {
+                                let state_guard = state.lock().await;
+                                let current_cwd = state_guard.directory_manager.get_cwd();
+                                
+                                match path_arg {
+                                    None => {
+                                        // /dir with no arguments - query current directory
+                                        let display_name = state_guard.directory_manager.get_display_name(Some(current_cwd.clone()));
+                                        drop(state_guard);
+                                        
+                                        let response = json!({
+                                            "type": "processing_complete",
+                                            "data": {
+                                                "i18n_key": "dir.currentDir",
+                                                "params": {"path": current_cwd, "name": display_name},
+                                                "is_slash_response": true
+                                            }
+                                        }).to_string();
+                                        
+                                        if socket.send(Message::Text(response)).await.is_err() {
+                                            break;
+                                        }
+                                        continue;
+                                    }
+                                    Some(path) => {
+                                        // /dir <path> - switch to new directory
+                                        let result = state_guard.directory_manager.set_cwd(&path);
+                                        
+                                        if result.status == "ok" {
+                                            let new_cwd = result.cwd.unwrap_or_else(|| current_cwd.clone());
+                                            let display_name = result.display_name.unwrap_or_else(|| path.clone());
+                                            
+                                            // Only restart actor if directory actually changed
+                                            if new_cwd != current_cwd {
+                                                let new_session_id = state_guard.directory_manager.cwd_to_session_id(&new_cwd);
+                                                
+                                                // Get Helen session ID from bridge
+                                                let helen_sid = {
+                                                    let bridge_guard = bridge.lock().await;
+                                                    if bridge_guard.is_some() {
+                                                        // Try to get session ID from bridge (async operation)
+                                                        // For now, we'll just use the new session ID
+                                                        Some(new_session_id.clone())
+                                                    } else {
+                                                        None
+                                                    }
+                                                };
+                                                
+                                                drop(state_guard);
+                                                
+                                                // Re-initialize bridge with new CWD and session_id
+                                                // This ensures transcript is written to the new directory
+                                                {
+                                                    let mut bridge_guard = bridge.lock().await;
+                                                    *bridge_guard = Some(HelenActorBridge::new(
+                                                        new_cwd.clone(),
+                                                        new_session_id.clone(),
+                                                        "<context></context>".to_string(),
+                                                    ));
+                                                }
+                                                
+                                                // Send directory_changed event
+                                                let dir_changed = build_directory_changed(
+                                                    &new_cwd,
+                                                    &display_name,
+                                                    &new_session_id,
+                                                    helen_sid.as_deref(),
+                                                );
+                                                
+                                                if socket.send(Message::Text(dir_changed)).await.is_err() {
+                                                    break;
+                                                }
+                                                
+                                                // Send clear_messages event to clear frontend history
+                                                // This ensures the frontend shows the new directory's transcript (empty for new directory)
+                                                if socket.send(Message::Text(build_clear_messages())).await.is_err() {
+                                                    break;
+                                                }
+                                            } else {
+                                                drop(state_guard);
+                                            }
+                                            
+                                            // Send success response
+                                            let response = json!({
+                                                "type": "processing_complete",
+                                                "data": {
+                                                    "i18n_key": "dir.switchedTo",
+                                                    "params": {"name": display_name, "path": new_cwd},
+                                                    "is_slash_response": true
+                                                }
+                                            }).to_string();
+                                            
+                                            if socket.send(Message::Text(response)).await.is_err() {
+                                                break;
+                                            }
+                                        } else {
+                                            drop(state_guard);
+                                            
+                                            // Send error response
+                                            let response = json!({
+                                                "type": "processing_complete",
+                                                "data": {
+                                                    "i18n_key": "dir.switchFailed",
+                                                    "params": {"reason": result.message.unwrap_or_else(|| "Unknown error".to_string())},
+                                                    "is_slash_response": true
+                                                }
+                                            }).to_string();
+                                            
+                                            if socket.send(Message::Text(response)).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                        continue;
+                                    }
+                                }
+                            }
 
                             // Process message using HelenActorBridge
                             let bridge_guard = bridge.lock().await;

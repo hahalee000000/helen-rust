@@ -137,6 +137,8 @@ pub struct HelenActorBridge {
     last_activity: Arc<AtomicU64>,
     /// Cancel event for interrupting LLM calls (shared with interpreter)
     cancel_event: Arc<AtomicBool>,
+    /// Call tracker for cancelling active LLM calls (shared with interpreter)
+    call_tracker: Arc<helen_runtime::call_tracking::CallTracker>,
 }
 
 impl HelenActorBridge {
@@ -166,6 +168,10 @@ impl HelenActorBridge {
         // Create cancel event for interrupting LLM calls
         let cancel_event = Arc::new(AtomicBool::new(false));
         let cancel_event_clone = cancel_event.clone();
+
+        // Create call tracker for cancelling active LLM calls
+        let call_tracker = Arc::new(helen_runtime::call_tracking::CallTracker::new());
+        let call_tracker_clone = call_tracker.clone();
 
         // Wrap output_rx in Arc<Mutex> for sharing
         let output_rx = Arc::new(tokio::sync::Mutex::new(output_rx));
@@ -202,6 +208,9 @@ impl HelenActorBridge {
 
             // Set agent_cancel_event to shared cancel event for interrupting LLM calls
             interp.agent_cancel_event = Some(cancel_event_clone);
+
+            // Set call_tracker to shared call tracker for cancelling active LLM calls
+            interp.call_tracker = call_tracker_clone;
 
             // 1a. Override session_manager to use project-local .helen/sessions/
             //     instead of the default ~/.helen/sessions/ (which is for helen-rust dev).
@@ -523,6 +532,7 @@ impl HelenActorBridge {
             stream_tx,
             last_activity: last_activity_clone,
             cancel_event,
+            call_tracker,
         }
     }
 
@@ -566,6 +576,11 @@ impl HelenActorBridge {
     /// during streaming to interrupt LLM calls.
     pub fn cancel(&self) {
         self.cancel_event.store(true, Ordering::SeqCst);
+        // Also cancel all active LLM calls via call_tracker
+        let cancelled_count = self.call_tracker.cancel_all();
+        if cancelled_count > 0 {
+            eprintln!("[bridge] Cancelled {} active LLM call(s)", cancelled_count);
+        }
     }
 
     /// Clear cancel flag (called after processing completes)
@@ -576,6 +591,11 @@ impl HelenActorBridge {
     /// Check if cancel is requested
     pub fn is_cancel_requested(&self) -> bool {
         self.cancel_event.load(Ordering::SeqCst)
+    }
+
+    /// Get reference to call tracker (for testing and external cancellation)
+    pub fn get_call_tracker(&self) -> &Arc<helen_runtime::call_tracking::CallTracker> {
+        &self.call_tracker
     }
 
     /// Receive agent output (async, non-blocking check then blocking wait)

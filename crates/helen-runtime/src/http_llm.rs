@@ -584,12 +584,27 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|n| n.as_str())
                         .unwrap_or("")
                         .to_string();
-                    let fn_args: Value = tc
+                    let fn_args_str = tc
                         .get("function")
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
-                        .and_then(|s| serde_json::from_str(s).ok())
-                        .unwrap_or_else(|| json!({}));
+                        .unwrap_or("{}");
+                    
+                    let fn_args: Value = match serde_json::from_str(fn_args_str) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // JSON 解析失败，可能是 LLM 输出被截断
+                            let error_msg = format!(
+                                "Tool call arguments JSON parse error: {}. Arguments: {}. \
+                                 This may indicate the LLM output was truncated. \
+                                 Please retry with a smaller file or split into multiple operations.",
+                                e, fn_args_str
+                            );
+                            eprintln!("[WARN] {}", error_msg);
+                            tool_results.push((tc.clone(), error_msg));
+                            continue;
+                        }
+                    };
                     let result = match &dispatch_fn {
                         Some(d) => d(&fn_name, &fn_args),
                         None => {
@@ -820,12 +835,35 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|n| n.as_str())
                         .unwrap_or("")
                         .to_string();
-                    let fn_args: Value = tc
+                    let fn_args_str = tc
                         .get("function")
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
-                        .and_then(|s| serde_json::from_str(s).ok())
-                        .unwrap_or_else(|| json!({}));
+                        .unwrap_or("{}");
+                    
+                    let fn_args: Value = match serde_json::from_str(fn_args_str) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // JSON 解析失败，可能是 LLM 输出被截断
+                            let error_msg = format!(
+                                "Tool call arguments JSON parse error: {}. Arguments: {}. \
+                                 This may indicate the LLM output was truncated. \
+                                 Please retry with a smaller file or split into multiple operations.",
+                                e, fn_args_str
+                            );
+                            eprintln!("[WARN] {}", error_msg);
+                            
+                            // 返回错误给 LLM，让它知道发生了什么
+                            if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": json!({})})) {
+                                return Ok(());
+                            }
+                            if !on_event(json!({"type": "tool_result", "name": &fn_name, "result": &error_msg})) {
+                                return Ok(());
+                            }
+                            tool_results.push((tc.clone(), error_msg));
+                            continue;
+                        }
+                    };
                     // Emit tool_call event BEFORE executing (Python parity)
                     if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": &fn_args})) {
                         return Ok(());

@@ -66,8 +66,9 @@ describe('ErrorBoundary', () => {
 
   it('shows unknown message when error has no message', () => {
     // Component that throws with empty message
-    function EmptyErrorComponent() {
+    function EmptyErrorComponent(): React.ReactElement {
       throw new Error('')
+      return null as any
     }
 
     render(

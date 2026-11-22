@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AuthGate } from './AuthGate'
 import * as api from '@/services/api'
@@ -22,7 +22,7 @@ describe('AuthGate', () => {
     // Default: no stored token
     vi.mocked(api.getStoredToken).mockReturnValue('')
     // Default: probe returns 200 (no auth required)
-    global.fetch = vi.fn().mockResolvedValue({ status: 200 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 200 })
   })
 
   it('renders children when token exists', () => {
@@ -38,7 +38,7 @@ describe('AuthGate', () => {
   })
 
   it('shows token prompt when probe returns 401', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 401 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 401 })
     
     render(
       <AuthGate>
@@ -54,7 +54,7 @@ describe('AuthGate', () => {
   })
 
   it('shows token prompt when probe returns 403', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 403 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 403 })
     
     render(
       <AuthGate>
@@ -68,7 +68,7 @@ describe('AuthGate', () => {
   })
 
   it('does not prompt when probe succeeds (200)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 200 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 200 })
     
     render(
       <AuthGate>
@@ -78,7 +78,7 @@ describe('AuthGate', () => {
     
     // Wait for probe to complete
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/status')
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/status')
     })
     
     expect(screen.getByTestId('child')).toBeInTheDocument()
@@ -86,7 +86,7 @@ describe('AuthGate', () => {
   })
 
   it('stores token and reloads on submit', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 401 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 401 })
     const user = userEvent.setup()
     
     // Mock window.location.reload
@@ -138,7 +138,7 @@ describe('AuthGate', () => {
   })
 
   it('trims whitespace from token input', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 401 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 401 })
     const user = userEvent.setup()
     
     const reloadMock = vi.fn()
@@ -167,7 +167,7 @@ describe('AuthGate', () => {
   })
 
   it('does not submit empty token', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 401 })
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 401 })
     const user = userEvent.setup()
     
     render(
@@ -188,7 +188,7 @@ describe('AuthGate', () => {
   })
 
   it('does not prompt on network error (backend not running)', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
     
     render(
       <AuthGate>
@@ -198,7 +198,7 @@ describe('AuthGate', () => {
     
     // Wait for probe to complete (with error)
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled()
+      expect(globalThis.fetch).toHaveBeenCalled()
     })
     
     // Should show children, not prompt
