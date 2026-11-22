@@ -207,7 +207,8 @@ impl HelenActorBridge {
             let mut interp = Interpreter::new();
 
             // Set agent_cancel_event to shared cancel event for interrupting LLM calls
-            interp.agent_cancel_event = Some(cancel_event_clone);
+            let cancel_for_interp = cancel_event_clone.clone();
+            interp.agent_cancel_event = Some(cancel_for_interp);
 
             // Set call_tracker to shared call tracker for cancelling active LLM calls
             interp.call_tracker = call_tracker_clone;
@@ -231,7 +232,9 @@ impl HelenActorBridge {
             };
 
             // 1b. Configure LLM runtime from environment (same as REPL)
-            let llm_runtime = HttpLLMRuntime::new(None, None, None);
+            let mut llm_runtime = HttpLLMRuntime::new(None, None, None);
+            // M25.43: Set cancel_event for responsive stop button
+            llm_runtime.cancel_event = Some(cancel_event_clone.clone());
             if !llm_runtime.api_key.is_empty() && llm_runtime.api_key != "sk-placeholder" {
                 let adapter = HttpLlmAdapter::new(llm_runtime);
                 interp.set_llm_runtime(Arc::new(adapter));

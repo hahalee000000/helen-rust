@@ -212,6 +212,8 @@ pub struct HttpLLMRuntime {
     pub last_status_code: Option<u16>,
     /// Optional cassette writer for recording LLM interactions.
     pub cassette_writer: Option<CassetteWriter>,
+    /// Cancel signal for interrupting streaming requests (M25.43)
+    pub cancel_event: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl HttpLLMRuntime {
@@ -261,6 +263,7 @@ impl HttpLLMRuntime {
             last_error: None,
             last_status_code: None,
             cassette_writer: None,
+            cancel_event: None,
         }
     }
 
@@ -736,8 +739,14 @@ impl LlmRuntime for HttpLLMRuntime {
             );
 
             let body = payload.to_string();
-            let resp = ureq::post(&self.url())
+            // M25.43: Use Agent with timeout_read for responsive cancellation
+            // timeout_read lets us check cancel_event periodically during streaming
+            let agent = ureq::AgentBuilder::new()
                 .timeout(Duration::from_secs(self.timeout))
+                .timeout_read(Duration::from_secs(2)) // Check cancel every 2 seconds
+                .build();
+            let resp = agent
+                .post(&self.url())
                 .set("Content-Type", "application/json")
                 .set("Authorization", &self.auth_header())
                 .send_string(&body);
@@ -805,6 +814,20 @@ impl LlmRuntime for HttpLLMRuntime {
                         } else {
                             line_bytes.push(byte[0]);
                         }
+                    }
+                    Err(ref e)
+                        if e.kind() == std::io::ErrorKind::TimedOut
+                            || e.kind() == std::io::ErrorKind::WouldBlock =>
+                    {
+                        // M25.43: Read timeout — check cancel_event
+                        if let Some(ref cancel_event) = self.cancel_event {
+                            if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                                // Cancelled by user — exit loop
+                                break;
+                            }
+                        }
+                        // Not cancelled — continue reading
+                        continue;
                     }
                     Err(_) => break,
                 }
