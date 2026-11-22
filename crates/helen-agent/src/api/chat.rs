@@ -424,16 +424,35 @@ pub async fn get_directory_messages(
 
     let reader = TranscriptReader::from_path(&sessions_dir);
 
-    // Find the most recent session for the current CWD
-    // Helen interpreter creates sessions with timestamp-based IDs (session_XXX),
-    // not SHA256-based IDs that the backend generates.
-    // So we scan for the most recent session instead of generating a mismatched ID.
-    let sessions = reader.list_sessions();
+    // Priority 1: Read current_session_id file (created by Helen interpreter)
+    let cwd = inner.directory_manager.get_cwd();
+    let current_session_file = std::path::Path::new(&cwd).join(".helen/current_session_id");
+    let session_id = if current_session_file.exists() {
+        // Read the current session ID from file
+        if let Ok(content) = std::fs::read_to_string(&current_session_file) {
+            // Parse JSON: {"child": "xxx", "main": "xxx"}
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                json.get("main")
+                    .or_else(|| json.get("child"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
-    let session_id = sessions.first().map(|s| s.id.clone()).unwrap_or_else(|| {
-        // Fallback: generate SHA256-based ID (for backwards compatibility)
-        let cwd = inner.directory_manager.get_cwd();
-        inner.directory_manager.cwd_to_session_id(&cwd)
+    // Priority 2: Use the most recent session from list
+    let session_id = session_id.unwrap_or_else(|| {
+        let sessions = reader.list_sessions();
+        sessions.first().map(|s| s.id.clone()).unwrap_or_else(|| {
+            // Fallback: generate SHA256-based ID (for backwards compatibility)
+            inner.directory_manager.cwd_to_session_id(&cwd)
+        })
     });
 
     let messages = reader.to_messages(&session_id);
