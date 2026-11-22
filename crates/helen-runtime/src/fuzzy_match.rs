@@ -133,9 +133,13 @@ fn strategy_exact(content: &str, pattern: &str) -> Vec<Match> {
     }
     let mut start = 0usize;
     while let Some(pos) = find_subslice(&bytes[start..], pat) {
-        let abs = start + pos;
-        matches.push((abs, abs + pat.len()));
-        start = abs + 1;
+        let byte_start = start + pos;
+        let byte_end = byte_start + pat.len();
+        // Convert byte positions to char positions (Python slices are char-based)
+        let char_start = content[..byte_start].chars().count();
+        let char_end = content[..byte_end].chars().count();
+        matches.push((char_start, char_end));
+        start = byte_end;
     }
     matches
 }
