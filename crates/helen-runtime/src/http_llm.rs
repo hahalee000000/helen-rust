@@ -215,6 +215,8 @@ pub struct HttpLLMRuntime {
     pub cassette_writer: Option<CassetteWriter>,
     /// Cancel signal for interrupting streaming requests (M25.43)
     pub cancel_event: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// Hint queue for mid-processing user hints (v1.46.28)
+    pub hint_queue: Option<std::sync::Arc<crate::hint_queue::HintQueue>>,
 }
 
 impl HttpLLMRuntime {
@@ -265,6 +267,7 @@ impl HttpLLMRuntime {
             last_status_code: None,
             cassette_writer: None,
             cancel_event: None,
+            hint_queue: None,
         }
     }
 
@@ -544,6 +547,10 @@ impl LlmRuntime for HttpLLMRuntime {
         let mut budget = IterationBudget::new(max_turns + 2);
         let mut empty_response_retries = 0;
         let max_empty_retries = 2;
+        
+        // Phase 8D: Loop detection (v1.46.28)
+        let mut loop_detector = crate::loop_detector::ToolCallLoopDetector::new();
+        let mut loop_warning_injected = false;
 
         while budget.consume() {
             if self.enable_message_sanitization {
@@ -567,6 +574,25 @@ impl LlmRuntime for HttpLLMRuntime {
                     .unwrap_or_else(|| "Unknown API error".into());
                 return Err(format!("LLM API call failed: {err}"));
             };
+
+            // Debug: log LLM response
+            eprintln!("[LLM DEBUG] Received response from LLM");
+            if let Some(content) = response_msg.get("content").and_then(|c| c.as_str()) {
+                let preview = if content.len() > 200 { &content[..200] } else { content };
+                eprintln!("[LLM DEBUG] Response content preview: {}", preview);
+            }
+            if let Some(tool_calls) = response_msg.get("tool_calls") {
+                if let Some(calls) = tool_calls.as_array() {
+                    eprintln!("[LLM DEBUG] Tool calls: {} calls", calls.len());
+                    for (i, tc) in calls.iter().enumerate() {
+                        let fn_name = tc.get("function")
+                            .and_then(|f| f.get("name"))
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("?");
+                        eprintln!("  [{}] {}", i, fn_name);
+                    }
+                }
+            }
 
             // Check if LLM wants tool calls
             let tool_calls: Vec<Value> = response_msg
@@ -646,6 +672,88 @@ impl LlmRuntime for HttpLLMRuntime {
                         "result": truncated,
                     }));
                 }
+
+                // Phase 8C: Hint injection — check for pending user hints (v1.46.28)
+                // This allows mid-processing user hints to be injected into the conversation
+                if let Some(ref hint_queue) = self.hint_queue {
+                    let hints = hint_queue.pop_all_hints();
+                    eprintln!(
+                        "[HINT DEBUG] Checked hint_queue: found {} hints",
+                        hints.len()
+                    );
+                    if !hints.is_empty() {
+                        for hint in hints {
+                            // Add hint as user message with system hint prefix (Python parity)
+                            // The prefix helps LLM understand this is a system instruction
+                            let last_tool = tool_calls_log
+                                .last()
+                                .and_then(|tc| tc.get("name"))
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("unknown");
+                            let hint_content = format!(
+                                "[System Hint — after tool '{}']\n{}",
+                                last_tool, hint.text
+                            );
+                            eprintln!(
+                                "[HINT] Injecting hint after tool '{}': {}",
+                                last_tool, hint.text
+                            );
+                            messages.push(json!({
+                                "role": "user",
+                                "content": hint_content,
+                            }));
+                            // Debug: print last 3 messages to verify injection
+                            eprintln!("[HINT DEBUG] Messages after injection (last 3):");
+                            let start = if messages.len() >= 3 { messages.len() - 3 } else { 0 };
+                            for (i, msg) in messages.iter().enumerate().skip(start) {
+                                let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("?");
+                                let content = msg.get("content")
+                                    .and_then(|c| c.as_str())
+                                    .map(|s| if s.len() > 100 { &s[..100] } else { s })
+                                    .unwrap_or("<tool_call>");
+                                eprintln!("  [{}] role={}, content={}", i, role, content);
+                            }
+                        }
+                    }
+                } else {
+                    eprintln!("[HINT DEBUG] hint_queue is None!");
+                }
+
+                // Phase 8D: Loop detection (v1.46.28)
+                // Detect repetitive tool calls and inject warning to break the loop
+                loop_detector.record(&tool_calls);
+                let loop_result = loop_detector.check();
+                if loop_result.is_looping {
+                    eprintln!(
+                        "[WARN] Tool call loop detected: {} repeated {} times",
+                        loop_result.signature.as_ref().map(|s| s.name.as_str()).unwrap_or("unknown"),
+                        loop_result.repeated_count
+                    );
+                    if !loop_warning_injected {
+                        // First detection: inject hint to help LLM break out
+                        if let Some(hint_msg) = loop_result.hint_message {
+                            messages.push(json!({
+                                "role": "user",
+                                "content": hint_msg,
+                            }));
+                            loop_warning_injected = true;
+                        }
+                    } else {
+                        // Already warned once: force break the loop
+                        eprintln!(
+                            "[ERROR] Loop persists after warning — forcing termination"
+                        );
+                        // Build a forced final response
+                        final_text = format!(
+                            "[Loop Detection] The agent appears stuck in a repetitive tool call pattern. \
+                            Forced termination after {} repeated calls to `{}`.",
+                            loop_result.repeated_count,
+                            loop_result.signature.as_ref().map(|s| s.name.as_str()).unwrap_or("unknown")
+                        );
+                        break;
+                    }
+                }
+
                 continue;
             }
 
@@ -930,6 +1038,42 @@ impl LlmRuntime for HttpLLMRuntime {
                         "content": content,
                     }));
                 }
+
+                // Phase 8C (stream): Hint injection — check for pending user hints (v1.46.28)
+                // This allows mid-processing user hints to be injected into the conversation
+                if let Some(ref hint_queue) = self.hint_queue {
+                    let hints = hint_queue.pop_all_hints();
+                    eprintln!(
+                        "[HINT DEBUG] act_stream: Checked hint_queue: found {} hints",
+                        hints.len()
+                    );
+                    if !hints.is_empty() {
+                        for hint in hints {
+                            // Add hint as user message with system hint prefix (Python parity)
+                            let last_tool = tool_results
+                                .last()
+                                .and_then(|(tc, _)| tc.get("function"))
+                                .and_then(|f| f.get("name"))
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("unknown");
+                            let hint_content = format!(
+                                "[System Hint — after tool '{}']\n{}",
+                                last_tool, hint.text
+                            );
+                            eprintln!(
+                                "[HINT] act_stream: Injecting hint after tool '{}': {}",
+                                last_tool, hint.text
+                            );
+                            messages.push(json!({
+                                "role": "user",
+                                "content": hint_content,
+                            }));
+                        }
+                    }
+                } else {
+                    eprintln!("[HINT DEBUG] act_stream: hint_queue is None!");
+                }
+
                 full_text.clear();
                 reasoning_chunks.clear();
                 tool_calls_acc.clear();

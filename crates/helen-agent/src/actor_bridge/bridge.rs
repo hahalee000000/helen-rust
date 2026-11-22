@@ -235,6 +235,8 @@ impl HelenActorBridge {
             let mut llm_runtime = HttpLLMRuntime::new(None, None, None);
             // M25.43: Set cancel_event for responsive stop button
             llm_runtime.cancel_event = Some(cancel_event_clone.clone());
+            // v1.46.28: Set hint_queue for mid-processing hint injection
+            llm_runtime.hint_queue = Some(crate::hint_queue::get_hint_queue());
             if !llm_runtime.api_key.is_empty() && llm_runtime.api_key != "sk-placeholder" {
                 let adapter = HttpLlmAdapter::new(llm_runtime);
                 interp.set_llm_runtime(Arc::new(adapter));

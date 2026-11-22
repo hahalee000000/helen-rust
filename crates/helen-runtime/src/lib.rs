@@ -17,6 +17,7 @@ pub mod data_lineage;
 pub mod diagnostics;
 pub mod fuzzy_match;
 pub mod hint_queue;
+pub mod loop_detector;
 pub mod history;
 pub mod http_llm;
 pub mod llm;
