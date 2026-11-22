@@ -567,6 +567,11 @@ impl Interpreter {
             let _ = std::fs::create_dir_all(parent);
         }
 
+        // v1.46.29: Set invocation_id and parent_invocation_id (Python parity)
+        // Python: invocation_id = getattr(self, '_current_invocation_id', '') or ''
+        let invocation_id = self.current_invocation_id.clone();
+        let parent_invocation_id = self.invocation_stack.last().cloned().unwrap_or_default();
+
         // Create message and append to transcript
         let uuid = format!("msg_{}", uuid::Uuid::new_v4().simple());
         let msg = helen_runtime::transcript::Message::new(
@@ -580,8 +585,8 @@ impl Interpreter {
             false,                        // compressed
             false,                        // pinned
             Some(agent_name.to_string()), // agent_name
-            String::new(),                // invocation_id
-            String::new(),                // parent_invocation_id
+            invocation_id,                // invocation_id (v1.46.29: was String::new())
+            parent_invocation_id,         // parent_invocation_id (v1.46.29: was String::new())
             vec![],                       // visible_to_invocation_ids
         );
 
@@ -3697,12 +3702,14 @@ impl Interpreter {
 
         // v1.22: Filter by current invocation_id for per-agent context isolation.
         // Empty current_invocation_id means no invocation active (top-level code) — no filter.
+        // v1.24: Also check visible_to_invocation_ids for cross-invocation visibility
+        // (Python parity: interpreter.py:_history property).
         let current_inv_id = self.current_invocation_id.clone();
         let filtered_history: Vec<_> = if current_inv_id.is_empty() {
             // No invocation active, return all history
             json_history.clone()
         } else {
-            // Filter to only include messages from current invocation
+            // Filter to include messages from current invocation OR visible to it
             json_history
                 .iter()
                 .filter(|entry| {
@@ -3710,8 +3717,31 @@ impl Interpreter {
                         .get("invocation_id")
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
-                    // Include if invocation_id matches or is empty (legacy messages)
-                    msg_inv_id.is_empty() || msg_inv_id == current_inv_id
+                    
+                    // Include if invocation_id matches
+                    if msg_inv_id == current_inv_id {
+                        return true;
+                    }
+                    
+                    // Include if empty (legacy messages)
+                    if msg_inv_id.is_empty() {
+                        return true;
+                    }
+                    
+                    // v1.24: Check visible_to_invocation_ids (Python parity)
+                    if let Some(visible_to) = entry
+                        .get("visible_to_invocation_ids")
+                        .and_then(|v| v.as_array())
+                    {
+                        if visible_to
+                            .iter()
+                            .any(|v| v.as_str() == Some(&current_inv_id))
+                        {
+                            return true;
+                        }
+                    }
+                    
+                    false
                 })
                 .cloned()
                 .collect()
@@ -4770,5 +4800,85 @@ active_files: [main.rs]
             filter.process("Before <working_memory>active_files: [test.py]</working_memory> After");
         let captured = filter.get_captured_wm_content();
         assert!(captured.contains("active_files: [test.py]"));
+    }
+}
+
+#[cfg(test)]
+mod invocation_filter_tests {
+    use serde_json::json;
+
+    #[test]
+    fn test_invocation_filter_includes_visible_to() {
+        // Regression test: Rust was missing visible_to_invocation_ids check
+        // causing agent to "forget" previous conversation
+        
+        let json_history = vec![
+            // Message from invocation_1 (old conversation)
+            json!({
+                "role": "user",
+                "content": "请生成数据库设计文档",
+                "invocation_id": "invocation_1",
+                "visible_to_invocation_ids": ["invocation_2"]
+            }),
+            json!({
+                "role": "assistant",
+                "content": "好的，这是数据库设计...",
+                "invocation_id": "invocation_1",
+                "visible_to_invocation_ids": ["invocation_2"]
+            }),
+            // Message from invocation_2 (current conversation)
+            json!({
+                "role": "user",
+                "content": "显示 2.1 的 ER 图",
+                "invocation_id": "invocation_2",
+                "visible_to_invocation_ids": []
+            }),
+        ];
+
+        let current_inv_id = "invocation_2".to_string();
+
+        // Current Rust implementation (BUGGY)
+        let buggy_filtered: Vec<_> = json_history
+            .iter()
+            .filter(|entry| {
+                let msg_inv_id = entry
+                    .get("invocation_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                msg_inv_id.is_empty() || msg_inv_id == current_inv_id
+            })
+            .collect();
+
+        // Python implementation (CORRECT)
+        let correct_filtered: Vec<_> = json_history
+            .iter()
+            .filter(|entry| {
+                let msg_inv_id = entry
+                    .get("invocation_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                
+                if msg_inv_id == current_inv_id {
+                    return true;
+                }
+                
+                if let Some(visible_to) = entry.get("visible_to_invocation_ids").and_then(|v| v.as_array()) {
+                    if visible_to.iter().any(|v| v.as_str() == Some(&current_inv_id)) {
+                        return true;
+                    }
+                }
+                
+                false
+            })
+            .collect();
+
+        // Bug: Rust only keeps 1 message (current invocation)
+        assert_eq!(buggy_filtered.len(), 1, "Buggy implementation filters out old messages");
+        
+        // Correct: Should keep all 3 messages (including visible ones)
+        assert_eq!(correct_filtered.len(), 3, "Correct implementation keeps visible messages");
+        
+        println!("✅ Bug confirmed: Rust filters out {} messages", 
+                 correct_filtered.len() - buggy_filtered.len());
     }
 }
