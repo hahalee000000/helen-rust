@@ -239,7 +239,7 @@ pub fn parse_dir_command(content: &str) -> Option<Option<String>> {
     if !trimmed.starts_with("/dir") {
         return None;
     }
-    
+
     let rest = trimmed[4..].trim();
     if rest.is_empty() {
         // /dir with no arguments - query current directory
@@ -310,13 +310,15 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             if let Some(path_arg) = parse_dir_command(&content) {
                                 let state_guard = state.lock().await;
                                 let current_cwd = state_guard.directory_manager.get_cwd();
-                                
+
                                 match path_arg {
                                     None => {
                                         // /dir with no arguments - query current directory
-                                        let display_name = state_guard.directory_manager.get_display_name(Some(current_cwd.clone()));
+                                        let display_name = state_guard
+                                            .directory_manager
+                                            .get_display_name(Some(current_cwd.clone()));
                                         drop(state_guard);
-                                        
+
                                         let response = json!({
                                             "type": "processing_complete",
                                             "data": {
@@ -325,7 +327,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                 "is_slash_response": true
                                             }
                                         }).to_string();
-                                        
+
                                         if socket.send(Message::Text(response)).await.is_err() {
                                             break;
                                         }
@@ -334,15 +336,19 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     Some(path) => {
                                         // /dir <path> - switch to new directory
                                         let result = state_guard.directory_manager.set_cwd(&path);
-                                        
+
                                         if result.status == "ok" {
-                                            let new_cwd = result.cwd.unwrap_or_else(|| current_cwd.clone());
-                                            let display_name = result.display_name.unwrap_or_else(|| path.clone());
-                                            
+                                            let new_cwd =
+                                                result.cwd.unwrap_or_else(|| current_cwd.clone());
+                                            let display_name =
+                                                result.display_name.unwrap_or_else(|| path.clone());
+
                                             // Only restart actor if directory actually changed
                                             if new_cwd != current_cwd {
-                                                let new_session_id = state_guard.directory_manager.cwd_to_session_id(&new_cwd);
-                                                
+                                                let new_session_id = state_guard
+                                                    .directory_manager
+                                                    .cwd_to_session_id(&new_cwd);
+
                                                 // Get Helen session ID from bridge
                                                 let helen_sid = {
                                                     let bridge_guard = bridge.lock().await;
@@ -354,9 +360,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                         None
                                                     }
                                                 };
-                                                
+
                                                 drop(state_guard);
-                                                
+
                                                 // Re-initialize bridge with new CWD and session_id
                                                 // This ensures transcript is written to the new directory
                                                 {
@@ -367,7 +373,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                         "<context></context>".to_string(),
                                                     ));
                                                 }
-                                                
+
                                                 // Send directory_changed event
                                                 let dir_changed = build_directory_changed(
                                                     &new_cwd,
@@ -375,20 +381,28 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                     &new_session_id,
                                                     helen_sid.as_deref(),
                                                 );
-                                                
-                                                if socket.send(Message::Text(dir_changed)).await.is_err() {
+
+                                                if socket
+                                                    .send(Message::Text(dir_changed))
+                                                    .await
+                                                    .is_err()
+                                                {
                                                     break;
                                                 }
-                                                
+
                                                 // Send clear_messages event to clear frontend history
                                                 // This ensures the frontend shows the new directory's transcript (empty for new directory)
-                                                if socket.send(Message::Text(build_clear_messages())).await.is_err() {
+                                                if socket
+                                                    .send(Message::Text(build_clear_messages()))
+                                                    .await
+                                                    .is_err()
+                                                {
                                                     break;
                                                 }
                                             } else {
                                                 drop(state_guard);
                                             }
-                                            
+
                                             // Send success response
                                             let response = json!({
                                                 "type": "processing_complete",
@@ -398,13 +412,13 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                     "is_slash_response": true
                                                 }
                                             }).to_string();
-                                            
+
                                             if socket.send(Message::Text(response)).await.is_err() {
                                                 break;
                                             }
                                         } else {
                                             drop(state_guard);
-                                            
+
                                             // Send error response
                                             let response = json!({
                                                 "type": "processing_complete",
@@ -414,7 +428,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                                     "is_slash_response": true
                                                 }
                                             }).to_string();
-                                            
+
                                             if socket.send(Message::Text(response)).await.is_err() {
                                                 break;
                                             }

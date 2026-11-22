@@ -536,7 +536,7 @@ impl LlmRuntime for HttpLLMRuntime {
 
         let mut final_text = String::new();
         let mut tool_calls_log: Vec<Value> = Vec::new();
-        let mut all_tool_calls: Vec<Value> = Vec::new();  // Collect all tool calls for transcript
+        let mut all_tool_calls: Vec<Value> = Vec::new(); // Collect all tool calls for transcript
         let mut budget = IterationBudget::new(max_turns + 2);
         let mut empty_response_retries = 0;
         let max_empty_retries = 2;
@@ -572,7 +572,7 @@ impl LlmRuntime for HttpLLMRuntime {
                 .unwrap_or_default();
             if !tool_calls.is_empty() {
                 let tool_calls = enforce_tool_results_per_turn(tool_calls);
-                
+
                 // Collect tool calls for transcript recording
                 all_tool_calls.extend(tool_calls.clone());
 
@@ -593,7 +593,7 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
                         .unwrap_or("{}");
-                    
+
                     let fn_args: Value = match serde_json::from_str(fn_args_str) {
                         Ok(v) => v,
                         Err(e) => {
@@ -665,7 +665,7 @@ impl LlmRuntime for HttpLLMRuntime {
             } else {
                 Some(final_text)
             },
-            tool_calls: all_tool_calls,  // Return collected tool calls for transcript
+            tool_calls: all_tool_calls, // Return collected tool calls for transcript
             model: Some(use_model),
         })
     }
@@ -844,7 +844,7 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
                         .unwrap_or("{}");
-                    
+
                     let fn_args: Value = match serde_json::from_str(fn_args_str) {
                         Ok(v) => v,
                         Err(e) => {
@@ -856,12 +856,16 @@ impl LlmRuntime for HttpLLMRuntime {
                                 e, fn_args_str
                             );
                             eprintln!("[WARN] {}", error_msg);
-                            
+
                             // 返回错误给 LLM，让它知道发生了什么
-                            if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": json!({})})) {
+                            if !on_event(
+                                json!({"type": "tool_call", "name": &fn_name, "args": json!({})}),
+                            ) {
                                 return Ok(());
                             }
-                            if !on_event(json!({"type": "tool_result", "name": &fn_name, "result": &error_msg})) {
+                            if !on_event(
+                                json!({"type": "tool_result", "name": &fn_name, "result": &error_msg}),
+                            ) {
                                 return Ok(());
                             }
                             tool_results.push((tc.clone(), error_msg));

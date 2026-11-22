@@ -11,7 +11,10 @@ fn test_hint_queue_shared_between_agent_and_interpreter() {
     agent_queue.add_hint("test hint".to_string(), "client1".to_string());
 
     // Verify the hint is in the agent queue
-    assert!(agent_queue.has_pending(), "Agent queue should have pending hint");
+    assert!(
+        agent_queue.has_pending(),
+        "Agent queue should have pending hint"
+    );
 
     // Now simulate Helen calling hint_queue_has_pending()
     // This should return true if they share the same queue
@@ -24,7 +27,10 @@ fn test_hint_queue_shared_between_agent_and_interpreter() {
     assert_eq!(hints[0].text, "test hint");
 
     // After popping, queue should be empty
-    assert!(!agent_queue.has_pending(), "Queue should be empty after pop");
+    assert!(
+        !agent_queue.has_pending(),
+        "Queue should be empty after pop"
+    );
 }
 
 #[test]

@@ -22,7 +22,10 @@ fn test_bridge_cancel_cancels_call_tracker() {
     let call_handle = call_tracker.register_call("test-call-1".to_string());
 
     // Verify the call is active
-    assert!(!call_handle.is_cancelled(), "Call should not be cancelled initially");
+    assert!(
+        !call_handle.is_cancelled(),
+        "Call should not be cancelled initially"
+    );
     assert_eq!(call_tracker.active_count(), 1, "Should have 1 active call");
 
     // Call cancel on the bridge
@@ -32,8 +35,15 @@ fn test_bridge_cancel_cancels_call_tracker() {
     thread::sleep(Duration::from_millis(10));
 
     // Verify the call was cancelled
-    assert!(call_handle.is_cancelled(), "Call should be cancelled after bridge.cancel()");
-    assert_eq!(call_tracker.active_count(), 1, "Call should still be registered (not unregistered)");
+    assert!(
+        call_handle.is_cancelled(),
+        "Call should be cancelled after bridge.cancel()"
+    );
+    assert_eq!(
+        call_tracker.active_count(),
+        1,
+        "Call should still be registered (not unregistered)"
+    );
 
     // Clean up
     call_tracker.unregister_call("test-call-1");
@@ -81,13 +91,22 @@ fn test_bridge_clear_cancel_resets_flag() {
     );
 
     // Initially not cancelled
-    assert!(!bridge.is_cancel_requested(), "Should not be cancelled initially");
+    assert!(
+        !bridge.is_cancel_requested(),
+        "Should not be cancelled initially"
+    );
 
     // Cancel
     bridge.cancel();
-    assert!(bridge.is_cancel_requested(), "Should be cancelled after cancel()");
+    assert!(
+        bridge.is_cancel_requested(),
+        "Should be cancelled after cancel()"
+    );
 
     // Clear cancel
     bridge.clear_cancel();
-    assert!(!bridge.is_cancel_requested(), "Should not be cancelled after clear_cancel()");
+    assert!(
+        !bridge.is_cancel_requested(),
+        "Should not be cancelled after clear_cancel()"
+    );
 }
