@@ -536,6 +536,7 @@ impl LlmRuntime for HttpLLMRuntime {
 
         let mut final_text = String::new();
         let mut tool_calls_log: Vec<Value> = Vec::new();
+        let mut all_tool_calls: Vec<Value> = Vec::new();  // Collect all tool calls for transcript
         let mut budget = IterationBudget::new(max_turns + 2);
         let mut empty_response_retries = 0;
         let max_empty_retries = 2;
@@ -571,6 +572,9 @@ impl LlmRuntime for HttpLLMRuntime {
                 .unwrap_or_default();
             if !tool_calls.is_empty() {
                 let tool_calls = enforce_tool_results_per_turn(tool_calls);
+                
+                // Collect tool calls for transcript recording
+                all_tool_calls.extend(tool_calls.clone());
 
                 // Append assistant message with tool_calls
                 messages.push(response_msg.clone());
@@ -661,7 +665,7 @@ impl LlmRuntime for HttpLLMRuntime {
             } else {
                 Some(final_text)
             },
-            tool_calls: Vec::new(),
+            tool_calls: all_tool_calls,  // Return collected tool calls for transcript
             model: Some(use_model),
         })
     }
