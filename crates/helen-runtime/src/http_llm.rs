@@ -13,8 +13,9 @@ use crate::recording::CassetteWriter;
 use serde_json::{json, Value};
 use std::time::Duration;
 
-pub const MAX_TOOL_RESULT_CHARS: usize = 3000;
-pub const MAX_TOOL_RESULTS_PER_TURN: usize = 12;
+// v1.46.29: Use constants from constants.rs for Python parity
+// Python: MAX_TOOL_RESULT_CHARS = 16000, MAX_TOOL_RESULTS_PER_TURN = 128
+use crate::constants::{MAX_TOOL_RESULT_CHARS, MAX_TOOL_RESULTS_PER_TURN};
 
 // ---------------------------------------------------------------------------
 // Helpers (module-level functions from http_llm.py)
@@ -1088,4 +1089,35 @@ fn process_sse_line(
         *final_message = Some(json!({"content": full_text.clone()}));
     }
     let _ = final_message;
+}
+
+#[cfg(test)]
+mod context_window_tests {
+    use super::*;
+
+    #[test]
+    fn test_tool_result_limits_match_python() {
+        // Regression test: Rust had MAX_TOOL_RESULT_CHARS=3000 and MAX_TOOL_RESULTS_PER_TURN=12
+        // Python has MAX_TOOL_RESULT_CHARS=16000 and MAX_TOOL_RESULTS_PER_TURN=128
+        // This caused helen-rust agent to truncate files much more aggressively than Python
+        assert_eq!(MAX_TOOL_RESULT_CHARS, 16_000, "MAX_TOOL_RESULT_CHARS should match Python");
+        assert_eq!(MAX_TOOL_RESULTS_PER_TURN, 128, "MAX_TOOL_RESULTS_PER_TURN should match Python");
+    }
+
+    #[test]
+    fn test_truncate_tool_result_preserves_small_results() {
+        let small_result = "a".repeat(1000);
+        let truncated = truncate_tool_result(&small_result);
+        assert_eq!(truncated, small_result, "Small results should not be truncated");
+    }
+
+    #[test]
+    fn test_truncate_tool_result_truncates_large_results() {
+        let large_result = "a".repeat(20000);
+        let truncated = truncate_tool_result(&large_result);
+        assert!(truncated.chars().count() < 20000, "Large results should be truncated");
+        assert!(truncated.contains("[truncated]"), "Truncated results should have marker");
+        assert_eq!(truncated.chars().count(), 16000 + "[truncated]\n...".len(), 
+                   "Truncated to MAX_TOOL_RESULT_CHARS");
+    }
 }
