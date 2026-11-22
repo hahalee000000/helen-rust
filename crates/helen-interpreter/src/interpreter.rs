@@ -156,6 +156,8 @@ struct WorkingMemoryFilter {
     buffer: String,
     in_wm_block: bool,
     just_closed_block: bool,
+    /// v1.46.28: Captured working memory content for later parsing
+    captured_wm_content: String,
 }
 
 impl WorkingMemoryFilter {
@@ -164,7 +166,13 @@ impl WorkingMemoryFilter {
             buffer: String::new(),
             in_wm_block: false,
             just_closed_block: false,
+            captured_wm_content: String::new(),
         }
+    }
+
+    /// Get the captured working memory content (if any)
+    fn get_captured_wm_content(&self) -> &str {
+        &self.captured_wm_content
     }
 
     /// Process a chunk and return filtered content (may be empty).
@@ -261,6 +269,9 @@ impl WorkingMemoryFilter {
                     // Find the closing '>'
                     let after_tag = &buffer_lower[pos..];
                     if let Some(tag_end) = after_tag.find('>') {
+                        // v1.46.28: Capture working memory content before discarding
+                        let wm_content = &self.buffer[..pos];
+                        self.captured_wm_content.push_str(wm_content);
                         // Discard everything up to and including closing tag
                         let actual_end = pos + tag_end + 1;
                         self.buffer = self.buffer[actual_end..].to_string();
@@ -275,7 +286,9 @@ impl WorkingMemoryFilter {
                         break;
                     }
                 } else {
-                    // Still inside block, discard all buffered content
+                    // Still inside block, capture and discard all buffered content
+                    // v1.46.28: Save content for later parsing
+                    self.captured_wm_content.push_str(&self.buffer);
                     self.buffer.clear();
                     break;
                 }
@@ -3853,6 +3866,144 @@ errors: [Fixed token expiration handling - was missing refresh logic]
 </working_memory>"#.to_string()
     }
 
+    /// Extract working memory update from an LLM response (Python parity).
+    /// v1.25: Parses the `<working_memory>...</working_memory>` block.
+    /// Returns a map with keys: active_files, decisions, todos, errors (each a Vec<String>).
+    /// Returns None if no block is found.
+    pub fn extract_working_memory_update(
+        response: &str,
+    ) -> Option<std::collections::HashMap<String, Vec<String>>> {
+        if response.is_empty() {
+            return None;
+        }
+
+        // Match <working_memory>...</working_memory> block (case-insensitive)
+        let response_lower = response.to_lowercase();
+        let start_tag = "<working_memory>";
+        let end_tag = "</working_memory>";
+
+        let start_pos = response_lower.find(start_tag)?;
+        let content_start = start_pos + start_tag.len();
+        let end_pos = response_lower[content_start..].find(end_tag)?;
+        let wm_content = &response[content_start..content_start + end_pos];
+
+        let mut result = std::collections::HashMap::new();
+
+        // Parse each field: field_name: [item1, item2, ...]
+        for field in &["active_files", "decisions", "todos", "errors"] {
+            // Find field_name: [...]
+            let field_pattern = format!("{}:", field);
+            if let Some(field_pos) = wm_content
+                .to_lowercase()
+                .find(&field_pattern.to_lowercase())
+            {
+                let after_field = &wm_content[field_pos + field_pattern.len()..];
+                // Find [...]
+                if let Some(bracket_start) = after_field.find('[') {
+                    if let Some(bracket_end) = after_field[bracket_start..].find(']') {
+                        let items_str =
+                            &after_field[bracket_start + 1..bracket_start + bracket_end];
+                        // Split by comma, strip whitespace and surrounding quotes
+                        let items: Vec<String> = items_str
+                            .split(',')
+                            .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                        if !items.is_empty() {
+                            result.insert(field.to_string(), items);
+                        }
+                    }
+                }
+            }
+        }
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+
+    /// Apply working memory update from LLM response (Python parity).
+    /// Extracts the <working_memory> block, updates the working memory store,
+    /// and returns the response with the block removed.
+    pub fn apply_working_memory_update(&mut self, response: &str) -> String {
+        // Always strip the block from response (prevents leaking to user)
+        let response_lower = response.to_lowercase();
+        let start_tag = "<working_memory>";
+        let end_tag = "</working_memory>";
+
+        let cleaned_response = if let Some(start_pos) = response_lower.find(start_tag) {
+            if let Some(end_rel_pos) = response_lower[start_pos..].find(end_tag) {
+                let end_pos = start_pos + end_rel_pos + end_tag.len();
+                // Remove the block and any trailing whitespace
+                let mut cleaned = String::new();
+                cleaned.push_str(&response[..start_pos]);
+                cleaned.push_str(&response[end_pos..]);
+                cleaned.trim().to_string()
+            } else {
+                response.to_string()
+            }
+        } else {
+            response.to_string()
+        };
+
+        // Guard against LLMs that wrap entire response in <working_memory>
+        if cleaned_response.trim().is_empty() {
+            eprintln!(
+                "⚠ Working memory strip emptied the response - LLM wrapped \
+                its entire output in <working_memory>. Falling back to \
+                original response."
+            );
+            // Still try to extract and apply the update
+            if let Some(wm_update) = Self::extract_working_memory_update(response) {
+                self.update_working_memory_from_map(&wm_update);
+            }
+            return response.to_string();
+        }
+
+        // Extract and apply the update
+        if let Some(wm_update) = Self::extract_working_memory_update(response) {
+            self.update_working_memory_from_map(&wm_update);
+        }
+
+        cleaned_response
+    }
+
+    /// Update working memory from a parsed map (Python parity: update_from_llm_summary).
+    fn update_working_memory_from_map(
+        &mut self,
+        update: &std::collections::HashMap<String, Vec<String>>,
+    ) {
+        let mut wm = self.working_memory.lock().expect("mutex poisoned");
+
+        // Map field names to working memory keys
+        let field_mapping = [
+            ("active_files", "active_files"),
+            ("decisions", "decisions"),
+            ("todos", "todos"),
+            ("errors", "errors"),
+        ];
+
+        for (wm_field, update_key) in field_mapping {
+            if let Some(items) = update.get(update_key) {
+                let entry = wm.entry(wm_field.to_string()).or_default();
+                // Append new items (avoid duplicates)
+                for item in items {
+                    let item_value = Value::Str(Rc::from(item.as_str()));
+                    if !entry.contains(&item_value) {
+                        entry.push(item_value);
+                    }
+                }
+                // Keep only the last N items to prevent unbounded growth
+                const MAX_ITEMS: usize = 10;
+                if entry.len() > MAX_ITEMS {
+                    *entry = entry[entry.len() - MAX_ITEMS..].to_vec();
+                }
+            }
+        }
+    }
+
     // ── Multimodal Support Helpers (v1.17) ──────────────────────────────────
 
     /// Build a user message with optional multimodal content.
@@ -4333,6 +4484,16 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             // Check for streaming errors
             stream_result?;
 
+            // v1.46.28: Apply working memory update from captured content (Python parity)
+            let captured_wm = wm_filter.borrow().get_captured_wm_content().to_string();
+            if !captured_wm.is_empty() {
+                // Reconstruct the working memory block for parsing
+                let wm_block = format!("<working_memory>{}</working_memory>", captured_wm);
+                if let Some(wm_update) = Self::extract_working_memory_update(&wm_block) {
+                    self.update_working_memory_from_map(&wm_update);
+                }
+            }
+
             let final_text = full_text.borrow().clone();
             return Ok(Value::Str(Rc::from(final_text.as_str())));
         }
@@ -4395,12 +4556,8 @@ errors: [Fixed token expiration handling - was missing refresh logic]
         }
 
         // v1.46.23: Filter <working_memory> blocks from non-streaming response (Python parity)
-        let filtered_text = response.text.map(|t| {
-            let mut filter = WorkingMemoryFilter::new();
-            let filtered = filter.process(&t);
-            let remaining = filter.flush();
-            filtered + &remaining
-        });
+        // v1.46.28: Also extract and apply working memory updates (Python parity: _apply_working_memory_update)
+        let filtered_text = response.text.map(|t| self.apply_working_memory_update(&t));
 
         match filtered_text {
             Some(t) => Ok(Value::Str(Rc::from(t.as_str()))),
@@ -4554,5 +4711,64 @@ mod tests {
         assert_eq!(result, "Before After");
         let remaining = filter.flush();
         assert_eq!(remaining, "");
+    }
+
+    // v1.46.28: Working memory extraction tests (Python parity)
+    #[test]
+    fn test_extract_working_memory_basic() {
+        let response = r#"Here is my answer.
+
+<working_memory>
+active_files: [src/auth.py, tests/test_auth.py]
+decisions: [Use JWT tokens]
+todos: [Add 2FA]
+</working_memory>"#;
+
+        let parsed = Interpreter::extract_working_memory_update(response);
+        assert!(parsed.is_some());
+        let wm = parsed.unwrap();
+        assert_eq!(
+            wm.get("active_files").unwrap(),
+            &vec!["src/auth.py".to_string(), "tests/test_auth.py".to_string()]
+        );
+        assert_eq!(
+            wm.get("decisions").unwrap(),
+            &vec!["Use JWT tokens".to_string()]
+        );
+        assert_eq!(wm.get("todos").unwrap(), &vec!["Add 2FA".to_string()]);
+    }
+
+    #[test]
+    fn test_extract_working_memory_empty() {
+        let response = "Just a regular response without working memory.";
+        let parsed = Interpreter::extract_working_memory_update(response);
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn test_extract_working_memory_partial() {
+        let response = r#"Answer here.
+
+<working_memory>
+active_files: [main.rs]
+</working_memory>"#;
+
+        let parsed = Interpreter::extract_working_memory_update(response);
+        assert!(parsed.is_some());
+        let wm = parsed.unwrap();
+        assert_eq!(
+            wm.get("active_files").unwrap(),
+            &vec!["main.rs".to_string()]
+        );
+        assert!(!wm.contains_key("decisions"));
+    }
+
+    #[test]
+    fn test_working_memory_filter_captures_content() {
+        let mut filter = WorkingMemoryFilter::new();
+        let _ =
+            filter.process("Before <working_memory>active_files: [test.py]</working_memory> After");
+        let captured = filter.get_captured_wm_content();
+        assert!(captured.contains("active_files: [test.py]"));
     }
 }
