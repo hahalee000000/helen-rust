@@ -350,9 +350,9 @@ mod tests {
         });
 
         // Record same tool call 3 times
-        detector.record(&[tc.clone()]);
-        detector.record(&[tc.clone()]);
-        detector.record(&[tc.clone()]);
+        detector.record(std::slice::from_ref(&tc));
+        detector.record(std::slice::from_ref(&tc));
+        detector.record(std::slice::from_ref(&tc));
 
         let result = detector.check();
         assert!(result.is_looping);
@@ -377,7 +377,7 @@ mod tests {
             }
         });
 
-        detector.record(&[tc1.clone()]);
+        detector.record(std::slice::from_ref(&tc1));
         detector.record(&[tc2]);
         detector.record(&[tc1]);
 
@@ -400,7 +400,7 @@ mod tests {
 
         // Record same tool call 5 times in a window
         for _ in 0..5 {
-            detector.record(&[tc.clone()]);
+            detector.record(std::slice::from_ref(&tc));
         }
 
         let result = detector.check();
@@ -418,9 +418,9 @@ mod tests {
             }
         });
 
-        detector.record(&[tc.clone()]);
-        detector.record(&[tc.clone()]);
-        detector.record(&[tc.clone()]);
+        detector.record(std::slice::from_ref(&tc));
+        detector.record(std::slice::from_ref(&tc));
+        detector.record(std::slice::from_ref(&tc));
 
         assert!(detector.check().is_looping);
 

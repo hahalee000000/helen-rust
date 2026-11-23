@@ -4825,7 +4825,7 @@ mod invocation_filter_tests {
         // Regression test: Rust was missing visible_to_invocation_ids check
         // causing agent to "forget" previous conversation
 
-        let json_history = vec![
+        let json_history = [
             // Message from invocation_1 (old conversation)
             json!({
                 "role": "user",

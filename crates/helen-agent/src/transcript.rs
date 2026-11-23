@@ -643,7 +643,7 @@ mod tests {
             head_uuid: Some(head.to_string()),
             tail_uuid: Some(tail.to_string()),
             anchor_uuid: Some(String::new()),
-            summary: Some(format!("[Context Cleared]")),
+            summary: Some("[Context Cleared]".to_string()),
             layer: Some(layer.to_string()),
         }
     }

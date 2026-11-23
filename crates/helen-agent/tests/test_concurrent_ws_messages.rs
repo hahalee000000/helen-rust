@@ -124,7 +124,6 @@ async fn test_tokio_select_concurrent_handling() {
                             match parse_ws_message(&text) {
                                 WsInput::Cancel => {
                                     *cancel_handled_clone.lock().await = true;
-                                    is_processing = false;
                                     break;
                                 }
                                 WsInput::Message { .. } => {
