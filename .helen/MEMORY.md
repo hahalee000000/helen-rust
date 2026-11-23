@@ -43,7 +43,7 @@ Details: `wiki/rust/migration-notes.md`. Key points:
 - Strings: UTF-8 byte-based (len=bytes), iteration unsupported
 
 ## Gate Checklist
-`cargo test` → `cargo build --release` → `cargo clippy` (0 warn) → `diff-semantic.sh` → run-diff → parse/lex diff → conformance pytest → commit+push
+`cargo fmt --check` → `cargo test` → `cargo build --release` → `cargo clippy` (0 warn) → `diff-semantic.sh` → run-diff → parse/lex diff → conformance pytest → commit+push
 
 ## Conventions
 - Commits: `Mn: <summary> — ...`, push origin/main

@@ -1181,77 +1181,8 @@ pub fn transcript_set_session_dir(
 }
 
 // ---------------------------------------------------------------------------
-// Hint Queue (v1.46.24: agent UI hint injection)
+// Hint Queue (v1.46.27: moved to helen-runtime for sharing)
 // ---------------------------------------------------------------------------
-
-use std::sync::{Arc, Mutex, OnceLock};
-
-/// A single hint message from the user (mid-processing injection).
-#[derive(Debug, Clone)]
-pub struct HintQueueItem {
-    pub text: String,
-    pub timestamp: f64,
-    pub client_id: String,
-}
-
-/// Thread-safe FIFO queue of pending user hints (singleton).
-#[derive(Debug, Default)]
-pub struct HintQueue {
-    queue: Mutex<Vec<HintQueueItem>>,
-}
-
-impl HintQueue {
-    /// Create a new empty hint queue.
-    pub fn new() -> Self {
-        Self {
-            queue: Mutex::new(Vec::new()),
-        }
-    }
-
-    /// Add a hint to the queue. Thread-safe.
-    pub fn add_hint(&self, text: String, client_id: String) -> HintQueueItem {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
-        let hint = HintQueueItem {
-            text: text.clone(),
-            timestamp,
-            client_id: client_id.clone(),
-        };
-        let mut queue = self.queue.lock().expect("mutex poisoned");
-        queue.push(hint.clone());
-        hint
-    }
-
-    /// Atomically pop all pending hints. Returns [] if empty.
-    pub fn pop_all_hints(&self) -> Vec<HintQueueItem> {
-        let mut queue = self.queue.lock().expect("mutex poisoned");
-        queue.drain(..).collect()
-    }
-
-    /// Check if there are pending hints.
-    pub fn has_pending(&self) -> bool {
-        let queue = self.queue.lock().expect("mutex poisoned");
-        !queue.is_empty()
-    }
-
-    /// Drop all pending hints.
-    pub fn clear(&self) {
-        let mut queue = self.queue.lock().expect("mutex poisoned");
-        queue.clear();
-    }
-}
-
-/// Global singleton hint queue instance.
-static GLOBAL_HINT_QUEUE: OnceLock<Arc<HintQueue>> = OnceLock::new();
-
-/// Get the global hint queue instance.
-pub fn get_hint_queue() -> Arc<HintQueue> {
-    GLOBAL_HINT_QUEUE
-        .get_or_init(|| Arc::new(HintQueue::new()))
-        .clone()
-}
 
 /// hint_queue_add(text, client_id) -> dict
 /// Add a hint to the global queue.
@@ -1273,7 +1204,8 @@ pub fn transcript_hint_queue_add(
         );
         return Ok(Value::Map(Rc::new(RefCell::new(result))));
     }
-    let queue = get_hint_queue();
+    // Use shared hint queue from helen-runtime
+    let queue = helen_runtime::hint_queue::get_hint_queue();
     let hint = queue.add_hint(text.to_string(), client_id.to_string());
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));
@@ -1294,7 +1226,8 @@ pub fn transcript_hint_queue_pop_all(
     _interp: &mut Interpreter,
     _args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let queue = get_hint_queue();
+    // Use shared hint queue from helen-runtime
+    let queue = helen_runtime::hint_queue::get_hint_queue();
     let hints = queue.pop_all_hints();
     let mut result = Vec::new();
     for hint in hints {
@@ -1322,7 +1255,8 @@ pub fn transcript_hint_queue_has_pending(
     _interp: &mut Interpreter,
     _args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let queue = get_hint_queue();
+    // Use shared hint queue from helen-runtime
+    let queue = helen_runtime::hint_queue::get_hint_queue();
     Ok(Value::Bool(queue.has_pending()))
 }
 
@@ -1332,7 +1266,8 @@ pub fn transcript_hint_queue_clear(
     _interp: &mut Interpreter,
     _args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let queue = get_hint_queue();
+    // Use shared hint queue from helen-runtime
+    let queue = helen_runtime::hint_queue::get_hint_queue();
     queue.clear();
     let mut result = indexmap::IndexMap::new();
     result.insert(Value::Str(Rc::from("status")), Value::Str(Rc::from("ok")));

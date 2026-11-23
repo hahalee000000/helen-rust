@@ -212,6 +212,44 @@ pub fn build_clear_messages() -> String {
     .to_string()
 }
 
+/// Build a JSON response string for directory_changed event
+pub fn build_directory_changed(
+    cwd: &str,
+    display_name: &str,
+    session_id: &str,
+    helen_session_id: Option<&str>,
+) -> String {
+    let mut data = json!({
+        "type": "directory_changed",
+        "data": {
+            "cwd": cwd,
+            "display_name": display_name,
+            "session_id": session_id
+        }
+    });
+    if let Some(sid) = helen_session_id {
+        data["data"]["helen_session_id"] = json!(sid);
+    }
+    data.to_string()
+}
+
+/// Check if a message is a /dir command and extract the path argument
+pub fn parse_dir_command(content: &str) -> Option<Option<String>> {
+    let trimmed = content.trim();
+    if !trimmed.starts_with("/dir") {
+        return None;
+    }
+
+    let rest = trimmed[4..].trim();
+    if rest.is_empty() {
+        // /dir with no arguments - query current directory
+        Some(None)
+    } else {
+        // /dir <path> - switch to new directory
+        Some(Some(rest.to_string()))
+    }
+}
+
 /// Handle WebSocket connection
 async fn handle_socket(mut socket: WebSocket, state: AppState) {
     // Send initial status update
@@ -230,253 +268,358 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
     // Create HelenActorBridge for this connection
     let bridge = Arc::new(Mutex::new(None::<HelenActorBridge>));
 
-    while let Some(msg) = socket.recv().await {
-        if let Ok(msg) = msg {
-            match msg {
-                Message::Text(text) => {
-                    match parse_ws_message(&text) {
-                        WsInput::Message { content, .. } => {
-                            // Signal processing start
-                            if socket
-                                .send(Message::Text(build_processing_start()))
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
+    // v1.46.28: Track whether we're currently processing a message
+    // This allows us to use tokio::select! to handle cancel/hint immediately
+    let mut is_processing = false;
+    let mut pending_content: String;
+    let mut pending_is_slash = false;
+    let mut stream_rx: Option<tokio::sync::broadcast::Receiver<crate::actor_bridge::messages::StreamChunk>> = None;
 
-                            // Get state
-                            let state_guard = state.lock().await;
-                            let cwd = state_guard.directory_manager.get_cwd();
-                            // Use deterministic session ID based on CWD (SHA256-based)
-                            // This ensures reconnecting to the same CWD reuses the same session
-                            let session_id = state_guard.directory_manager.cwd_to_session_id(&cwd);
-                            drop(state_guard);
-
-                            // Initialize bridge if not already done
-                            {
-                                let mut bridge_guard = bridge.lock().await;
-                                if bridge_guard.is_none() {
-                                    *bridge_guard = Some(HelenActorBridge::new(
-                                        cwd.clone(),
-                                        session_id,
-                                        "<context></context>".to_string(),
-                                    ));
-                                }
-                            }
-
-                            // Detect slash commands (messages starting with /)
-                            let is_slash = is_slash_command(&content);
-
-                            // Process message using HelenActorBridge
-                            let bridge_guard = bridge.lock().await;
-                            if let Some(bridge_ref) = bridge_guard.as_ref() {
-                                // Subscribe to streaming chunks
-                                let mut stream_rx = bridge_ref.subscribe_stream();
-
-                                // Send message to Helen
-                                bridge_ref.send_message(content.clone(), vec![]).await;
-
-                                // Wait for response with timeout, forwarding streaming chunks
-                                let mut response_received = false;
-                                let mut chunks_received = false;
-                                let mut complete_content = String::new();
-                                let start = std::time::Instant::now();
-                                let total_timeout = std::time::Duration::from_secs(600); // 10 minutes total timeout
-                                let activity_timeout = std::time::Duration::from_secs(180); // 3 minutes without activity (tool calls can be slow)
-                                let mut last_activity = std::time::Instant::now();
-
-                                while start.elapsed() < total_timeout {
-                                    // Check if we've had no activity for too long
-                                    if last_activity.elapsed() > activity_timeout {
-                                        break;
-                                    }
-                                    tokio::select! {
-                                        // Check for streaming chunks
-                                        chunk_result = stream_rx.recv() => {
-                                            match chunk_result {
-                                                Ok(chunk) => {
-                                                    chunks_received = true;
-                                                    last_activity = std::time::Instant::now(); // Reset activity timer
-                                                    if socket.send(Message::Text(build_llm_chunk(&chunk.content))).await.is_err() {
-                                                        response_received = true; // Exit outer loop
-                                                        break;
-                                                    }
-                                                }
-                                                Err(_) => break,
-                                            }
-                                        }
-                                        // v1.46.25: Check for complete response (async, no polling delay)
-                                        output_result = bridge_ref.receive_output() => {
-                                            if let Some(output) = output_result {
-                                                last_activity = std::time::Instant::now(); // Reset activity timer
-                                                match output {
-                                                    AgentOutput::ResponseComplete { content: ref c, .. } => {
-                                                        // Capture content for slash commands
-                                                        // (for normal LLM responses, content was already streamed via chunks)
-                                                        complete_content = c.clone();
-                                                        // Send final complete message (only if chunks were streamed)
-                                                        if chunks_received
-                                                            && socket.send(Message::Text(build_llm_complete())).await.is_err() {
-                                                            break;
-                                                        }
-                                                        response_received = true;
-                                                        break;
-                                                    }
-                                                    AgentOutput::Error { error_msg, .. } => {
-                                                        if socket.send(Message::Text(build_error(&error_msg))).await.is_err() {
-                                                            break;
-                                                        }
-                                                        response_received = true;
-                                                        break;
-                                                    }
-                                                    _ => {}
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if response_received {
-                                        break;
-                                    }
-                                }
-
-                                if !response_received {
-                                    let error_msg = if last_activity.elapsed() > activity_timeout {
-                                        "Response timeout: no activity for 3 minutes"
-                                    } else {
-                                        "Response timeout: exceeded 10 minute limit"
-                                    };
+    loop {
+        // Use tokio::select! to listen for both WebSocket messages AND response events
+        // This allows cancel/hint to be processed immediately even while waiting for response
+        tokio::select! {
+            // Branch 1: Receive WebSocket messages (cancel, hint, new messages)
+            ws_msg = socket.recv() => {
+                match ws_msg {
+                    Some(Ok(Message::Text(text))) => {
+                        match parse_ws_message(&text) {
+                            WsInput::Cancel => {
+                                // Cancel current processing immediately
+                                let bridge_guard = bridge.lock().await;
+                                if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                    bridge_ref.cancel();
+                                    // Send cancellation confirmation to frontend
                                     if socket
-                                        .send(Message::Text(build_error(error_msg)))
+                                        .send(Message::Text(
+                                            serde_json::json!({
+                                                "type": "cancelled",
+                                                "data": {"content": "Processing cancelled"}
+                                            })
+                                            .to_string(),
+                                        ))
                                         .await
                                         .is_err()
                                     {
                                         break;
                                     }
+                                    // Reset processing state
+                                    is_processing = false;
+                                    stream_rx = None;
                                 }
-
-                                // Send processing_complete with appropriate flags.
-                                // For slash commands: no streaming chunks, response in complete_content
-                                // → send with is_slash_response=true so frontend displays as user bubble.
-                                // For normal LLM: content already streamed via chunks
-                                // → send with is_slash_response=false.
-                                let stripped =
-                                    if is_slash && !chunks_received && !complete_content.is_empty()
-                                    {
-                                        // Strip internal protocol markers and detect actions
-                                        strip_protocol_markers_detailed(&complete_content)
-                                    } else {
-                                        StrippedResponse::default()
-                                    };
-
-                                // Send clear_messages event if /clear or /clear-session was executed
-                                // This must be sent BEFORE processing_complete so frontend clears first
-                                if stripped.should_clear_messages
-                                    && socket
-                                        .send(Message::Text(build_clear_messages()))
+                            }
+                            WsInput::Hint { content, client_id } => {
+                                // Hint injection — enqueue hint for mid-processing injection
+                                eprintln!("[WS] Received hint: content='{}', client_id={:?}", content, client_id);
+                                if !content.trim().is_empty() {
+                                    let queue = crate::hint_queue::get_hint_queue();
+                                    let client_id_str = client_id.clone().unwrap_or_default();
+                                    eprintln!("[WS] Adding hint to queue: '{}'", content);
+                                    queue.add_hint(content.clone(), client_id_str.clone());
+                                    eprintln!("[WS] Hint added to queue successfully");
+                                    // Send hint_queued confirmation to frontend
+                                    if socket
+                                        .send(Message::Text(
+                                            serde_json::json!({
+                                                "type": "hint_queued",
+                                                "data": {
+                                                    "content": content,
+                                                    "client_id": client_id_str
+                                                }
+                                            })
+                                            .to_string(),
+                                        ))
                                         .await
                                         .is_err()
+                                    {
+                                        break;
+                                    }
+                                    eprintln!("[WS] hint_queued confirmation sent to frontend");
+                                } else {
+                                    eprintln!("[WS] Hint content is empty, skipping");
+                                }
+                            }
+                            WsInput::Message { content, .. } => {
+                                // If already processing, queue this message (not supported yet)
+                                // For now, just ignore or handle sequentially
+                                if is_processing {
+                                    // Could send an error or queue it
+                                    continue;
+                                }
+
+                                // Start processing new message
+                                is_processing = true;
+                                pending_content = content.clone();
+
+                                // Signal processing start
+                                if socket
+                                    .send(Message::Text(build_processing_start()))
+                                    .await
+                                    .is_err()
                                 {
                                     break;
                                 }
 
-                                if socket
-                                    .send(Message::Text(build_processing_complete(
-                                        stripped.content.is_some(),
-                                        stripped.content.as_deref(),
-                                        None,
-                                    )))
-                                    .await
-                                    .is_err()
+                                // Get state
+                                let state_guard = state.lock().await;
+                                let cwd = state_guard.directory_manager.get_cwd();
+                                let session_id = state_guard.directory_manager.cwd_to_session_id(&cwd);
+                                drop(state_guard);
+
+                                // Initialize bridge if not already done
                                 {
-                                    break;
+                                    let mut bridge_guard = bridge.lock().await;
+                                    if bridge_guard.is_none() {
+                                        *bridge_guard = Some(HelenActorBridge::new(
+                                            cwd.clone(),
+                                            session_id,
+                                            "<context></context>".to_string(),
+                                        ));
+                                    }
                                 }
-                            } else {
-                                if socket
-                                    .send(Message::Text(build_error("Bridge not initialized")))
-                                    .await
-                                    .is_err()
-                                {
-                                    break;
-                                }
-                            }
-                        }
-                        WsInput::Cancel => {
-                            // Cancel current processing
-                            let bridge_guard = bridge.lock().await;
-                            if let Some(bridge_ref) = bridge_guard.as_ref() {
-                                bridge_ref.cancel();
-                                // Send cancellation confirmation to frontend
-                                if socket
-                                    .send(Message::Text(
-                                        serde_json::json!({
-                                            "type": "cancelled",
-                                            "data": {"content": "Processing cancelled"}
-                                        })
-                                        .to_string(),
-                                    ))
-                                    .await
-                                    .is_err()
-                                {
-                                    break;
-                                }
-                            }
-                        }
-                        WsInput::Hint { content, client_id } => {
-                            // v1.46.24: Hint injection — enqueue hint for mid-processing injection
-                            if !content.trim().is_empty() {
-                                let queue = crate::hint_queue::get_hint_queue();
-                                let client_id_str = client_id.clone().unwrap_or_default();
-                                queue.add_hint(content.clone(), client_id_str.clone());
-                                // Send hint_queued confirmation to frontend
-                                if socket
-                                    .send(Message::Text(
-                                        serde_json::json!({
-                                            "type": "hint_queued",
-                                            "data": {
-                                                "content": content,
-                                                "client_id": client_id_str
+
+                                // Detect slash commands
+                                pending_is_slash = is_slash_command(&content);
+
+                                // Handle /dir command specially (don't send to Helen)
+                                if let Some(path_arg) = parse_dir_command(&content) {
+                                    let state_guard = state.lock().await;
+                                    let current_cwd = state_guard.directory_manager.get_cwd();
+
+                                    match path_arg {
+                                        None => {
+                                            let display_name = state_guard
+                                                .directory_manager
+                                                .get_display_name(Some(current_cwd.clone()));
+                                            drop(state_guard);
+
+                                            let response = json!({
+                                                "type": "processing_complete",
+                                                "data": {
+                                                    "i18n_key": "dir.currentDir",
+                                                    "params": {"path": current_cwd, "name": display_name},
+                                                    "is_slash_response": true
+                                                }
+                                            }).to_string();
+
+                                            if socket.send(Message::Text(response)).await.is_err() {
+                                                break;
                                             }
-                                        })
-                                        .to_string(),
-                                    ))
+                                            is_processing = false;
+                                            continue;
+                                        }
+                                        Some(path) => {
+                                            let result = state_guard.directory_manager.set_cwd(&path);
+
+                                            if result.status == "ok" {
+                                                let new_cwd = result.cwd.unwrap_or_else(|| current_cwd.clone());
+                                                let display_name = result.display_name.unwrap_or_else(|| path.clone());
+
+                                                if new_cwd != current_cwd {
+                                                    let new_session_id = state_guard
+                                                        .directory_manager
+                                                        .cwd_to_session_id(&new_cwd);
+
+                                                    let helen_sid = {
+                                                        let bridge_guard = bridge.lock().await;
+                                                        if bridge_guard.is_some() {
+                                                            Some(new_session_id.clone())
+                                                        } else {
+                                                            None
+                                                        }
+                                                    };
+
+                                                    drop(state_guard);
+
+                                                    {
+                                                        let mut bridge_guard = bridge.lock().await;
+                                                        *bridge_guard = Some(HelenActorBridge::new(
+                                                            new_cwd.clone(),
+                                                            new_session_id.clone(),
+                                                            "<context></context>".to_string(),
+                                                        ));
+                                                    }
+
+                                                    let dir_changed = build_directory_changed(
+                                                        &new_cwd,
+                                                        &display_name,
+                                                        &new_session_id,
+                                                        helen_sid.as_deref(),
+                                                    );
+
+                                                    if socket.send(Message::Text(dir_changed)).await.is_err() {
+                                                        break;
+                                                    }
+
+                                                    if socket.send(Message::Text(build_clear_messages())).await.is_err() {
+                                                        break;
+                                                    }
+                                                } else {
+                                                    drop(state_guard);
+                                                }
+
+                                                let response = json!({
+                                                    "type": "processing_complete",
+                                                    "data": {
+                                                        "i18n_key": "dir.switched",
+                                                        "params": {"path": new_cwd, "name": display_name},
+                                                        "is_slash_response": true
+                                                    }
+                                                }).to_string();
+
+                                                if socket.send(Message::Text(response)).await.is_err() {
+                                                    break;
+                                                }
+                                            } else {
+                                                drop(state_guard);
+                                                let response = json!({
+                                                    "type": "processing_complete",
+                                                    "data": {
+                                                        "i18n_key": "dir.failed",
+                                                        "params": {"path": path, "error": result.status},
+                                                        "is_slash_response": true
+                                                    }
+                                                }).to_string();
+
+                                                if socket.send(Message::Text(response)).await.is_err() {
+                                                    break;
+                                                }
+                                            }
+                                            is_processing = false;
+                                            continue;
+                                        }
+                                    }
+                                }
+
+                                // Send message to bridge for processing
+                                let bridge_guard = bridge.lock().await;
+                                if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                    // Clear cancel flag before processing
+                                    bridge_ref.clear_cancel();
+
+                                    // Subscribe to streaming chunks
+                                    stream_rx = Some(bridge_ref.subscribe_stream());
+
+                                    // Send user input to bridge
+                                    bridge_ref.send_message(pending_content.clone(), vec![]).await;
+                                } else {
+                                    if socket.send(Message::Text(build_error("Bridge not initialized"))).await.is_err() {
+                                        break;
+                                    }
+                                    is_processing = false;
+                                }
+                            }
+                            WsInput::Unknown(msg_type) => {
+                                if socket
+                                    .send(Message::Text(build_error(&format!(
+                                        "Unknown message type: {}",
+                                        msg_type
+                                    ))))
                                     .await
                                     .is_err()
                                 {
                                     break;
                                 }
                             }
-                        }
-                        WsInput::Unknown(msg_type) => {
-                            if socket
-                                .send(Message::Text(build_error(&format!(
-                                    "Unknown message type: {}",
-                                    msg_type
-                                ))))
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                        }
-                        WsInput::InvalidJson => {
-                            if socket
-                                .send(Message::Text(build_error("Invalid JSON")))
-                                .await
-                                .is_err()
-                            {
-                                break;
+                            WsInput::InvalidJson => {
+                                if socket
+                                    .send(Message::Text(build_error("Invalid JSON")))
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
                             }
                         }
                     }
+                    Some(Ok(Message::Close(_))) => break,
+                    Some(Err(_)) => break,
+                    None => break,
+                    _ => {}
                 }
-                Message::Close(_) => break,
-                _ => {}
+            }
+
+            // Branch 2: Receive response events from bridge (only when processing)
+            response_event = async {
+                if !is_processing {
+                    // Not processing, wait forever (this branch will never be selected)
+                    std::future::pending::<Option<AgentOutput>>().await
+                } else {
+                    let bridge_guard = bridge.lock().await;
+                    if let Some(bridge_ref) = bridge_guard.as_ref() {
+                        bridge_ref.receive_output().await
+                    } else {
+                        None
+                    }
+                }
+            } => {
+                if let Some(output) = response_event {
+                    match output {
+                        AgentOutput::ResponseComplete { content, .. } => {
+                            // Send final complete message
+                            if socket.send(Message::Text(build_llm_complete())).await.is_err() {
+                                break;
+                            }
+
+                            // Send processing_complete
+                            let stripped = if pending_is_slash && !content.is_empty() {
+                                strip_protocol_markers_detailed(&content)
+                            } else {
+                                StrippedResponse::default()
+                            };
+
+                            if stripped.should_clear_messages
+                                && socket.send(Message::Text(build_clear_messages())).await.is_err()
+                            {
+                                break;
+                            }
+
+                            if socket
+                                .send(Message::Text(build_processing_complete(
+                                    stripped.content.is_some(),
+                                    stripped.content.as_deref(),
+                                    None,
+                                )))
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+
+                            // Reset processing state
+                            is_processing = false;
+                            stream_rx = None;
+                        }
+                        AgentOutput::Error { error_msg, .. } => {
+                            if socket.send(Message::Text(build_error(&error_msg))).await.is_err() {
+                                break;
+                            }
+                            is_processing = false;
+                            stream_rx = None;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            // Branch 3: Receive streaming chunks (only when processing and subscribed)
+            stream_chunk = async {
+                if let Some(ref mut rx) = stream_rx {
+                    rx.recv().await.ok()
+                } else {
+                    std::future::pending::<Option<crate::actor_bridge::messages::StreamChunk>>().await
+                }
+            } => {
+                if let Some(chunk) = stream_chunk {
+                    if socket.send(Message::Text(build_llm_chunk(&chunk.content))).await.is_err() {
+                        break;
+                    }
+                }
             }
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {

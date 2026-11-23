@@ -27,8 +27,8 @@ describe('chatStore - message persistence (M25.20)', () => {
   describe('setMessages', () => {
     it('replaces all messages', () => {
       const messages: Message[] = [
-        { id: '1', role: 'user', content: 'hello', timestamp: Date.now() },
-        { id: '2', role: 'assistant', content: 'hi', timestamp: Date.now() }
+        { id: '1', role: 'user', content: 'hello', timestamp: String(Date.now()) },
+        { id: '2', role: 'assistant', content: 'hi', timestamp: String(Date.now()) }
       ]
 
       useChatStore.getState().setMessages(messages)
@@ -39,7 +39,7 @@ describe('chatStore - message persistence (M25.20)', () => {
 
     it('can clear messages by setting empty array', () => {
       const messages: Message[] = [
-        { id: '1', role: 'user', content: 'hello', timestamp: Date.now() }
+        { id: '1', role: 'user', content: 'hello', timestamp: String(Date.now()) }
       ]
       useChatStore.getState().setMessages(messages)
       expect(useChatStore.getState().messages).toHaveLength(1)
@@ -51,8 +51,8 @@ describe('chatStore - message persistence (M25.20)', () => {
 
   describe('addMessage', () => {
     it('appends a message to existing messages', () => {
-      const msg1: Message = { id: '1', role: 'user', content: 'first', timestamp: Date.now() }
-      const msg2: Message = { id: '2', role: 'assistant', content: 'second', timestamp: Date.now() }
+      const msg1: Message = { id: '1', role: 'user', content: 'first', timestamp: String(Date.now()) }
+      const msg2: Message = { id: '2', role: 'assistant', content: 'second', timestamp: String(Date.now()) }
 
       useChatStore.getState().addMessage(msg1)
       expect(useChatStore.getState().messages).toHaveLength(1)
@@ -64,7 +64,7 @@ describe('chatStore - message persistence (M25.20)', () => {
     })
 
     it('works when messages array is initially empty', () => {
-      const msg: Message = { id: '1', role: 'user', content: 'hello', timestamp: Date.now() }
+      const msg: Message = { id: '1', role: 'user', content: 'hello', timestamp: String(Date.now()) }
       
       useChatStore.getState().addMessage(msg)
       
@@ -75,8 +75,8 @@ describe('chatStore - message persistence (M25.20)', () => {
 
   describe('updateLastMessage', () => {
     it('updates the last message using updater function', () => {
-      const msg1: Message = { id: '1', role: 'user', content: 'hello', timestamp: Date.now() }
-      const msg2: Message = { id: '2', role: 'assistant', content: 'partial', timestamp: Date.now() }
+      const msg1: Message = { id: '1', role: 'user', content: 'hello', timestamp: String(Date.now()) }
+      const msg2: Message = { id: '2', role: 'assistant', content: 'partial', timestamp: String(Date.now()) }
 
       useChatStore.getState().setMessages([msg1, msg2])
 
@@ -106,7 +106,7 @@ describe('chatStore - message persistence (M25.20)', () => {
         id: '1', 
         role: 'assistant', 
         content: 'initial', 
-        timestamp: 1234567890 
+        timestamp: "1234567890" 
       }
 
       useChatStore.getState().setMessages([msg])
@@ -118,7 +118,7 @@ describe('chatStore - message persistence (M25.20)', () => {
       const updated = useChatStore.getState().messages[0]
       expect(updated.id).toBe('1')
       expect(updated.role).toBe('assistant')
-      expect(updated.timestamp).toBe(1234567890)
+      expect(updated.timestamp).toBe("1234567890")
       expect(updated.content).toBe('updated')
     })
   })
@@ -126,9 +126,9 @@ describe('chatStore - message persistence (M25.20)', () => {
   describe('clearMessages', () => {
     it('clears all messages', () => {
       const messages: Message[] = [
-        { id: '1', role: 'user', content: 'msg1', timestamp: Date.now() },
-        { id: '2', role: 'assistant', content: 'msg2', timestamp: Date.now() },
-        { id: '3', role: 'user', content: 'msg3', timestamp: Date.now() }
+        { id: '1', role: 'user', content: 'msg1', timestamp: String(Date.now()) },
+        { id: '2', role: 'assistant', content: 'msg2', timestamp: String(Date.now()) },
+        { id: '3', role: 'user', content: 'msg3', timestamp: String(Date.now()) }
       ]
 
       useChatStore.getState().setMessages(messages)
@@ -142,8 +142,8 @@ describe('chatStore - message persistence (M25.20)', () => {
   describe('message persistence across simulated route changes', () => {
     it('messages persist when store is accessed multiple times (simulates remount)', () => {
       // Simulate: User sends messages on Chat page
-      const msg1: Message = { id: '1', role: 'user', content: 'hello', timestamp: Date.now() }
-      const msg2: Message = { id: '2', role: 'assistant', content: 'hi there', timestamp: Date.now() }
+      const msg1: Message = { id: '1', role: 'user', content: 'hello', timestamp: String(Date.now()) }
+      const msg2: Message = { id: '2', role: 'assistant', content: 'hi there', timestamp: String(Date.now()) }
       
       useChatStore.getState().addMessage(msg1)
       useChatStore.getState().addMessage(msg2)
@@ -163,8 +163,8 @@ describe('chatStore - message persistence (M25.20)', () => {
 
     it('streaming response persists across simulated route changes', () => {
       // Simulate: User sends message, assistant starts streaming
-      const userMsg: Message = { id: '1', role: 'user', content: 'tell me a story', timestamp: Date.now() }
-      const assistantMsg: Message = { id: '2', role: 'assistant', content: 'Once upon', timestamp: Date.now() }
+      const userMsg: Message = { id: '1', role: 'user', content: 'tell me a story', timestamp: String(Date.now()) }
+      const assistantMsg: Message = { id: '2', role: 'assistant', content: 'Once upon', timestamp: String(Date.now()) }
 
       useChatStore.getState().addMessage(userMsg)
       useChatStore.getState().addMessage(assistantMsg)
@@ -191,13 +191,13 @@ describe('chatStore - message persistence (M25.20)', () => {
           id: `user-${i}`,
           role: 'user',
           content: `message ${i}`,
-          timestamp: Date.now()
+          timestamp: String(Date.now())
         })
         useChatStore.getState().addMessage({
           id: `assistant-${i}`,
           role: 'assistant',
           content: `response ${i}`,
-          timestamp: Date.now()
+          timestamp: String(Date.now())
         })
       }
 

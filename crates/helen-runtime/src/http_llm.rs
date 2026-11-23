@@ -13,8 +13,9 @@ use crate::recording::CassetteWriter;
 use serde_json::{json, Value};
 use std::time::Duration;
 
-pub const MAX_TOOL_RESULT_CHARS: usize = 3000;
-pub const MAX_TOOL_RESULTS_PER_TURN: usize = 12;
+// v1.46.29: Use constants from constants.rs for Python parity
+// Python: MAX_TOOL_RESULT_CHARS = 16000, MAX_TOOL_RESULTS_PER_TURN = 128
+use crate::constants::{MAX_TOOL_RESULT_CHARS, MAX_TOOL_RESULTS_PER_TURN};
 
 // ---------------------------------------------------------------------------
 // Helpers (module-level functions from http_llm.py)
@@ -212,6 +213,10 @@ pub struct HttpLLMRuntime {
     pub last_status_code: Option<u16>,
     /// Optional cassette writer for recording LLM interactions.
     pub cassette_writer: Option<CassetteWriter>,
+    /// Cancel signal for interrupting streaming requests (M25.43)
+    pub cancel_event: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// Hint queue for mid-processing user hints (v1.46.28)
+    pub hint_queue: Option<std::sync::Arc<crate::hint_queue::HintQueue>>,
 }
 
 impl HttpLLMRuntime {
@@ -261,6 +266,8 @@ impl HttpLLMRuntime {
             last_error: None,
             last_status_code: None,
             cassette_writer: None,
+            cancel_event: None,
+            hint_queue: None,
         }
     }
 
@@ -536,9 +543,14 @@ impl LlmRuntime for HttpLLMRuntime {
 
         let mut final_text = String::new();
         let mut tool_calls_log: Vec<Value> = Vec::new();
+        let mut all_tool_calls: Vec<Value> = Vec::new(); // Collect all tool calls for transcript
         let mut budget = IterationBudget::new(max_turns + 2);
         let mut empty_response_retries = 0;
         let max_empty_retries = 2;
+        
+        // Phase 8D: Loop detection (v1.46.28)
+        let mut loop_detector = crate::loop_detector::ToolCallLoopDetector::new();
+        let mut loop_warning_injected = false;
 
         while budget.consume() {
             if self.enable_message_sanitization {
@@ -563,6 +575,25 @@ impl LlmRuntime for HttpLLMRuntime {
                 return Err(format!("LLM API call failed: {err}"));
             };
 
+            // Debug: log LLM response
+            eprintln!("[LLM DEBUG] Received response from LLM");
+            if let Some(content) = response_msg.get("content").and_then(|c| c.as_str()) {
+                let preview = if content.len() > 200 { &content[..200] } else { content };
+                eprintln!("[LLM DEBUG] Response content preview: {}", preview);
+            }
+            if let Some(tool_calls) = response_msg.get("tool_calls") {
+                if let Some(calls) = tool_calls.as_array() {
+                    eprintln!("[LLM DEBUG] Tool calls: {} calls", calls.len());
+                    for (i, tc) in calls.iter().enumerate() {
+                        let fn_name = tc.get("function")
+                            .and_then(|f| f.get("name"))
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("?");
+                        eprintln!("  [{}] {}", i, fn_name);
+                    }
+                }
+            }
+
             // Check if LLM wants tool calls
             let tool_calls: Vec<Value> = response_msg
                 .get("tool_calls")
@@ -571,6 +602,9 @@ impl LlmRuntime for HttpLLMRuntime {
                 .unwrap_or_default();
             if !tool_calls.is_empty() {
                 let tool_calls = enforce_tool_results_per_turn(tool_calls);
+
+                // Collect tool calls for transcript recording
+                all_tool_calls.extend(tool_calls.clone());
 
                 // Append assistant message with tool_calls
                 messages.push(response_msg.clone());
@@ -584,12 +618,27 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|n| n.as_str())
                         .unwrap_or("")
                         .to_string();
-                    let fn_args: Value = tc
+                    let fn_args_str = tc
                         .get("function")
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
-                        .and_then(|s| serde_json::from_str(s).ok())
-                        .unwrap_or_else(|| json!({}));
+                        .unwrap_or("{}");
+
+                    let fn_args: Value = match serde_json::from_str(fn_args_str) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // JSON 解析失败，可能是 LLM 输出被截断
+                            let error_msg = format!(
+                                "Tool call arguments JSON parse error: {}. Arguments: {}. \
+                                 This may indicate the LLM output was truncated. \
+                                 Please retry with a smaller file or split into multiple operations.",
+                                e, fn_args_str
+                            );
+                            eprintln!("[WARN] {}", error_msg);
+                            tool_results.push((tc.clone(), error_msg));
+                            continue;
+                        }
+                    };
                     let result = match &dispatch_fn {
                         Some(d) => d(&fn_name, &fn_args),
                         None => {
@@ -623,6 +672,88 @@ impl LlmRuntime for HttpLLMRuntime {
                         "result": truncated,
                     }));
                 }
+
+                // Phase 8C: Hint injection — check for pending user hints (v1.46.28)
+                // This allows mid-processing user hints to be injected into the conversation
+                if let Some(ref hint_queue) = self.hint_queue {
+                    let hints = hint_queue.pop_all_hints();
+                    eprintln!(
+                        "[HINT DEBUG] Checked hint_queue: found {} hints",
+                        hints.len()
+                    );
+                    if !hints.is_empty() {
+                        for hint in hints {
+                            // Add hint as user message with system hint prefix (Python parity)
+                            // The prefix helps LLM understand this is a system instruction
+                            let last_tool = tool_calls_log
+                                .last()
+                                .and_then(|tc| tc.get("name"))
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("unknown");
+                            let hint_content = format!(
+                                "[System Hint — after tool '{}']\n{}",
+                                last_tool, hint.text
+                            );
+                            eprintln!(
+                                "[HINT] Injecting hint after tool '{}': {}",
+                                last_tool, hint.text
+                            );
+                            messages.push(json!({
+                                "role": "user",
+                                "content": hint_content,
+                            }));
+                            // Debug: print last 3 messages to verify injection
+                            eprintln!("[HINT DEBUG] Messages after injection (last 3):");
+                            let start = if messages.len() >= 3 { messages.len() - 3 } else { 0 };
+                            for (i, msg) in messages.iter().enumerate().skip(start) {
+                                let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("?");
+                                let content = msg.get("content")
+                                    .and_then(|c| c.as_str())
+                                    .map(|s| if s.len() > 100 { &s[..100] } else { s })
+                                    .unwrap_or("<tool_call>");
+                                eprintln!("  [{}] role={}, content={}", i, role, content);
+                            }
+                        }
+                    }
+                } else {
+                    eprintln!("[HINT DEBUG] hint_queue is None!");
+                }
+
+                // Phase 8D: Loop detection (v1.46.28)
+                // Detect repetitive tool calls and inject warning to break the loop
+                loop_detector.record(&tool_calls);
+                let loop_result = loop_detector.check();
+                if loop_result.is_looping {
+                    eprintln!(
+                        "[WARN] Tool call loop detected: {} repeated {} times",
+                        loop_result.signature.as_ref().map(|s| s.name.as_str()).unwrap_or("unknown"),
+                        loop_result.repeated_count
+                    );
+                    if !loop_warning_injected {
+                        // First detection: inject hint to help LLM break out
+                        if let Some(hint_msg) = loop_result.hint_message {
+                            messages.push(json!({
+                                "role": "user",
+                                "content": hint_msg,
+                            }));
+                            loop_warning_injected = true;
+                        }
+                    } else {
+                        // Already warned once: force break the loop
+                        eprintln!(
+                            "[ERROR] Loop persists after warning — forcing termination"
+                        );
+                        // Build a forced final response
+                        final_text = format!(
+                            "[Loop Detection] The agent appears stuck in a repetitive tool call pattern. \
+                            Forced termination after {} repeated calls to `{}`.",
+                            loop_result.repeated_count,
+                            loop_result.signature.as_ref().map(|s| s.name.as_str()).unwrap_or("unknown")
+                        );
+                        break;
+                    }
+                }
+
                 continue;
             }
 
@@ -646,7 +777,7 @@ impl LlmRuntime for HttpLLMRuntime {
             } else {
                 Some(final_text)
             },
-            tool_calls: Vec::new(),
+            tool_calls: all_tool_calls, // Return collected tool calls for transcript
             model: Some(use_model),
         })
     }
@@ -717,8 +848,14 @@ impl LlmRuntime for HttpLLMRuntime {
             );
 
             let body = payload.to_string();
-            let resp = ureq::post(&self.url())
+            // M25.43: Use Agent with timeout_read for responsive cancellation
+            // timeout_read lets us check cancel_event periodically during streaming
+            let agent = ureq::AgentBuilder::new()
                 .timeout(Duration::from_secs(self.timeout))
+                .timeout_read(Duration::from_secs(2)) // Check cancel every 2 seconds
+                .build();
+            let resp = agent
+                .post(&self.url())
                 .set("Content-Type", "application/json")
                 .set("Authorization", &self.auth_header())
                 .send_string(&body);
@@ -787,6 +924,20 @@ impl LlmRuntime for HttpLLMRuntime {
                             line_bytes.push(byte[0]);
                         }
                     }
+                    Err(ref e)
+                        if e.kind() == std::io::ErrorKind::TimedOut
+                            || e.kind() == std::io::ErrorKind::WouldBlock =>
+                    {
+                        // M25.43: Read timeout — check cancel_event
+                        if let Some(ref cancel_event) = self.cancel_event {
+                            if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                                // Cancelled by user — exit loop
+                                break;
+                            }
+                        }
+                        // Not cancelled — continue reading
+                        continue;
+                    }
                     Err(_) => break,
                 }
                 let _ = &mut buf;
@@ -820,12 +971,39 @@ impl LlmRuntime for HttpLLMRuntime {
                         .and_then(|n| n.as_str())
                         .unwrap_or("")
                         .to_string();
-                    let fn_args: Value = tc
+                    let fn_args_str = tc
                         .get("function")
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
-                        .and_then(|s| serde_json::from_str(s).ok())
-                        .unwrap_or_else(|| json!({}));
+                        .unwrap_or("{}");
+
+                    let fn_args: Value = match serde_json::from_str(fn_args_str) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // JSON 解析失败，可能是 LLM 输出被截断
+                            let error_msg = format!(
+                                "Tool call arguments JSON parse error: {}. Arguments: {}. \
+                                 This may indicate the LLM output was truncated. \
+                                 Please retry with a smaller file or split into multiple operations.",
+                                e, fn_args_str
+                            );
+                            eprintln!("[WARN] {}", error_msg);
+
+                            // 返回错误给 LLM，让它知道发生了什么
+                            if !on_event(
+                                json!({"type": "tool_call", "name": &fn_name, "args": json!({})}),
+                            ) {
+                                return Ok(());
+                            }
+                            if !on_event(
+                                json!({"type": "tool_result", "name": &fn_name, "result": &error_msg}),
+                            ) {
+                                return Ok(());
+                            }
+                            tool_results.push((tc.clone(), error_msg));
+                            continue;
+                        }
+                    };
                     // Emit tool_call event BEFORE executing (Python parity)
                     if !on_event(json!({"type": "tool_call", "name": &fn_name, "args": &fn_args})) {
                         return Ok(());
@@ -860,6 +1038,42 @@ impl LlmRuntime for HttpLLMRuntime {
                         "content": content,
                     }));
                 }
+
+                // Phase 8C (stream): Hint injection — check for pending user hints (v1.46.28)
+                // This allows mid-processing user hints to be injected into the conversation
+                if let Some(ref hint_queue) = self.hint_queue {
+                    let hints = hint_queue.pop_all_hints();
+                    eprintln!(
+                        "[HINT DEBUG] act_stream: Checked hint_queue: found {} hints",
+                        hints.len()
+                    );
+                    if !hints.is_empty() {
+                        for hint in hints {
+                            // Add hint as user message with system hint prefix (Python parity)
+                            let last_tool = tool_results
+                                .last()
+                                .and_then(|(tc, _)| tc.get("function"))
+                                .and_then(|f| f.get("name"))
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("unknown");
+                            let hint_content = format!(
+                                "[System Hint — after tool '{}']\n{}",
+                                last_tool, hint.text
+                            );
+                            eprintln!(
+                                "[HINT] act_stream: Injecting hint after tool '{}': {}",
+                                last_tool, hint.text
+                            );
+                            messages.push(json!({
+                                "role": "user",
+                                "content": hint_content,
+                            }));
+                        }
+                    }
+                } else {
+                    eprintln!("[HINT DEBUG] act_stream: hint_queue is None!");
+                }
+
                 full_text.clear();
                 reasoning_chunks.clear();
                 tool_calls_acc.clear();
@@ -1019,4 +1233,35 @@ fn process_sse_line(
         *final_message = Some(json!({"content": full_text.clone()}));
     }
     let _ = final_message;
+}
+
+#[cfg(test)]
+mod context_window_tests {
+    use super::*;
+
+    #[test]
+    fn test_tool_result_limits_match_python() {
+        // Regression test: Rust had MAX_TOOL_RESULT_CHARS=3000 and MAX_TOOL_RESULTS_PER_TURN=12
+        // Python has MAX_TOOL_RESULT_CHARS=16000 and MAX_TOOL_RESULTS_PER_TURN=128
+        // This caused helen-rust agent to truncate files much more aggressively than Python
+        assert_eq!(MAX_TOOL_RESULT_CHARS, 16_000, "MAX_TOOL_RESULT_CHARS should match Python");
+        assert_eq!(MAX_TOOL_RESULTS_PER_TURN, 128, "MAX_TOOL_RESULTS_PER_TURN should match Python");
+    }
+
+    #[test]
+    fn test_truncate_tool_result_preserves_small_results() {
+        let small_result = "a".repeat(1000);
+        let truncated = truncate_tool_result(&small_result);
+        assert_eq!(truncated, small_result, "Small results should not be truncated");
+    }
+
+    #[test]
+    fn test_truncate_tool_result_truncates_large_results() {
+        let large_result = "a".repeat(20000);
+        let truncated = truncate_tool_result(&large_result);
+        assert!(truncated.chars().count() < 20000, "Large results should be truncated");
+        assert!(truncated.contains("[truncated]"), "Truncated results should have marker");
+        assert_eq!(truncated.chars().count(), 16000 + "[truncated]\n...".len(), 
+                   "Truncated to MAX_TOOL_RESULT_CHARS");
+    }
 }

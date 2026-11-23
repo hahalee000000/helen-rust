@@ -60,7 +60,7 @@ describe('StatusLine', () => {
   })
 
   it('shows 0% usage when no data provided', () => {
-    const emptyData: StatuslineData = {}
+    const emptyData: StatuslineData = { usageRatio: 0 }
     render(<StatusLine data={emptyData} connected={true} />)
 
     // Usage is always shown, defaults to 0%
@@ -109,7 +109,7 @@ describe('StatusLine', () => {
   })
 
   it('handles undefined usageRatio', () => {
-    const data = { ...defaultData, usageRatio: undefined }
+    const data: StatuslineData = { ...defaultData, usageRatio: 0 }
     render(<StatusLine data={data} connected={true} />)
 
     expect(screen.getByText('0%')).toBeInTheDocument()

@@ -44,6 +44,15 @@ pub const MAX_DOWNLOAD_SIZE: usize = 100 * 1024 * 1024;
 /// 8 MB.
 pub const MAX_RESPONSE_SIZE: usize = 8 * 1024 * 1024;
 
+// ── Context Window Protection (HLD 3.12) ──────────────────────
+
+/// Maximum characters per tool result before truncation.
+/// Python parity: helen/runtime/http_llm.py MAX_TOOL_RESULT_CHARS = 16000
+pub const MAX_TOOL_RESULT_CHARS: usize = 16_000;
+/// Maximum total tool results per turn (enforced to prevent context explosion).
+/// Python parity: helen/runtime/http_llm.py MAX_TOOL_RESULTS_PER_TURN = 128
+pub const MAX_TOOL_RESULTS_PER_TURN: usize = 128;
+
 // ── Timeout Defaults ──────────────────────────────────────────
 
 /// Seconds.
