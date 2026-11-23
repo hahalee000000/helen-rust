@@ -360,16 +360,17 @@ fn run_spawned(p: SpawnPayload) {
     interp.session_manager = p.session_manager;
     if let Some(sid) = &p.resume_session_id {
         interp.session_id = sid.clone();
-        
+
         // v1.46.30: Load transcript from file into transcript_store so the spawned agent
         // has conversation history (fixes "agent doesn't remember recent tasks" bug).
         let manager = interp.session_manager.lock().expect("mutex poisoned");
         let transcript_path = manager.get_session_path(sid);
         drop(manager);
-        
+
         if transcript_path.exists() {
             let backend = helen_runtime::transcript::JsonlBackend::new(&transcript_path);
-            let store = helen_runtime::transcript::TranscriptStore::load_from_backend(backend, 1000);
+            let store =
+                helen_runtime::transcript::TranscriptStore::load_from_backend(backend, 1000);
             interp.transcript_store = Some(std::sync::Arc::new(std::sync::Mutex::new(store)));
         }
     }
@@ -3729,17 +3730,17 @@ impl Interpreter {
                         .get("invocation_id")
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
-                    
+
                     // Include if invocation_id matches
                     if msg_inv_id == current_inv_id {
                         return true;
                     }
-                    
+
                     // Include if empty (legacy messages)
                     if msg_inv_id.is_empty() {
                         return true;
                     }
-                    
+
                     // v1.24: Check visible_to_invocation_ids (Python parity)
                     if let Some(visible_to) = entry
                         .get("visible_to_invocation_ids")
@@ -3752,7 +3753,7 @@ impl Interpreter {
                             return true;
                         }
                     }
-                    
+
                     false
                 })
                 .cloned()
@@ -4823,7 +4824,7 @@ mod invocation_filter_tests {
     fn test_invocation_filter_includes_visible_to() {
         // Regression test: Rust was missing visible_to_invocation_ids check
         // causing agent to "forget" previous conversation
-        
+
         let json_history = vec![
             // Message from invocation_1 (old conversation)
             json!({
@@ -4869,28 +4870,44 @@ mod invocation_filter_tests {
                     .get("invocation_id")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
+
                 if msg_inv_id == current_inv_id {
                     return true;
                 }
-                
-                if let Some(visible_to) = entry.get("visible_to_invocation_ids").and_then(|v| v.as_array()) {
-                    if visible_to.iter().any(|v| v.as_str() == Some(&current_inv_id)) {
+
+                if let Some(visible_to) = entry
+                    .get("visible_to_invocation_ids")
+                    .and_then(|v| v.as_array())
+                {
+                    if visible_to
+                        .iter()
+                        .any(|v| v.as_str() == Some(&current_inv_id))
+                    {
                         return true;
                     }
                 }
-                
+
                 false
             })
             .collect();
 
         // Bug: Rust only keeps 1 message (current invocation)
-        assert_eq!(buggy_filtered.len(), 1, "Buggy implementation filters out old messages");
-        
+        assert_eq!(
+            buggy_filtered.len(),
+            1,
+            "Buggy implementation filters out old messages"
+        );
+
         // Correct: Should keep all 3 messages (including visible ones)
-        assert_eq!(correct_filtered.len(), 3, "Correct implementation keeps visible messages");
-        
-        println!("✅ Bug confirmed: Rust filters out {} messages", 
-                 correct_filtered.len() - buggy_filtered.len());
+        assert_eq!(
+            correct_filtered.len(),
+            3,
+            "Correct implementation keeps visible messages"
+        );
+
+        println!(
+            "✅ Bug confirmed: Rust filters out {} messages",
+            correct_filtered.len() - buggy_filtered.len()
+        );
     }
 }

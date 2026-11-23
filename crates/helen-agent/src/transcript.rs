@@ -4,7 +4,8 @@
 //! Each line is a JSON object with a `type` field:
 //! - `session_meta`: session metadata (timestamp, session_id)
 //! - `message`: a chat message (role, content, uuid)
-//! - `boundary_marker`: session boundary (ignored)
+//! - `boundary_marker`: compression/clear boundary — messages in the
+//!   [head_uuid, tail_uuid] range are hidden from the effective view
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -25,6 +26,17 @@ pub struct TranscriptEntry {
     pub session_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<serde_json::Value>,
+    // boundary_marker fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tail_uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor_uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layer: Option<String>,
 }
 
 /// A message formatted for the frontend
@@ -125,6 +137,10 @@ impl TranscriptReader {
     }
 
     /// Convert a slice of entries to messages (static helper for testing)
+    ///
+    /// Respects `boundary_marker` entries: messages whose UUID falls within
+    /// any boundary's [head_uuid, tail_uuid] range are excluded from the output.
+    /// This matches the Python reference implementation's `read_view()` behavior.
     pub fn entries_to_messages(entries: &[TranscriptEntry]) -> Vec<Message> {
         // Extract session timestamp from session_meta
         let session_timestamp = entries
@@ -133,6 +149,49 @@ impl TranscriptReader {
             .and_then(|e| e.timestamp.as_ref())
             .and_then(|ts| ts.as_i64().or_else(|| ts.as_f64().map(|f| f as i64)))
             .map(timestamp_to_iso);
+
+        // Build UUID → index map for boundary range resolution
+        let uuid_index: std::collections::HashMap<&str, usize> = entries
+            .iter()
+            .enumerate()
+            .filter_map(|(i, e)| e.uuid.as_deref().map(|uuid| (uuid, i)))
+            .collect();
+
+        // Collect all compressed (hidden) UUIDs from boundary_marker entries
+        let mut compressed_uuids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        for entry in entries {
+            if entry.entry_type != "boundary_marker" {
+                continue;
+            }
+            let head = match entry.head_uuid.as_deref() {
+                Some(h) if !h.is_empty() => h,
+                _ => continue,
+            };
+            let tail = match entry.tail_uuid.as_deref() {
+                Some(t) if !t.is_empty() => t,
+                _ => continue,
+            };
+            let head_idx = match uuid_index.get(head) {
+                Some(&i) => i,
+                None => continue,
+            };
+            let tail_idx = match uuid_index.get(tail) {
+                Some(&i) => i,
+                None => continue,
+            };
+            // Mark all messages in [head_idx, tail_idx] as compressed
+            let (lo, hi) = if head_idx <= tail_idx {
+                (head_idx, tail_idx)
+            } else {
+                (tail_idx, head_idx)
+            };
+            for entry in entries.iter().take(hi + 1).skip(lo) {
+                if let Some(ref uuid) = entry.uuid {
+                    compressed_uuids.insert(uuid.clone());
+                }
+            }
+        }
 
         let mut messages = Vec::new();
 
@@ -146,6 +205,12 @@ impl TranscriptReader {
 
             let role = entry.role.as_deref().unwrap_or("user");
             let uuid = entry.uuid.as_deref().unwrap_or("");
+
+            // Skip messages hidden by boundary_marker
+            if !uuid.is_empty() && compressed_uuids.contains(uuid) {
+                continue;
+            }
+
             let content_value = match &entry.content {
                 Some(v) => v,
                 None => continue,
@@ -256,6 +321,42 @@ impl TranscriptReader {
     // ── Private helpers ──────────────────────────────────────────
 
     fn extract_preview(entries: &[TranscriptEntry]) -> String {
+        // Build compressed UUID set (same logic as entries_to_messages)
+        let uuid_index: std::collections::HashMap<&str, usize> = entries
+            .iter()
+            .enumerate()
+            .filter_map(|(i, e)| e.uuid.as_deref().map(|uuid| (uuid, i)))
+            .collect();
+
+        let mut compressed_uuids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        for entry in entries {
+            if entry.entry_type != "boundary_marker" {
+                continue;
+            }
+            let head = match entry.head_uuid.as_deref() {
+                Some(h) if !h.is_empty() => h,
+                _ => continue,
+            };
+            let tail = match entry.tail_uuid.as_deref() {
+                Some(t) if !t.is_empty() => t,
+                _ => continue,
+            };
+            if let (Some(&head_idx), Some(&tail_idx)) = (uuid_index.get(head), uuid_index.get(tail))
+            {
+                let (lo, hi) = if head_idx <= tail_idx {
+                    (head_idx, tail_idx)
+                } else {
+                    (tail_idx, head_idx)
+                };
+                for entry in entries.iter().take(hi + 1).skip(lo) {
+                    if let Some(ref uuid) = entry.uuid {
+                        compressed_uuids.insert(uuid.clone());
+                    }
+                }
+            }
+        }
+
         for entry in entries {
             if entry.entry_type != "message" {
                 continue;
@@ -265,6 +366,12 @@ impl TranscriptReader {
             }
             if Self::is_test_message(entry) {
                 continue;
+            }
+            // Skip messages hidden by boundary_marker
+            if let Some(ref uuid) = entry.uuid {
+                if compressed_uuids.contains(uuid.as_str()) {
+                    continue;
+                }
             }
 
             let content_value = match &entry.content {
@@ -503,5 +610,154 @@ mod tests {
         let (user_text, boilerplate) = extract_from_boilerplate(content);
         assert_eq!(user_text, "Just a normal message");
         assert_eq!(boilerplate, "");
+    }
+
+    // ── boundary_marker tests ──────────────────────────────────────
+
+    /// Helper: build a TranscriptEntry for a message
+    fn make_message(uuid: &str, role: &str, content: &str) -> TranscriptEntry {
+        TranscriptEntry {
+            entry_type: "message".to_string(),
+            role: Some(role.to_string()),
+            content: Some(serde_json::Value::String(content.to_string())),
+            uuid: Some(uuid.to_string()),
+            session_id: None,
+            timestamp: None,
+            head_uuid: None,
+            tail_uuid: None,
+            anchor_uuid: None,
+            summary: None,
+            layer: None,
+        }
+    }
+
+    /// Helper: build a TranscriptEntry for a boundary_marker
+    fn make_boundary(head: &str, tail: &str, layer: &str) -> TranscriptEntry {
+        TranscriptEntry {
+            entry_type: "boundary_marker".to_string(),
+            role: None,
+            content: None,
+            uuid: Some(format!("boundary_{head}_{tail}")),
+            session_id: None,
+            timestamp: None,
+            head_uuid: Some(head.to_string()),
+            tail_uuid: Some(tail.to_string()),
+            anchor_uuid: Some(String::new()),
+            summary: Some(format!("[Context Cleared]")),
+            layer: Some(layer.to_string()),
+        }
+    }
+
+    #[test]
+    fn test_entries_to_messages_no_boundary() {
+        // Without boundary markers, all messages are returned
+        let entries = vec![
+            make_message("msg_1", "user", "hello"),
+            make_message("msg_2", "assistant", "hi there"),
+            make_message("msg_3", "user", "how are you"),
+        ];
+        let messages = TranscriptReader::entries_to_messages(&entries);
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[0].content, "hello");
+        assert_eq!(messages[1].content, "hi there");
+        assert_eq!(messages[2].content, "how are you");
+    }
+
+    #[test]
+    fn test_entries_to_messages_boundary_clears_all() {
+        // A boundary covering all messages should hide them all
+        let entries = vec![
+            make_message("msg_1", "user", "hello"),
+            make_message("msg_2", "assistant", "hi there"),
+            make_message("msg_3", "user", "how are you"),
+            make_boundary("msg_1", "msg_3", "clear_context"),
+        ];
+        let messages = TranscriptReader::entries_to_messages(&entries);
+        assert_eq!(
+            messages.len(),
+            0,
+            "All messages should be hidden by boundary"
+        );
+    }
+
+    #[test]
+    fn test_entries_to_messages_boundary_partial() {
+        // A boundary covering only the first two messages
+        let entries = vec![
+            make_message("msg_1", "user", "hello"),
+            make_message("msg_2", "assistant", "hi there"),
+            make_boundary("msg_1", "msg_2", "clear_context"),
+            make_message("msg_3", "user", "new question"),
+            make_message("msg_4", "assistant", "new answer"),
+        ];
+        let messages = TranscriptReader::entries_to_messages(&entries);
+        assert_eq!(
+            messages.len(),
+            2,
+            "Only messages after boundary should remain"
+        );
+        assert_eq!(messages[0].content, "new question");
+        assert_eq!(messages[1].content, "new answer");
+    }
+
+    #[test]
+    fn test_entries_to_messages_multiple_boundaries() {
+        // Multiple boundaries: each clears a range
+        let entries = vec![
+            make_message("msg_1", "user", "first"),
+            make_message("msg_2", "assistant", "response 1"),
+            make_boundary("msg_1", "msg_2", "clear_context"),
+            make_message("msg_3", "user", "second"),
+            make_message("msg_4", "assistant", "response 2"),
+            make_boundary("msg_3", "msg_4", "clear_context"),
+            make_message("msg_5", "user", "third"),
+        ];
+        let messages = TranscriptReader::entries_to_messages(&entries);
+        assert_eq!(messages.len(), 1, "Only msg_5 should remain");
+        assert_eq!(messages[0].content, "third");
+    }
+
+    #[test]
+    fn test_entries_to_messages_boundary_with_missing_uuids() {
+        // Boundary referencing non-existent UUIDs should be ignored gracefully
+        let entries = vec![
+            make_message("msg_1", "user", "hello"),
+            make_boundary("nonexistent_head", "nonexistent_tail", "clear_context"),
+            make_message("msg_2", "assistant", "hi"),
+        ];
+        let messages = TranscriptReader::entries_to_messages(&entries);
+        assert_eq!(
+            messages.len(),
+            2,
+            "Messages should remain when boundary UUIDs don't match"
+        );
+    }
+
+    #[test]
+    fn test_entries_to_messages_boundary_empty_head_tail() {
+        // Boundary with empty head/tail should be ignored
+        let entries = vec![
+            make_message("msg_1", "user", "hello"),
+            TranscriptEntry {
+                entry_type: "boundary_marker".to_string(),
+                role: None,
+                content: None,
+                uuid: Some("boundary_x".to_string()),
+                session_id: None,
+                timestamp: None,
+                head_uuid: Some(String::new()), // empty
+                tail_uuid: Some(String::new()), // empty
+                anchor_uuid: None,
+                summary: None,
+                layer: None,
+            },
+            make_message("msg_2", "assistant", "hi"),
+        ];
+        let messages = TranscriptReader::entries_to_messages(&entries);
+        assert_eq!(
+            messages.len(),
+            2,
+            "Messages should remain when boundary has empty head/tail"
+        );
     }
 }

@@ -15,7 +15,7 @@ use std::time::Duration;
 
 // v1.46.29: Use constants from constants.rs for Python parity
 // Python: MAX_TOOL_RESULT_CHARS = 16000, MAX_TOOL_RESULTS_PER_TURN = 128
-use crate::constants::{MAX_TOOL_RESULT_CHARS, MAX_TOOL_RESULTS_PER_TURN};
+use crate::constants::{MAX_TOOL_RESULTS_PER_TURN, MAX_TOOL_RESULT_CHARS};
 
 // ---------------------------------------------------------------------------
 // Helpers (module-level functions from http_llm.py)
@@ -325,8 +325,14 @@ impl HttpLLMRuntime {
         );
 
         let body = payload.to_string();
-        let resp = ureq::post(&self.url())
+        // v1.46.30: Use Agent with timeout_read for responsive cancellation
+        // This allows checking cancel_event during non-streaming requests too
+        let agent = ureq::AgentBuilder::new()
             .timeout(Duration::from_secs(self.timeout))
+            .timeout_read(Duration::from_millis(500))
+            .build();
+        let resp = agent
+            .post(&self.url())
             .set("Content-Type", "application/json")
             .set("Authorization", &self.auth_header())
             .send_string(&body);
@@ -396,6 +402,17 @@ impl HttpLLMRuntime {
                 None
             }
             Err(e) => {
+                // v1.46.30: Check if timeout is due to cancellation
+                let error_str = format!("{e}");
+                if error_str.contains("timed out") || error_str.contains("Timeout") {
+                    if let Some(ref cancel_event) = self.cancel_event {
+                        if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                            self.last_error = Some("Cancelled by user".to_string());
+                            self.last_status_code = None;
+                            return None;
+                        }
+                    }
+                }
                 self.last_error = Some(format!("Network error: {e}"));
                 self.last_status_code = None;
                 None
@@ -418,6 +435,15 @@ impl HttpLLMRuntime {
     ) -> Option<Value> {
         let mut context_overflow_retried = false;
         for attempt in 0..=self.max_retries {
+            // v1.46.30: Check cancel_event before each retry attempt
+            // This ensures stop button works during retry backoff
+            if let Some(ref cancel_event) = self.cancel_event {
+                if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                    self.last_error = Some("Cancelled by user".to_string());
+                    return None;
+                }
+            }
+
             let result = self.chat_with_messages(
                 messages,
                 model,
@@ -431,6 +457,11 @@ impl HttpLLMRuntime {
                 return result;
             }
             let error = self.last_error.clone().unwrap_or_default();
+
+            // v1.46.30: Check if error is due to cancellation
+            if error.contains("Cancelled by user") {
+                return None;
+            }
 
             // P1: context overflow auto-recovery — trim older messages.
             if !context_overflow_retried && is_context_length_error(&error) {
@@ -547,12 +578,20 @@ impl LlmRuntime for HttpLLMRuntime {
         let mut budget = IterationBudget::new(max_turns + 2);
         let mut empty_response_retries = 0;
         let max_empty_retries = 2;
-        
+
         // Phase 8D: Loop detection (v1.46.28)
         let mut loop_detector = crate::loop_detector::ToolCallLoopDetector::new();
         let mut loop_warning_injected = false;
 
         while budget.consume() {
+            // v1.46.30: Check cancel_event at the start of each iteration
+            // This ensures stop button works even between tool calls
+            if let Some(ref cancel_event) = self.cancel_event {
+                if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                    return Err("Cancelled by user".to_string());
+                }
+            }
+
             if self.enable_message_sanitization {
                 sanitize_messages(&mut messages);
                 repair_message_sequence(&mut messages);
@@ -578,14 +617,19 @@ impl LlmRuntime for HttpLLMRuntime {
             // Debug: log LLM response
             eprintln!("[LLM DEBUG] Received response from LLM");
             if let Some(content) = response_msg.get("content").and_then(|c| c.as_str()) {
-                let preview = if content.len() > 200 { &content[..200] } else { content };
+                let preview = if content.len() > 200 {
+                    &content[..200]
+                } else {
+                    content
+                };
                 eprintln!("[LLM DEBUG] Response content preview: {}", preview);
             }
             if let Some(tool_calls) = response_msg.get("tool_calls") {
                 if let Some(calls) = tool_calls.as_array() {
                     eprintln!("[LLM DEBUG] Tool calls: {} calls", calls.len());
                     for (i, tc) in calls.iter().enumerate() {
-                        let fn_name = tc.get("function")
+                        let fn_name = tc
+                            .get("function")
                             .and_then(|f| f.get("name"))
                             .and_then(|n| n.as_str())
                             .unwrap_or("?");
@@ -612,6 +656,15 @@ impl LlmRuntime for HttpLLMRuntime {
                 // Execute tool calls
                 let mut tool_results: Vec<(Value, String)> = Vec::new();
                 for tc in &tool_calls {
+                    // v1.46.30: Check cancel_event before each tool execution
+                    // This ensures stop button works during tool execution loops
+                    if let Some(ref cancel_event) = self.cancel_event {
+                        if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                            eprintln!("[LLM] Cancel detected before tool execution, stopping");
+                            break;
+                        }
+                    }
+
                     let fn_name = tc
                         .get("function")
                         .and_then(|f| f.get("name"))
@@ -650,6 +703,17 @@ impl LlmRuntime for HttpLLMRuntime {
                             }
                         }
                     };
+
+                    // v1.46.30: Check cancel_event after each tool execution
+                    // This ensures stop button works even if tool was already running
+                    if let Some(ref cancel_event) = self.cancel_event {
+                        if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                            eprintln!("[LLM] Cancel detected after tool execution, stopping");
+                            tool_results.push((tc.clone(), result));
+                            break;
+                        }
+                    }
+
                     tool_results.push((tc.clone(), result));
                 }
 
@@ -704,10 +768,15 @@ impl LlmRuntime for HttpLLMRuntime {
                             }));
                             // Debug: print last 3 messages to verify injection
                             eprintln!("[HINT DEBUG] Messages after injection (last 3):");
-                            let start = if messages.len() >= 3 { messages.len() - 3 } else { 0 };
+                            let start = if messages.len() >= 3 {
+                                messages.len() - 3
+                            } else {
+                                0
+                            };
                             for (i, msg) in messages.iter().enumerate().skip(start) {
                                 let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("?");
-                                let content = msg.get("content")
+                                let content = msg
+                                    .get("content")
                                     .and_then(|c| c.as_str())
                                     .map(|s| if s.len() > 100 { &s[..100] } else { s })
                                     .unwrap_or("<tool_call>");
@@ -726,7 +795,11 @@ impl LlmRuntime for HttpLLMRuntime {
                 if loop_result.is_looping {
                     eprintln!(
                         "[WARN] Tool call loop detected: {} repeated {} times",
-                        loop_result.signature.as_ref().map(|s| s.name.as_str()).unwrap_or("unknown"),
+                        loop_result
+                            .signature
+                            .as_ref()
+                            .map(|s| s.name.as_str())
+                            .unwrap_or("unknown"),
                         loop_result.repeated_count
                     );
                     if !loop_warning_injected {
@@ -740,9 +813,7 @@ impl LlmRuntime for HttpLLMRuntime {
                         }
                     } else {
                         // Already warned once: force break the loop
-                        eprintln!(
-                            "[ERROR] Loop persists after warning — forcing termination"
-                        );
+                        eprintln!("[ERROR] Loop persists after warning — forcing termination");
                         // Build a forced final response
                         final_text = format!(
                             "[Loop Detection] The agent appears stuck in a repetitive tool call pattern. \
@@ -819,6 +890,15 @@ impl LlmRuntime for HttpLLMRuntime {
         let protocol_ref = protocol.as_ref();
 
         while budget.consume() {
+            // v1.46.30: Check cancel_event at the start of each iteration
+            // This ensures stop button works even between tool calls
+            if let Some(ref cancel_event) = self.cancel_event {
+                if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                    let _ = on_event(json!({"type": "cancelled"}));
+                    return Ok(());
+                }
+            }
+
             if self.enable_message_sanitization {
                 sanitize_messages(&mut messages);
                 repair_message_sequence(&mut messages);
@@ -850,9 +930,10 @@ impl LlmRuntime for HttpLLMRuntime {
             let body = payload.to_string();
             // M25.43: Use Agent with timeout_read for responsive cancellation
             // timeout_read lets us check cancel_event periodically during streaming
+            // v1.46.30: Reduced from 2s to 0.5s for more responsive stop button
             let agent = ureq::AgentBuilder::new()
                 .timeout(Duration::from_secs(self.timeout))
-                .timeout_read(Duration::from_secs(2)) // Check cancel every 2 seconds
+                .timeout_read(Duration::from_millis(500)) // Check cancel every 0.5 seconds
                 .build();
             let resp = agent
                 .post(&self.url())
@@ -961,10 +1042,32 @@ impl LlmRuntime for HttpLLMRuntime {
                 }
             }
 
+            // v1.46.30: Check cancel_event after streaming loop exits
+            // If cancelled, return immediately without executing tool calls
+            // This ensures stop button works responsively even when tool calls are pending
+            if let Some(ref cancel_event) = self.cancel_event {
+                if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                    // Cancelled by user — emit cancel event and return
+                    let _ = on_event(json!({"type": "cancelled"}));
+                    return Ok(());
+                }
+            }
+
             // Tool-call handling in streaming: if tool calls accumulated, run them.
             if !tool_calls_acc.is_empty() {
                 let mut tool_results: Vec<(Value, String)> = Vec::new();
                 for (_, tc) in &tool_calls_acc {
+                    // v1.46.30: Check cancel_event before each tool execution
+                    // This ensures stop button works during tool execution loops
+                    if let Some(ref cancel_event) = self.cancel_event {
+                        if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                            eprintln!(
+                                "[LLM] Cancel detected before tool execution in stream, stopping"
+                            );
+                            break;
+                        }
+                    }
+
                     let fn_name = tc
                         .get("function")
                         .and_then(|f| f.get("name"))
@@ -1014,6 +1117,24 @@ impl LlmRuntime for HttpLLMRuntime {
                             crate::tools_dispatch(fn_name.as_str(), &fn_args).unwrap_or_else(|e| e)
                         }
                     };
+
+                    // v1.46.30: Check cancel_event after each tool execution
+                    // This ensures stop button works even if tool was already running
+                    if let Some(ref cancel_event) = self.cancel_event {
+                        if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                            eprintln!(
+                                "[LLM] Cancel detected after tool execution in stream, stopping"
+                            );
+                            if !on_event(
+                                json!({"type": "tool_result", "name": &fn_name, "result": &result}),
+                            ) {
+                                return Ok(());
+                            }
+                            tool_results.push((tc.clone(), result));
+                            break;
+                        }
+                    }
+
                     if !on_event(json!({"type": "tool_result", "name": fn_name, "result": result}))
                     {
                         return Ok(());
@@ -1244,24 +1365,42 @@ mod context_window_tests {
         // Regression test: Rust had MAX_TOOL_RESULT_CHARS=3000 and MAX_TOOL_RESULTS_PER_TURN=12
         // Python has MAX_TOOL_RESULT_CHARS=16000 and MAX_TOOL_RESULTS_PER_TURN=128
         // This caused helen-rust agent to truncate files much more aggressively than Python
-        assert_eq!(MAX_TOOL_RESULT_CHARS, 16_000, "MAX_TOOL_RESULT_CHARS should match Python");
-        assert_eq!(MAX_TOOL_RESULTS_PER_TURN, 128, "MAX_TOOL_RESULTS_PER_TURN should match Python");
+        assert_eq!(
+            MAX_TOOL_RESULT_CHARS, 16_000,
+            "MAX_TOOL_RESULT_CHARS should match Python"
+        );
+        assert_eq!(
+            MAX_TOOL_RESULTS_PER_TURN, 128,
+            "MAX_TOOL_RESULTS_PER_TURN should match Python"
+        );
     }
 
     #[test]
     fn test_truncate_tool_result_preserves_small_results() {
         let small_result = "a".repeat(1000);
         let truncated = truncate_tool_result(&small_result);
-        assert_eq!(truncated, small_result, "Small results should not be truncated");
+        assert_eq!(
+            truncated, small_result,
+            "Small results should not be truncated"
+        );
     }
 
     #[test]
     fn test_truncate_tool_result_truncates_large_results() {
         let large_result = "a".repeat(20000);
         let truncated = truncate_tool_result(&large_result);
-        assert!(truncated.chars().count() < 20000, "Large results should be truncated");
-        assert!(truncated.contains("[truncated]"), "Truncated results should have marker");
-        assert_eq!(truncated.chars().count(), 16000 + "[truncated]\n...".len(), 
-                   "Truncated to MAX_TOOL_RESULT_CHARS");
+        assert!(
+            truncated.chars().count() < 20000,
+            "Large results should be truncated"
+        );
+        assert!(
+            truncated.contains("[truncated]"),
+            "Truncated results should have marker"
+        );
+        assert_eq!(
+            truncated.chars().count(),
+            16000 + "[truncated]\n...".len(),
+            "Truncated to MAX_TOOL_RESULT_CHARS"
+        );
     }
 }

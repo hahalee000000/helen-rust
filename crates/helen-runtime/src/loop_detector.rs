@@ -78,9 +78,7 @@ impl ToolCallSignature {
                     .collect();
                 Value::Object(normalized)
             }
-            Value::Array(arr) => {
-                Value::Array(arr.iter().map(Self::normalize_value).collect())
-            }
+            Value::Array(arr) => Value::Array(arr.iter().map(Self::normalize_value).collect()),
             _ => value.clone(),
         }
     }
@@ -300,10 +298,7 @@ impl ToolCallLoopDetector {
             signature.args_key.chars().take(100).collect()
         };
 
-        let header = format!(
-            "[CRITICAL LOOP DETECTION: {} repeat detected]",
-            loop_type
-        );
+        let header = format!("[CRITICAL LOOP DETECTION: {} repeat detected]", loop_type);
         let detail = format!(
             "Tool: {}({}) x{}",
             signature.name, args_display, repeated_count

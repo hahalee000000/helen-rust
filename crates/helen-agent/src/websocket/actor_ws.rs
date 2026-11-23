@@ -273,7 +273,9 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
     let mut is_processing = false;
     let mut pending_content: String;
     let mut pending_is_slash = false;
-    let mut stream_rx: Option<tokio::sync::broadcast::Receiver<crate::actor_bridge::messages::StreamChunk>> = None;
+    let mut stream_rx: Option<
+        tokio::sync::broadcast::Receiver<crate::actor_bridge::messages::StreamChunk>,
+    > = None;
 
     loop {
         // Use tokio::select! to listen for both WebSocket messages AND response events
@@ -586,6 +588,14 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 break;
                             }
 
+                            // v1.46.30: Clear cancel flag after processing completes
+                            // This ensures clean state for next message
+                            let bridge_guard = bridge.lock().await;
+                            if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                bridge_ref.clear_cancel();
+                            }
+                            drop(bridge_guard);
+
                             // Reset processing state
                             is_processing = false;
                             stream_rx = None;
@@ -594,6 +604,12 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             if socket.send(Message::Text(build_error(&error_msg))).await.is_err() {
                                 break;
                             }
+                            // v1.46.30: Clear cancel flag after error
+                            let bridge_guard = bridge.lock().await;
+                            if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                bridge_ref.clear_cancel();
+                            }
+                            drop(bridge_guard);
                             is_processing = false;
                             stream_rx = None;
                         }
@@ -619,7 +635,6 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
