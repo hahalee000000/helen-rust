@@ -308,6 +308,37 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     // Reset processing state
                                     is_processing = false;
                                     stream_rx = None;
+
+                                    // M25.51: Wait for the old ResponseComplete to arrive
+                                    // This prevents race condition where old ResponseComplete
+                                    // arrives after drain but before new message is processed
+                                    drop(bridge_guard);
+                                    let wait_start = std::time::Instant::now();
+                                    let wait_timeout = std::time::Duration::from_millis(500);
+                                    loop {
+                                        let bridge_guard = bridge.lock().await;
+                                        if let Some(bridge_ref) = bridge_guard.as_ref() {
+                                            // Try to receive the old ResponseComplete
+                                            if let Some(_output) = tokio::time::timeout(
+                                                std::time::Duration::from_millis(50),
+                                                bridge_ref.receive_output()
+                                            ).await.ok().flatten() {
+                                                // Got the old ResponseComplete, we can exit
+                                                eprintln!("[WS] Received old ResponseComplete after cancel");
+                                                break;
+                                            }
+                                        }
+                                        drop(bridge_guard);
+
+                                        // Check if we've waited too long
+                                        if wait_start.elapsed() > wait_timeout {
+                                            eprintln!("[WS] Timeout waiting for old ResponseComplete after cancel");
+                                            break;
+                                        }
+
+                                        // Brief sleep to avoid busy-waiting
+                                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                                    }
                                 }
                             }
                             WsInput::Hint { content, client_id } => {

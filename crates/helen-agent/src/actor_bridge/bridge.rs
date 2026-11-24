@@ -367,6 +367,10 @@ impl HelenActorBridge {
                 // Try to receive a message from Rust (blocking with timeout)
                 match input_rx_for_thread.recv_timeout(std::time::Duration::from_millis(100)) {
                     Ok(input) => {
+                        eprintln!(
+                            "[BRIDGE] Interpreter thread received message: {}",
+                            input.request_id
+                        );
                         last_user_msg_time = std::time::Instant::now();
                         // Call tui_chat_handler_actor_stream(user_input, file_paths, streaming_channel)
                         if let Some(func) = interp

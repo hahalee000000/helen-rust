@@ -765,6 +765,7 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
                 try {
                     if _stream_emitter_module.is_cancel_requested() {
                         cancel_all_llm_calls()
+                        _stream_emitter_module.clear_cancel()
                         return
                     }
                 } catch {}
