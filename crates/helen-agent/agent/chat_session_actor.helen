@@ -346,36 +346,18 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
 
         fn _actor_chunks_cb(text) {
             // v1.46.25: Use cached module reference for cancel check
-            // M25.44: Do NOT clear cancel flag here — it's cleared by the websocket
-            // handler after processing completes. Clearing it here causes the Rust
-            // act_stream loop to miss the cancel signal and continue indefinitely.
             if _stream_emitter_available {
                 try {
                     if _stream_emitter_module.is_cancel_requested() {
                         cancel_all_llm_calls()
+                        _stream_emitter_module.clear_cancel()
                         return
                     }
                 } catch {}
             }
-            // v1.46.25: Check hint queue on every chunk (not just tool_end)
-            // This ensures hints are injected promptly during long LLM text generation
-            try {
-                if hint_queue_has_pending() {
-                    let hints = hint_queue_pop_all()
-                    if len(hints) > 0 {
-                        let parts = []
-                        for h in hints {
-                            parts = parts + ["[用户追加提示] " + h["text"]]
-                        }
-                        let merged = join(parts, "\n\n")
-                        _emit_actor_stream_event("hint_injected", merged)
-                        // Note: We can't return the merged hints here because on_chunk
-                        // doesn't support return values like on_tool_end does.
-                        // The hints are emitted as events but not injected into the LLM context.
-                        // This is a limitation of the current architecture.
-                    }
-                }
-            } catch {}
+            // M25.45: Don't consume hints in chunk callback — they should only be
+            // injected after tool calls or at the end of SSE stream in Rust code.
+            // Consuming here prevents proper injection into LLM context.
             _emit_actor_stream_event("llm_chunk", text)
         }
 

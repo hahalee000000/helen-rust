@@ -1019,6 +1019,37 @@ impl LlmRuntime for HttpLLMRuntime {
                 }
             }
 
+            // M25.44: Check for pending hints after SSE stream completes
+            // This allows hints to be injected even when LLM doesn't call tools
+            eprintln!(
+                "[HINT DEBUG] Checking hint_queue after SSE stream, hint_queue.is_some()={}",
+                self.hint_queue.is_some()
+            );
+            if let Some(ref hint_queue) = self.hint_queue {
+                let hints = hint_queue.pop_all_hints();
+                eprintln!("[HINT DEBUG] Found {} hint(s) in queue", hints.len());
+                if !hints.is_empty() {
+                    eprintln!(
+                        "[HINT] act_stream: Found {} hint(s) after SSE, injecting",
+                        hints.len()
+                    );
+                    for hint in hints {
+                        let hint_content =
+                            format!("[System Hint — user direction change]\n{}", hint.text);
+                        eprintln!("[HINT] act_stream: Injecting hint: {}", hint.text);
+                        messages.push(json!({
+                            "role": "user",
+                            "content": hint_content,
+                        }));
+                    }
+                    // Continue to next LLM round with the hint
+                    full_text.clear();
+                    reasoning_chunks.clear();
+                    tool_calls_acc.clear();
+                    continue;
+                }
+            }
+
             // v1.46.30: Check cancel_event after streaming loop exits
             // If cancelled, return immediately without executing tool calls
             // This ensures stop button works responsively even when tool calls are pending
