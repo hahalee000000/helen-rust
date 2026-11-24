@@ -3,6 +3,10 @@
 **/*.rs.bk
 Cargo.lock
 
+# Compiled binaries (accidental commits)
+main
+simple_math
+
 # Python bridge / FFI build artifacts
 *.so
 *.pyd
