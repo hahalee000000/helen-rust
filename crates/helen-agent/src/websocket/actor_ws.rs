@@ -499,6 +499,12 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     // Clear cancel flag before processing
                                     bridge_ref.clear_cancel();
 
+                                    // M25.44: Drain any stale output from previous cancelled request
+                                    // This prevents old ResponseComplete messages from interfering with new requests
+                                    while bridge_ref.try_receive_output().await.is_some() {
+                                        // Discard stale output
+                                    }
+
                                     // Subscribe to streaming chunks
                                     stream_rx = Some(bridge_ref.subscribe_stream());
 
