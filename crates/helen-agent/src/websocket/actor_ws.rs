@@ -168,6 +168,10 @@ pub struct StrippedResponse {
     pub should_clear_messages: bool,
     /// Whether __HELEN_CLEAR_SESSION_OK__ was found (session was deleted)
     pub should_clear_session: bool,
+    /// Whether __HELEN_VIEW_SESSION__ was found (open transcript viewer)
+    pub view_session_id: Option<String>,
+    /// Whether __HELEN_SET_SESSION_OK__ was found (switch to session)
+    pub set_session_id: Option<String>,
 }
 
 /// Strip internal protocol markers from slash command responses.
@@ -192,6 +196,24 @@ pub fn strip_protocol_markers_detailed(content: &str) -> StrippedResponse {
         result.should_clear_messages = true;
     }
 
+    // Extract __HELEN_VIEW_SESSION__<sid>__ marker
+    if let Some(start) = c.find("__HELEN_VIEW_SESSION__") {
+        let after_marker = &c[start + "__HELEN_VIEW_SESSION__".len()..];
+        if let Some(end) = after_marker.find("__") {
+            let session_id = &after_marker[..end];
+            result.view_session_id = Some(session_id.to_string());
+        }
+    }
+
+    // Extract __HELEN_SET_SESSION_OK__<sid>__ marker
+    if let Some(start) = c.find("__HELEN_SET_SESSION_OK__") {
+        let after_marker = &c[start + "__HELEN_SET_SESSION_OK__".len()..];
+        if let Some(end) = after_marker.find("__") {
+            let session_id = &after_marker[..end];
+            result.set_session_id = Some(session_id.to_string());
+        }
+    }
+
     // Strip markers
     c = c.replace("__HELEN_CLEAR_OK__", "").trim().to_string();
     c = c
@@ -199,6 +221,24 @@ pub fn strip_protocol_markers_detailed(content: &str) -> StrippedResponse {
         .trim()
         .to_string();
     c = c.replace("__HELEN_RESTART_ACTOR__", "").trim().to_string();
+
+    // Strip __HELEN_VIEW_SESSION__<sid>__ pattern
+    if let Some(start) = c.find("__HELEN_VIEW_SESSION__") {
+        let after_marker = &c[start + "__HELEN_VIEW_SESSION__".len()..];
+        if let Some(end) = after_marker.find("__") {
+            let full_marker = format!("__HELEN_VIEW_SESSION__{}__", &after_marker[..end]);
+            c = c.replace(&full_marker, "").trim().to_string();
+        }
+    }
+
+    // Strip __HELEN_SET_SESSION_OK__<sid>__ pattern
+    if let Some(start) = c.find("__HELEN_SET_SESSION_OK__") {
+        let after_marker = &c[start + "__HELEN_SET_SESSION_OK__".len()..];
+        if let Some(end) = after_marker.find("__") {
+            let full_marker = format!("__HELEN_SET_SESSION_OK__{}__", &after_marker[..end]);
+            c = c.replace(&full_marker, "").trim().to_string();
+        }
+    }
 
     result.content = if c.is_empty() { None } else { Some(c) };
     result
@@ -607,6 +647,28 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                 break;
                             }
 
+                            // v1.46.34: Send view_transcript event for /session view
+                            if let Some(ref session_id) = stripped.view_session_id {
+                                let view_event = serde_json::json!({
+                                    "type": "view_transcript",
+                                    "data": {"session_id": session_id}
+                                }).to_string();
+                                if socket.send(Message::Text(view_event)).await.is_err() {
+                                    break;
+                                }
+                            }
+
+                            // v1.46.33: Send session_switched event for /set-session
+                            if let Some(ref session_id) = stripped.set_session_id {
+                                let switch_event = serde_json::json!({
+                                    "type": "session_switched",
+                                    "data": {"session_id": session_id}
+                                }).to_string();
+                                if socket.send(Message::Text(switch_event)).await.is_err() {
+                                    break;
+                                }
+                            }
+
                             if socket
                                 .send(Message::Text(build_processing_complete(
                                     stripped.content.is_some(),
@@ -987,5 +1049,52 @@ mod tests {
         assert_eq!(parsed["type"], "processing_complete");
         assert_eq!(parsed["data"]["is_slash_response"], true);
         assert_eq!(parsed["data"]["i18n_key"], "dir.currentDir");
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_view_session() {
+        let input = "📖 Opening transcript viewer\n__HELEN_VIEW_SESSION__session_123__";
+        let result = strip_protocol_markers_detailed(input);
+        assert_eq!(
+            result.view_session_id,
+            Some("session_123".to_string()),
+            "view_session_id must be extracted from __HELEN_VIEW_SESSION__ marker"
+        );
+        assert!(
+            !result
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("__HELEN_VIEW_SESSION__"),
+            "marker must be stripped from content"
+        );
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_set_session() {
+        let input = "✅ Switched successfully\n__HELEN_SET_SESSION_OK__session_456__";
+        let result = strip_protocol_markers_detailed(input);
+        assert_eq!(
+            result.set_session_id,
+            Some("session_456".to_string()),
+            "set_session_id must be extracted from __HELEN_SET_SESSION_OK__ marker"
+        );
+        assert!(
+            !result
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("__HELEN_SET_SESSION_OK__"),
+            "marker must be stripped from content"
+        );
+    }
+
+    #[test]
+    fn test_strip_protocol_markers_multiple_session_markers() {
+        let input =
+            "Response\n__HELEN_VIEW_SESSION__session_abc__\n__HELEN_SET_SESSION_OK__session_def__";
+        let result = strip_protocol_markers_detailed(input);
+        assert_eq!(result.view_session_id, Some("session_abc".to_string()));
+        assert_eq!(result.set_session_id, Some("session_def".to_string()));
     }
 }

@@ -253,6 +253,34 @@ export function useChat(sessionId: string | null) {
             break
           }
 
+          // v1.46.34: /session view 打开 transcript 查看弹窗
+          case 'view_transcript': {
+            const sessionId = data.data?.session_id
+            if (sessionId) {
+              // TODO: 实现 transcript viewer modal
+              // 暂时用 alert 提示，后续需要实现完整的 TranscriptViewerModal 组件
+              console.log('[WS] Opening transcript viewer for session:', sessionId)
+              // 可以通过 store 设置状态来触发 modal 显示
+              // useChatStore.getState().setViewingTranscript(sessionId)
+            }
+            break
+          }
+
+          // v1.46.33: /set-session 切换到指定会话
+          case 'session_switched': {
+            const newSessionId = data.data?.session_id
+            if (newSessionId) {
+              console.log('[WS] Session switched to:', newSessionId)
+              // 更新当前 session ID
+              useChatStore.getState().setCurrentSession(newSessionId)
+              // 清空当前消息并重新加载
+              clearMessages()
+              // 重新加载消息历史
+              window.location.reload() // 简单实现：刷新页面
+            }
+            break
+          }
+
           case 'error': {
             const d = data.data || {}
             const text = d.i18n_key ? t(d.i18n_key, d.params || {}) : (d.content || content)
