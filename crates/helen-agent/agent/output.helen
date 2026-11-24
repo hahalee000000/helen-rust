@@ -572,11 +572,13 @@ fn smart_llm_complete() {
 fn chat_llm_chunk(text: str) {
     // 中断检查（通过 Python FFI 读 cancel flag）
     // 仅在前端环境生效（有 stream_emitter 时：Web UI / Rich CLI）
+    // M25.44: Do NOT clear cancel flag here — it's cleared by the websocket
+    // handler after processing completes. Clearing it here causes the Rust
+    // act_stream loop to miss the cancel signal and continue indefinitely.
     try {
         import "ui.stream_emitter" as _CancelChecker
         if _CancelChecker.is_cancel_requested() {
             cancel_all_llm_calls()
-            _CancelChecker.clear_cancel()
             return
         }
     } catch {

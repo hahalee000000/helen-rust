@@ -346,11 +346,13 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
 
         fn _actor_chunks_cb(text) {
             // v1.46.25: Use cached module reference for cancel check
+            // M25.44: Do NOT clear cancel flag here — it's cleared by the websocket
+            // handler after processing completes. Clearing it here causes the Rust
+            // act_stream loop to miss the cancel signal and continue indefinitely.
             if _stream_emitter_available {
                 try {
                     if _stream_emitter_module.is_cancel_requested() {
                         cancel_all_llm_calls()
-                        _stream_emitter_module.clear_cancel()
                         return
                     }
                 } catch {}
@@ -386,11 +388,12 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
             // v1.39.7: Check cancel at tool completion — closes the gap
             // where stop button was unresponsive during tool execution
             // v1.46.25: Use cached module reference for cancel check
+            // M25.44: Do NOT clear cancel flag here — it's cleared by the websocket
+            // handler after processing completes.
             if _stream_emitter_available {
                 try {
                     if _stream_emitter_module.is_cancel_requested() {
                         cancel_all_llm_calls()
-                        _stream_emitter_module.clear_cancel()
                         return null
                     }
                 } catch {}
@@ -773,11 +776,13 @@ agent ChatSessionActor(cwd: str, session_id: str, env_context: str, reply: Chann
         // 流式回调：将 chunks 发送到 streaming_channel
         fn _streaming_chunks_cb_with_channel(text) {
             // v1.46.25: Use cached module reference for cancel check
+            // M25.44: Do NOT clear cancel flag here — it's cleared by the websocket
+            // handler after processing completes. Clearing it here causes the Rust
+            // act_stream loop to miss the cancel signal and continue indefinitely.
             if _stream_emitter_available {
                 try {
                     if _stream_emitter_module.is_cancel_requested() {
                         cancel_all_llm_calls()
-                        _stream_emitter_module.clear_cancel()
                         return
                     }
                 } catch {}

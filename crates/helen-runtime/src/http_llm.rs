@@ -741,14 +741,9 @@ impl LlmRuntime for HttpLLMRuntime {
                 // This allows mid-processing user hints to be injected into the conversation
                 if let Some(ref hint_queue) = self.hint_queue {
                     let hints = hint_queue.pop_all_hints();
-                    eprintln!(
-                        "[HINT DEBUG] Checked hint_queue: found {} hints",
-                        hints.len()
-                    );
                     if !hints.is_empty() {
+                        eprintln!("[HINT] act: Found {} hint(s), injecting", hints.len());
                         for hint in hints {
-                            // Add hint as user message with system hint prefix (Python parity)
-                            // The prefix helps LLM understand this is a system instruction
                             let last_tool = tool_calls_log
                                 .last()
                                 .and_then(|tc| tc.get("name"))
@@ -759,33 +754,15 @@ impl LlmRuntime for HttpLLMRuntime {
                                 last_tool, hint.text
                             );
                             eprintln!(
-                                "[HINT] Injecting hint after tool '{}': {}",
+                                "[HINT] act: Injecting hint after tool '{}': {}",
                                 last_tool, hint.text
                             );
                             messages.push(json!({
                                 "role": "user",
                                 "content": hint_content,
                             }));
-                            // Debug: print last 3 messages to verify injection
-                            eprintln!("[HINT DEBUG] Messages after injection (last 3):");
-                            let start = if messages.len() >= 3 {
-                                messages.len() - 3
-                            } else {
-                                0
-                            };
-                            for (i, msg) in messages.iter().enumerate().skip(start) {
-                                let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("?");
-                                let content = msg
-                                    .get("content")
-                                    .and_then(|c| c.as_str())
-                                    .map(|s| if s.len() > 100 { &s[..100] } else { s })
-                                    .unwrap_or("<tool_call>");
-                                eprintln!("  [{}] role={}, content={}", i, role, content);
-                            }
                         }
                     }
-                } else {
-                    eprintln!("[HINT DEBUG] hint_queue is None!");
                 }
 
                 // Phase 8D: Loop detection (v1.46.28)
@@ -1160,15 +1137,28 @@ impl LlmRuntime for HttpLLMRuntime {
                     }));
                 }
 
+                // M25.44: Check cancel_event after tool execution loop.
+                // If cancelled during tool execution, return immediately instead of
+                // continuing to hint injection and next LLM round.
+                if let Some(ref cancel_event) = self.cancel_event {
+                    if cancel_event.load(std::sync::atomic::Ordering::SeqCst) {
+                        eprintln!(
+                            "[LLM] Cancel detected after tool execution loop, returning immediately"
+                        );
+                        let _ = on_event(json!({"type": "cancelled"}));
+                        return Ok(());
+                    }
+                }
+
                 // Phase 8C (stream): Hint injection — check for pending user hints (v1.46.28)
                 // This allows mid-processing user hints to be injected into the conversation
                 if let Some(ref hint_queue) = self.hint_queue {
                     let hints = hint_queue.pop_all_hints();
-                    eprintln!(
-                        "[HINT DEBUG] act_stream: Checked hint_queue: found {} hints",
-                        hints.len()
-                    );
                     if !hints.is_empty() {
+                        eprintln!(
+                            "[HINT] act_stream: Found {} hint(s), injecting",
+                            hints.len()
+                        );
                         for hint in hints {
                             // Add hint as user message with system hint prefix (Python parity)
                             let last_tool = tool_results
@@ -1191,8 +1181,6 @@ impl LlmRuntime for HttpLLMRuntime {
                             }));
                         }
                     }
-                } else {
-                    eprintln!("[HINT DEBUG] act_stream: hint_queue is None!");
                 }
 
                 full_text.clear();
