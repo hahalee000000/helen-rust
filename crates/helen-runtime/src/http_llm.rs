@@ -614,19 +614,9 @@ impl LlmRuntime for HttpLLMRuntime {
                 return Err(format!("LLM API call failed: {err}"));
             };
 
-            // Debug: log LLM response
-            eprintln!("[LLM DEBUG] Received response from LLM");
-            if let Some(content) = response_msg.get("content").and_then(|c| c.as_str()) {
-                let preview = if content.len() > 200 {
-                    &content[..200]
-                } else {
-                    content
-                };
-                eprintln!("[LLM DEBUG] Response content preview: {}", preview);
-            }
+            // Debug: log LLM response (removed verbose debug logs for performance)
             if let Some(tool_calls) = response_msg.get("tool_calls") {
                 if let Some(calls) = tool_calls.as_array() {
-                    eprintln!("[LLM DEBUG] Tool calls: {} calls", calls.len());
                     for (i, tc) in calls.iter().enumerate() {
                         let fn_name = tc
                             .get("function")
@@ -742,7 +732,6 @@ impl LlmRuntime for HttpLLMRuntime {
                 if let Some(ref hint_queue) = self.hint_queue {
                     let hints = hint_queue.pop_all_hints();
                     if !hints.is_empty() {
-                        eprintln!("[HINT] act: Found {} hint(s), injecting", hints.len());
                         for hint in hints {
                             let last_tool = tool_calls_log
                                 .last()
@@ -1021,13 +1010,8 @@ impl LlmRuntime for HttpLLMRuntime {
 
             // M25.44: Check for pending hints after SSE stream completes
             // This allows hints to be injected even when LLM doesn't call tools
-            eprintln!(
-                "[HINT DEBUG] Checking hint_queue after SSE stream, hint_queue.is_some()={}",
-                self.hint_queue.is_some()
-            );
             if let Some(ref hint_queue) = self.hint_queue {
                 let hints = hint_queue.pop_all_hints();
-                eprintln!("[HINT DEBUG] Found {} hint(s) in queue", hints.len());
                 if !hints.is_empty() {
                     eprintln!(
                         "[HINT] act_stream: Found {} hint(s) after SSE, injecting",
@@ -1036,7 +1020,6 @@ impl LlmRuntime for HttpLLMRuntime {
                     for hint in hints {
                         let hint_content =
                             format!("[System Hint — user direction change]\n{}", hint.text);
-                        eprintln!("[HINT] act_stream: Injecting hint: {}", hint.text);
                         messages.push(json!({
                             "role": "user",
                             "content": hint_content,
@@ -1186,10 +1169,6 @@ impl LlmRuntime for HttpLLMRuntime {
                 if let Some(ref hint_queue) = self.hint_queue {
                     let hints = hint_queue.pop_all_hints();
                     if !hints.is_empty() {
-                        eprintln!(
-                            "[HINT] act_stream: Found {} hint(s), injecting",
-                            hints.len()
-                        );
                         for hint in hints {
                             // Add hint as user message with system hint prefix (Python parity)
                             let last_tool = tool_results

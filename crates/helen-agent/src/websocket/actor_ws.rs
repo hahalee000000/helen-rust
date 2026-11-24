@@ -343,13 +343,10 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             }
                             WsInput::Hint { content, client_id } => {
                                 // Hint injection — enqueue hint for mid-processing injection
-                                eprintln!("[WS] Received hint: content='{}', client_id={:?}", content, client_id);
                                 if !content.trim().is_empty() {
                                     let queue = crate::hint_queue::get_hint_queue();
                                     let client_id_str = client_id.clone().unwrap_or_default();
-                                    eprintln!("[WS] Adding hint to queue: '{}'", content);
                                     queue.add_hint(content.clone(), client_id_str.clone());
-                                    eprintln!("[WS] Hint added to queue successfully");
                                     // Send hint_queued confirmation to frontend
                                     if socket
                                         .send(Message::Text(
@@ -367,9 +364,6 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                                     {
                                         break;
                                     }
-                                    eprintln!("[WS] hint_queued confirmation sent to frontend");
-                                } else {
-                                    eprintln!("[WS] Hint content is empty, skipping");
                                 }
                             }
                             WsInput::Message { content, .. } => {
