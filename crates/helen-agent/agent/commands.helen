@@ -1012,7 +1012,20 @@ fn _cmd_session_delete(args: list): str {
 
     // 执行删除：直接删目录（delete_session 只查当前 scope，跨 scope 删不了）
     let header = _t("## Session Deletion\n\n", "## 会话删除\n\n")
-    let session_dir = path_join(target_info["dir"], target)
+    // Construct session directory path based on scope (list_sessions returns no 'dir' key)
+    let scope = ""
+    try { scope = target_info["scope"] } catch {}
+    let base_dir = ""
+    if scope == "global" {
+        let home = env_get("HOME", "")
+        if home == "" { home = env_get("USERPROFILE", "") }
+        base_dir = path_join(home, ".helen", "sessions")
+    } else {
+        // project scope (default)
+        let cwd = get_cwd()
+        base_dir = path_join(cwd, ".helen", "sessions")
+    }
+    let session_dir = path_join(base_dir, target)
     try {
         delete_dir(session_dir, recursive=true)
         let text = header

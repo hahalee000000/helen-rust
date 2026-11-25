@@ -257,11 +257,8 @@ export function useChat(sessionId: string | null) {
           case 'view_transcript': {
             const sessionId = data.data?.session_id
             if (sessionId) {
-              // TODO: 实现 transcript viewer modal
-              // 暂时用 alert 提示，后续需要实现完整的 TranscriptViewerModal 组件
               console.log('[WS] Opening transcript viewer for session:', sessionId)
-              // 可以通过 store 设置状态来触发 modal 显示
-              // useChatStore.getState().setViewingTranscript(sessionId)
+              useChatStore.getState().setViewingTranscript(sessionId)
             }
             break
           }

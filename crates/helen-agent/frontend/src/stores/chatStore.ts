@@ -15,6 +15,8 @@ interface ChatStore {
   isLoading: boolean
   error: string | null
   messages: Message[]  // v6.3: 全局消息状态，路由切换时保持
+  // v1.46.37: Transcript viewer modal state
+  viewingTranscriptSessionId: string | null
 
   // Actions
   fetchSessions: () => Promise<void>
@@ -26,6 +28,8 @@ interface ChatStore {
   addMessage: (message: Message) => void
   updateLastMessage: (updater: (msg: Message) => Message) => void
   clearMessages: () => void
+  // v1.46.37: Transcript viewer
+  setViewingTranscript: (sessionId: string | null) => void
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -34,6 +38,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isLoading: false,
   error: null,
   messages: [],  // v6.3: 初始化为空数组
+  viewingTranscriptSessionId: null,  // v1.46.37
 
   fetchSessions: async () => {
     set({ isLoading: true, error: null })
@@ -92,5 +97,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   clearMessages: () => {
     console.log('[chatStore] clearMessages called, clearing', get().messages.length, 'messages')
     set({ messages: [] })
+  },
+
+  // v1.46.37: Transcript viewer modal
+  setViewingTranscript: (sessionId) => {
+    set({ viewingTranscriptSessionId: sessionId })
   }
 }))

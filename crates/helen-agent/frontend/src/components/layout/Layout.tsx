@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { MessageSquare, Settings } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useT, LanguageSwitcher } from '@/i18n'
+import { TranscriptViewerModal } from '@/components/chat/TranscriptViewerModal'
 
 interface LayoutProps {
   children: ReactNode
@@ -82,6 +83,9 @@ export function Layout({ children }: LayoutProps) {
       <main className="flex-1 overflow-hidden">
         {children}
       </main>
+
+      {/* v1.46.37: Global transcript viewer modal (triggered by /session view) */}
+      <TranscriptViewerModal />
     </div>
   )
 }
