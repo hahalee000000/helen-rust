@@ -333,6 +333,139 @@ fn test_release_session_lock_error() {
     }
 }
 
+// ── list_sessions scope parameter (M25.44 fix) ───────────────────────────
+
+#[test]
+fn test_list_sessions_respects_scope_parameter() {
+    // Test that list_sessions() respects the scope parameter:
+    // - "global" → ~/.helen/sessions/
+    // - "project" → {cwd}/.helen/sessions/
+    // - "" → current scope (interpreter's session_manager)
+    use helen_runtime::SessionManager;
+
+    let mut interp = make_interp();
+
+    // Create temporary directories for global and project sessions
+    let temp_dir = std::env::temp_dir().join(format!(
+        "helen_test_list_sessions_scope_{}",
+        std::process::id()
+    ));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    // For global scope: create ~/.helen/sessions/ structure
+    let global_home = temp_dir.join("home");
+    let global_dir = global_home.join(".helen").join("sessions");
+    let _ = std::fs::create_dir_all(&global_dir);
+
+    // For project scope: create {cwd}/.helen/sessions/ structure
+    let project_cwd = temp_dir.join("cwd");
+    let project_dir = project_cwd.join(".helen").join("sessions");
+    let _ = std::fs::create_dir_all(&project_dir);
+
+    // Create a session in global directory
+    let global_manager = SessionManager::new(Some(&global_dir));
+    let global_sid = global_manager.create_session(Some("test_global_session"));
+    let global_path = global_manager.get_session_path(&global_sid);
+    let _ = std::fs::create_dir_all(global_path.parent().unwrap());
+    std::fs::write(&global_path, "test\n").unwrap();
+
+    // Create a session in project directory
+    let project_manager = SessionManager::new(Some(&project_dir));
+    let project_sid = project_manager.create_session(Some("test_project_session"));
+    let project_path = project_manager.get_session_path(&project_sid);
+    let _ = std::fs::create_dir_all(project_path.parent().unwrap());
+    std::fs::write(&project_path, "test\n").unwrap();
+
+    // Override interpreter's session_manager to use project_dir
+    interp.session_manager = std::sync::Arc::new(std::sync::Mutex::new(project_manager));
+
+    // Test scope="global" - should return global sessions
+    // Note: We need to set HOME env var to point to our temp directory
+    // so that the "global" scope uses our test directory
+    let original_home = std::env::var("HOME").ok();
+    std::env::set_var("HOME", global_home.to_str().unwrap());
+
+    let result = transcript_list_sessions(&mut interp, &[Value::Str(Rc::from("global"))]);
+    assert!(
+        result.is_ok(),
+        "list_sessions('global') failed: {:?}",
+        result.err()
+    );
+    let global_sessions = result.unwrap();
+
+    // Restore HOME
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+
+    match &global_sessions {
+        Value::List(list) => {
+            let borrowed = list.borrow();
+            // Should find the global session
+            let found = borrowed.iter().any(|s| {
+                if let Value::Map(map) = s {
+                    let b = map.borrow();
+                    b.get(&Value::Str(Rc::from("session_id")))
+                        == Some(&Value::Str(Rc::from(global_sid.as_str())))
+                } else {
+                    false
+                }
+            });
+            assert!(
+                found,
+                "global scope should find global session, got {} sessions",
+                borrowed.len()
+            );
+        }
+        _ => panic!("Expected List, got {:?}", global_sessions),
+    }
+
+    // Test scope="project" - should return project sessions
+    // Note: We need to set CWD to our temp directory so that "project" scope uses it
+    let original_cwd = std::env::current_dir().ok();
+    std::env::set_current_dir(&project_cwd).unwrap();
+
+    let result = transcript_list_sessions(&mut interp, &[Value::Str(Rc::from("project"))]);
+    assert!(
+        result.is_ok(),
+        "list_sessions('project') failed: {:?}",
+        result.err()
+    );
+    let project_sessions = result.unwrap();
+
+    // Restore CWD
+    if let Some(cwd) = original_cwd {
+        std::env::set_current_dir(&cwd).unwrap();
+    }
+
+    match &project_sessions {
+        Value::List(list) => {
+            let borrowed = list.borrow();
+            // Should find the project session
+            let found = borrowed.iter().any(|s| {
+                if let Value::Map(map) = s {
+                    let b = map.borrow();
+                    b.get(&Value::Str(Rc::from("session_id")))
+                        == Some(&Value::Str(Rc::from(project_sid.as_str())))
+                } else {
+                    false
+                }
+            });
+            assert!(
+                found,
+                "project scope should find project session, got {} sessions",
+                borrowed.len()
+            );
+        }
+        _ => panic!("Expected List, got {:?}", project_sessions),
+    }
+
+    // Clean up
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
 #[test]
 fn test_invocation_path_empty_string() {
     let mut interp = make_interp();

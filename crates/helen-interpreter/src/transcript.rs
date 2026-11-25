@@ -208,13 +208,40 @@ pub fn transcript_get_session_meta(
 
 /// List all transcript sessions.
 /// Python: `list_sessions(scope="")` → uses SessionManager.list_sessions().
+///
+/// M25.44 fix: Respect the `scope` parameter to query different session directories:
+/// - "global" → ~/.helen/sessions/
+/// - "project" → {cwd}/.helen/sessions/
+/// - "" → current scope (interpreter's session_manager)
 pub fn transcript_list_sessions(
     interp: &mut Interpreter,
     args: &[Value],
 ) -> Result<Value, ExceptionValue> {
-    let _scope = arg_str_or(args, 0, "");
-    let manager = interp.session_manager.lock().expect("mutex poisoned");
-    let sessions = manager.list_sessions();
+    let scope = arg_str_or(args, 0, "");
+
+    // Determine which session manager to use based on scope
+    let sessions = if scope == "global" {
+        // Global scope: ~/.helen/sessions/
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_else(|_| ".".to_string());
+        let global_dir = std::path::PathBuf::from(home)
+            .join(".helen")
+            .join("sessions");
+        let manager = helen_runtime::SessionManager::new(Some(&global_dir));
+        manager.list_sessions()
+    } else if scope == "project" {
+        // Project scope: {cwd}/.helen/sessions/
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let project_dir = cwd.join(".helen").join("sessions");
+        let manager = helen_runtime::SessionManager::new(Some(&project_dir));
+        manager.list_sessions()
+    } else {
+        // Default: use interpreter's session_manager (current scope)
+        let manager = interp.session_manager.lock().expect("mutex poisoned");
+        manager.list_sessions()
+    };
+
     let items: Vec<Value> = sessions
         .iter()
         .map(|s| {
@@ -238,6 +265,16 @@ pub fn transcript_list_sessions(
             map.insert(
                 Value::Str(Rc::from("message_count")),
                 Value::Int(num_bigint::BigInt::from(s.message_count as i64)),
+            );
+            // Add scope field for consistency with Python implementation
+            let scope_str = if scope == "global" {
+                "global"
+            } else {
+                "project" // Default to project scope (both "project" and "")
+            };
+            map.insert(
+                Value::Str(Rc::from("scope")),
+                Value::Str(Rc::from(scope_str)),
             );
             Value::Map(Rc::new(RefCell::new(map)))
         })
