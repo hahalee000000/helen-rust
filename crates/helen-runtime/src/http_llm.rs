@@ -579,9 +579,10 @@ impl LlmRuntime for HttpLLMRuntime {
         let mut empty_response_retries = 0;
         let max_empty_retries = 2;
 
-        // Phase 8D: Loop detection (v1.46.28)
+        // Phase 8D: Loop detection (v1.46.37: Three-level graduated intervention)
         let mut loop_detector = crate::loop_detector::ToolCallLoopDetector::new();
-        let mut loop_warning_injected = false;
+        let mut loop_l1_injected = false;
+        let mut loop_l2_injected = false;
 
         while budget.consume() {
             // v1.46.30: Check cancel_event at the start of each iteration
@@ -754,38 +755,73 @@ impl LlmRuntime for HttpLLMRuntime {
                     }
                 }
 
-                // Phase 8D: Loop detection (v1.46.28)
-                // Detect repetitive tool calls and inject warning to break the loop
+                // Phase 8D: Loop detection (v1.46.37: Three-level graduated intervention)
                 loop_detector.record(&tool_calls);
                 let loop_result = loop_detector.check();
                 if loop_result.is_looping {
+                    let tool_name = loop_result
+                        .signature
+                        .as_ref()
+                        .map(|s| s.name.as_str())
+                        .unwrap_or("unknown");
                     eprintln!(
-                        "[WARN] Tool call loop detected: {} repeated {} times",
-                        loop_result
-                            .signature
-                            .as_ref()
-                            .map(|s| s.name.as_str())
-                            .unwrap_or("unknown"),
-                        loop_result.repeated_count
+                        "[WARN] Tool call loop detected: {} repeated {} times ({})",
+                        tool_name,
+                        loop_result.repeated_count,
+                        loop_result.loop_type.as_deref().unwrap_or("unknown"),
                     );
-                    if !loop_warning_injected {
-                        // First detection: inject hint to help LLM break out
+                    if !loop_l1_injected {
+                        // L1: First detection — inject informative hint, allow continuation
                         if let Some(hint_msg) = loop_result.hint_message {
                             messages.push(json!({
                                 "role": "user",
-                                "content": hint_msg,
+                                "content": format!("[Loop Detection Warning]\n{}", hint_msg),
                             }));
-                            loop_warning_injected = true;
+                            loop_l1_injected = true;
                         }
+                    } else if !loop_l2_injected {
+                        // L2: Second detection — force-summary prompt
+                        eprintln!(
+                            "[WARN] Loop persists after L1 warning — injecting force-summary prompt."
+                        );
+                        messages.push(json!({
+                            "role": "user",
+                            "content": format!(
+                                "[Second Notice - Summary Requested]\n\n\
+                                You received a loop detection warning but continued calling \
+                                `{}` ({} times now, {} pattern).\n\n\
+                                **What this means:**\n\
+                                The pattern suggests you may be stuck without making meaningful progress. \
+                                Even if you believe you're making progress, the repeated calls indicate \
+                                it's time to consolidate and summarize.\n\n\
+                                **Please provide your final answer now:**\n\
+                                1. Summarize what you have accomplished\n\
+                                2. If the task cannot be completed, explain what went wrong\n\
+                                3. If you need more information, state what you need\n\n\
+                                Continuing with the same tool calls will result in termination on the next detection.",
+                                tool_name,
+                                loop_result.repeated_count,
+                                loop_result.loop_type.as_deref().unwrap_or("unknown"),
+                            ),
+                        }));
+                        loop_l2_injected = true;
                     } else {
-                        // Already warned once: force break the loop
-                        eprintln!("[ERROR] Loop persists after warning — forcing termination");
-                        // Build a forced final response
+                        // L3: LLM ignored force-summary — terminate
+                        eprintln!(
+                            "[ERROR] LLM ignored force-summary — forcing termination."
+                        );
                         final_text = format!(
-                            "[Loop Detection] The agent appears stuck in a repetitive tool call pattern. \
-                            Forced termination after {} repeated calls to `{}`.",
+                            "[Agent terminated: detected repetitive tool calls]\n\n\
+                            The agent was stuck in a loop calling `{}` \
+                            ({} times, {} pattern).\n\n\
+                            This usually means:\n\
+                            1. The task was already completed but the agent didn't recognize it\n\
+                            2. The tool arguments were incorrect and kept failing\n\
+                            3. The agent couldn't determine task completion criteria\n\n\
+                            Please review the transcript and try a different approach.",
+                            tool_name,
                             loop_result.repeated_count,
-                            loop_result.signature.as_ref().map(|s| s.name.as_str()).unwrap_or("unknown")
+                            loop_result.loop_type.as_deref().unwrap_or("unknown"),
                         );
                         break;
                     }
@@ -854,6 +890,10 @@ impl LlmRuntime for HttpLLMRuntime {
         let max_empty_retries = 2;
         let protocol = self.protocol();
         let protocol_ref = protocol.as_ref();
+        // v1.46.37: Three-level graduated loop intervention (stream)
+        let mut loop_detector = crate::loop_detector::ToolCallLoopDetector::new();
+        let mut loop_l1_injected = false;
+        let mut loop_l2_injected = false;
 
         while budget.consume() {
             // v1.46.30: Check cancel_event at the start of each iteration
@@ -1041,6 +1081,74 @@ impl LlmRuntime for HttpLLMRuntime {
                     // Cancelled by user — emit cancel event and return
                     let _ = on_event(json!({"type": "cancelled"}));
                     return Ok(());
+                }
+            }
+
+            // v1.46.37: Loop detection (stream) — check before executing tool calls
+            if !tool_calls_acc.is_empty() {
+                let tool_call_list: Vec<Value> = tool_calls_acc.values().cloned().collect();
+                loop_detector.record(&tool_call_list);
+                let loop_result = loop_detector.check();
+                if loop_result.is_looping {
+                    let tool_name = loop_result
+                        .signature
+                        .as_ref()
+                        .map(|s| s.name.as_str())
+                        .unwrap_or("unknown");
+                    eprintln!(
+                        "[WARN] Tool call loop detected (stream): {} repeated {} times ({})",
+                        tool_name,
+                        loop_result.repeated_count,
+                        loop_result.loop_type.as_deref().unwrap_or("unknown"),
+                    );
+                    if !loop_l1_injected {
+                        // L1: First detection — inject informative hint
+                        if let Some(hint_msg) = loop_result.hint_message {
+                            messages.push(json!({
+                                "role": "user",
+                                "content": format!("[Loop Detection Warning]\n{}", hint_msg),
+                            }));
+                            loop_l1_injected = true;
+                        }
+                    } else if !loop_l2_injected {
+                        // L2: Second detection — force-summary prompt
+                        eprintln!(
+                            "[WARN] Loop persists after L1 warning (stream) — injecting summary request."
+                        );
+                        messages.push(json!({
+                            "role": "user",
+                            "content": format!(
+                                "[Second Notice - Summary Requested]\n\n\
+                                You received a loop detection warning but continued calling \
+                                `{}` ({} times now, {} pattern).\n\n\
+                                **What this means:**\n\
+                                The pattern suggests you may be stuck without making meaningful progress.\n\n\
+                                **Please provide your final answer now:**\n\
+                                1. Summarize what you have accomplished\n\
+                                2. If the task cannot be completed, explain what went wrong\n\
+                                3. If you need more information, state what you need\n\n\
+                                Continuing with the same tool calls will result in termination on the next detection.",
+                                tool_name,
+                                loop_result.repeated_count,
+                                loop_result.loop_type.as_deref().unwrap_or("unknown"),
+                            ),
+                        }));
+                        loop_l2_injected = true;
+                    } else {
+                        // L3: Terminate
+                        eprintln!("[ERROR] LLM ignored force-summary (stream) — forcing termination.");
+                        let final_msg = format!(
+                            "[Agent terminated: detected repetitive tool calls]\n\n\
+                            The agent was stuck in a loop calling `{}` \
+                            ({} times, {} pattern).\n\n\
+                            Please review the transcript and try a different approach.",
+                            tool_name,
+                            loop_result.repeated_count,
+                            loop_result.loop_type.as_deref().unwrap_or("unknown"),
+                        );
+                        let _ = on_event(json!({"type": "final", "text": final_msg}));
+                        return Ok(());
+                    }
                 }
             }
 
