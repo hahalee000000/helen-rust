@@ -5,8 +5,7 @@
 //! - L2: Second detection injects force-summary prompt, allows LLM to produce final answer
 //! - L3: Third detection (after L2) terminates the agent
 
-use helen_runtime::http_llm::HttpLLMRuntime;
-use helen_runtime::loop_detector::{ToolCallLoopDetector, ToolCallSignature};
+use helen_runtime::loop_detector::ToolCallLoopDetector;
 use serde_json::json;
 
 #[test]
