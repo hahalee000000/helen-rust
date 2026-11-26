@@ -4329,6 +4329,9 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             // v1.46.23: Working memory filter to strip <working_memory> blocks from streaming output
             let wm_filter = Rc::new(RefCell::new(WorkingMemoryFilter::new()));
 
+            // M25.58: Collect tool_calls during streaming for transcript persistence
+            let tool_calls_collected = Rc::new(RefCell::new(Vec::<serde_json::Value>::new()));
+
             // Prepare callbacks for streaming
             let chunk_fn_opt = if let Some(oc) = &la.on_chunk {
                 Some(self.eval_expr(oc)?)
@@ -4346,6 +4349,7 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             let full_text_clone = full_text.clone();
             let interrupted_clone = interrupted.clone();
             let wm_filter_clone = wm_filter.clone();
+            let tool_calls_collected_clone = tool_calls_collected.clone();
             let mut on_event = move |event: serde_json::Value| -> bool {
                 if *interrupted_clone.borrow() {
                     return false;
@@ -4401,6 +4405,19 @@ errors: [Fixed token expiration handling - was missing refresh logic]
                                 .unwrap_or_else(|| serde_json::json!({}));
                             let args_str = format_tool_args(&fn_args);
                             let progress = format!("\n🔧 Calling {fn_name}({args_str})...\n");
+
+                            // M25.58: Collect tool_call for transcript persistence
+                            // Build tool_call in the same format as non-streaming path
+                            let tool_call = serde_json::json!({
+                                "id": format!("call_{}", uuid::Uuid::new_v4().simple()),
+                                "type": "function",
+                                "function": {
+                                    "name": fn_name,
+                                    "arguments": fn_args.to_string()
+                                }
+                            });
+                            tool_calls_collected_clone.borrow_mut().push(tool_call);
+
                             if let Some(ref chunk_fn) = chunk_fn_opt {
                                 let interp = unsafe { &mut *self_ptr_stream };
                                 if let Ok(result) = interp.call_value(
@@ -4506,13 +4523,21 @@ errors: [Fixed token expiration handling - was missing refresh logic]
             }
 
             // v1.46: Write to transcript if agent has transcript="persistent" (Python parity).
+            // M25.58: Include tool_calls in transcript for streaming path (parity with non-streaming)
             if let Some(agent) = &self.current_agent {
                 if agent.transcript == "persistent" {
                     let agent_name = agent.name.clone();
                     self.write_transcript_message("user", &prompt, &agent_name);
                     let text = full_text.borrow().clone();
+                    let collected_tools = tool_calls_collected.borrow().clone();
                     if !text.is_empty() {
-                        self.write_transcript_message("assistant", &text, &agent_name);
+                        self.write_transcript_message_with_tools(
+                            "assistant",
+                            &text,
+                            &agent_name,
+                            collected_tools,
+                            None,
+                        );
                     }
                 }
             }
@@ -4586,14 +4611,21 @@ errors: [Fixed token expiration handling - was missing refresh logic]
 
         // v1.46: Write to transcript if agent has transcript="persistent" (Python parity).
         // Python: agent_ctx.transcript_store.append(msg, persist=persist)
+        // M25.58: Include tool_calls in transcript (parity with streaming path fix)
         if let Some(agent) = &self.current_agent {
             if agent.transcript == "persistent" {
                 let agent_name = agent.name.clone();
                 // Write user message
                 self.write_transcript_message("user", &prompt, &agent_name);
-                // Write assistant response
+                // Write assistant response with tool_calls
                 if let Some(t) = &response.text {
-                    self.write_transcript_message("assistant", t, &agent_name);
+                    self.write_transcript_message_with_tools(
+                        "assistant",
+                        t,
+                        &agent_name,
+                        response.tool_calls.clone(),
+                        None,
+                    );
                 }
             }
         }

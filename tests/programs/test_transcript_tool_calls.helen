@@ -1,0 +1,53 @@
+// Test: Verify that tool_calls are recorded in transcript for streaming path
+// M25.58: Fix transcript persistence for streaming mode
+
+agent TranscriptToolCallTester(query: str) {
+    description "Test agent to verify tool_calls are recorded in transcript"
+    prompt "Query: {{query}}. Use the read_file tool to read any file, then summarize what you found."
+    tools ["read_file"]
+    transcript = "persistent"
+    
+    functions {
+        fn format_result(content: str): str {
+            return "Summary: " + content[:50]
+        }
+    }
+    
+    main {
+        let result = llm act
+        return result
+    }
+}
+
+// Main test
+session_start()
+let session_id = session_id()
+print("Session ID: " + session_id)
+
+let agent = TranscriptToolCallTester("test query")
+let response = agent()
+print("Response: " + response)
+
+// Get transcript and verify tool_calls are present
+let transcript = transcript_get()
+print("Transcript length: " + len(transcript))
+
+// Check if transcript contains tool_calls
+let has_tool_calls = false
+for msg in transcript {
+    if msg["role"] == "assistant" and "tool_calls" in msg {
+        if len(msg["tool_calls"]) > 0 {
+            has_tool_calls = true
+            print("Found tool_calls in transcript!")
+            print("Tool calls: " + str(msg["tool_calls"]))
+        }
+    }
+}
+
+if has_tool_calls {
+    print("✅ PASS: tool_calls recorded in transcript")
+} else {
+    print("❌ FAIL: tool_calls NOT recorded in transcript")
+}
+
+session_end()
