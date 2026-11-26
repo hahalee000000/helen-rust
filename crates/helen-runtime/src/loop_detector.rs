@@ -343,10 +343,7 @@ impl ToolCallLoopDetector {
         repeated_count: usize,
         _threshold: usize,
     ) -> String {
-        let header = format!(
-            "[Loop Detection Notice: repeated {} calls]",
-            tool_name
-        );
+        let header = format!("[Loop Detection Notice: repeated {} calls]", tool_name);
         let detail = format!(
             "Tool: {} called {} times with varying arguments",
             tool_name, repeated_count

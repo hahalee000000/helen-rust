@@ -12,13 +12,13 @@ use serde_json::json;
 #[test]
 fn test_per_tool_thresholds() {
     let detector = ToolCallLoopDetector::new();
-    
+
     // shell_exec has high tolerance (25)
     assert_eq!(detector.get_tool_threshold("shell_exec"), 25);
-    
+
     // write_file has strict threshold (5)
     assert_eq!(detector.get_tool_threshold("write_file"), 5);
-    
+
     // Unknown tool uses default (10)
     assert_eq!(detector.get_tool_threshold("unknown_tool"), 10);
 }
@@ -27,7 +27,7 @@ fn test_per_tool_thresholds() {
 fn test_tool_name_repeat_detection() {
     let mut detector = ToolCallLoopDetector::new();
     detector.exact_repeat_threshold = 3;
-    
+
     // Create tool calls with same name but different arguments
     let tc1 = json!({
         "function": {
@@ -47,7 +47,7 @@ fn test_tool_name_repeat_detection() {
             "arguments": "{\"command\": \"cat file.txt\"}"
         }
     });
-    
+
     // Record same tool name with different arguments
     // shell_exec threshold is 25, so we need 25 calls to trigger
     for _ in 0..8 {
@@ -55,7 +55,7 @@ fn test_tool_name_repeat_detection() {
         detector.record(std::slice::from_ref(&tc2));
         detector.record(std::slice::from_ref(&tc3));
     }
-    
+
     let result = detector.check();
     // Should detect tool-name-repeat pattern
     assert!(result.is_looping);
@@ -66,22 +66,22 @@ fn test_tool_name_repeat_detection() {
 fn test_informative_hint_format() {
     let mut detector = ToolCallLoopDetector::new();
     detector.exact_repeat_threshold = 3;
-    
+
     let tc = json!({
         "function": {
             "name": "web_search",
             "arguments": "{\"query\": \"test\"}"
         }
     });
-    
+
     // Record same tool call 3 times
     for _ in 0..3 {
         detector.record(std::slice::from_ref(&tc));
     }
-    
+
     let result = detector.check();
     assert!(result.is_looping);
-    
+
     let hint = result.hint_message.unwrap();
     // Should contain informative sections
     assert!(hint.contains("Common scenarios"));
@@ -93,19 +93,19 @@ fn test_informative_hint_format() {
 fn test_threshold_used_in_result() {
     let mut detector = ToolCallLoopDetector::new();
     detector.exact_repeat_threshold = 3;
-    
+
     let tc = json!({
         "function": {
             "name": "write_file",
             "arguments": "{\"path\": \"test.txt\"}"
         }
     });
-    
+
     // write_file threshold is 5
     for _ in 0..5 {
         detector.record(std::slice::from_ref(&tc));
     }
-    
+
     let result = detector.check();
     assert!(result.is_looping);
     assert_eq!(result.threshold_used, 5);

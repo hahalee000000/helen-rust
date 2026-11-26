@@ -141,6 +141,15 @@ pub struct HelenActorBridge {
     call_tracker: Arc<helen_runtime::call_tracking::CallTracker>,
 }
 
+impl Drop for HelenActorBridge {
+    fn drop(&mut self) {
+        // Signal the interpreter thread to exit
+        self.alive.store(false, Ordering::Relaxed);
+        // Also trigger cancel to interrupt any in-flight LLM calls
+        self.cancel_event.store(true, Ordering::Relaxed);
+    }
+}
+
 impl HelenActorBridge {
     /// Create a new bridge (spawns Helen interpreter thread)
     ///

@@ -807,9 +807,7 @@ impl LlmRuntime for HttpLLMRuntime {
                         loop_l2_injected = true;
                     } else {
                         // L3: LLM ignored force-summary — terminate
-                        eprintln!(
-                            "[ERROR] LLM ignored force-summary — forcing termination."
-                        );
+                        eprintln!("[ERROR] LLM ignored force-summary — forcing termination.");
                         final_text = format!(
                             "[Agent terminated: detected repetitive tool calls]\n\n\
                             The agent was stuck in a loop calling `{}` \
@@ -1136,7 +1134,9 @@ impl LlmRuntime for HttpLLMRuntime {
                         loop_l2_injected = true;
                     } else {
                         // L3: Terminate
-                        eprintln!("[ERROR] LLM ignored force-summary (stream) — forcing termination.");
+                        eprintln!(
+                            "[ERROR] LLM ignored force-summary (stream) — forcing termination."
+                        );
                         let final_msg = format!(
                             "[Agent terminated: detected repetitive tool calls]\n\n\
                             The agent was stuck in a loop calling `{}` \
