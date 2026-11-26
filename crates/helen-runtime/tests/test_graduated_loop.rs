@@ -48,8 +48,8 @@ fn test_tool_name_repeat_detection() {
     });
 
     // Record same tool name with different arguments
-    // shell_exec threshold is 25, so we need 25 calls to trigger
-    for _ in 0..8 {
+    // shell_exec threshold is 25, so we need 25+ calls to trigger
+    for _ in 0..9 {
         detector.record(std::slice::from_ref(&tc1));
         detector.record(std::slice::from_ref(&tc2));
         detector.record(std::slice::from_ref(&tc3));
@@ -73,8 +73,8 @@ fn test_informative_hint_format() {
         }
     });
 
-    // Record same tool call 3 times
-    for _ in 0..3 {
+    // Record same tool call 15 times (web_search threshold is 15)
+    for _ in 0..15 {
         detector.record(std::slice::from_ref(&tc));
     }
 
