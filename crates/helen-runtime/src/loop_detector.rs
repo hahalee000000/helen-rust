@@ -17,23 +17,28 @@ use std::collections::HashMap;
 
 /// Per-tool thresholds: different tools have different repeat tolerance.
 /// Read/execution tools are more tolerant, write/modification tools are stricter.
+/// 
+/// v1.46.38: Increased thresholds to support long-running tasks.
+/// Agent may need to read many files, execute many commands, etc.
+/// Strategy 3 now also checks for argument diversity — if args are all different,
+/// it's likely legitimate progress, not a loop.
 pub const DEFAULT_TOOL_THRESHOLDS: &[(&str, usize)] = &[
     // Read/execution tools — high tolerance (legitimate repeated use)
-    ("shell_exec", 25),
-    ("read_file", 20),
-    ("list_directory", 20),
-    ("search_files", 15),
-    ("find_files", 15),
-    ("web_search", 15),
-    ("web_fetch", 15),
-    // Write/modification tools — strict (repeated writes are suspicious)
-    ("write_file", 5),
-    ("edit_file", 5),
-    ("patch_file", 5),
+    ("shell_exec", 50),
+    ("read_file", 40),
+    ("list_directory", 30),
+    ("search_files", 25),
+    ("find_files", 25),
+    ("web_search", 25),
+    ("web_fetch", 25),
+    // Write/modification tools — moderate tolerance (may need multiple edits)
+    ("write_file", 15),
+    ("edit_file", 15),
+    ("patch_file", 15),
 ];
 
 /// Default threshold for unknown tools.
-pub const DEFAULT_THRESHOLD: usize = 10;
+pub const DEFAULT_THRESHOLD: usize = 20;
 
 /// A normalized signature for a tool call, used for deduplication.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -267,6 +272,10 @@ impl ToolCallLoopDetector {
     }
 
     /// Strategy 3: Check if the last N calls all use the same tool (any arguments).
+    /// 
+    /// v1.46.38: Added argument diversity check — if all arguments are unique,
+    /// it's likely legitimate progress (e.g., reading different files, executing
+    /// different commands). Only trigger if there's argument repetition.
     fn check_tool_name_repeat(&self) -> LoopDetectionResult {
         if self.history.is_empty() {
             return LoopDetectionResult::not_looping();
@@ -278,6 +287,16 @@ impl ToolCallLoopDetector {
         }
         let recent = &self.history[self.history.len() - threshold..];
         if recent.iter().all(|sig| sig.name == *last_tool_name) {
+            // v1.46.38: Check argument diversity — if all args are unique, it's progress
+            let unique_args: std::collections::HashSet<&str> =
+                recent.iter().map(|sig| sig.args_key.as_str()).collect();
+            let diversity_ratio = unique_args.len() as f64 / recent.len() as f64;
+            
+            // If >80% of arguments are unique, it's likely legitimate progress
+            if diversity_ratio > 0.8 {
+                return LoopDetectionResult::not_looping();
+            }
+            
             let mut count = threshold;
             for i in (0..self.history.len() - threshold).rev() {
                 if self.history[i].name == *last_tool_name {
@@ -432,28 +451,29 @@ mod tests {
     #[test]
     fn test_per_tool_thresholds() {
         let detector = ToolCallLoopDetector::new();
-        assert_eq!(detector.get_tool_threshold("shell_exec"), 25);
-        assert_eq!(detector.get_tool_threshold("write_file"), 5);
-        assert_eq!(detector.get_tool_threshold("unknown_tool"), 10);
+        // v1.46.38: Updated thresholds
+        assert_eq!(detector.get_tool_threshold("shell_exec"), 50);
+        assert_eq!(detector.get_tool_threshold("write_file"), 15);
+        assert_eq!(detector.get_tool_threshold("unknown_tool"), 20);
     }
 
     #[test]
     fn test_exact_repeat_detection() {
         let mut detector = ToolCallLoopDetector::new();
-        // Use write_file (threshold=5) for faster testing
+        // Use write_file (threshold=15) for testing — v1.46.38
         let tc = json!({
             "function": {
                 "name": "write_file",
                 "arguments": "{\"path\": \"test.txt\"}"
             }
         });
-        for _ in 0..5 {
+        for _ in 0..15 {
             detector.record(std::slice::from_ref(&tc));
         }
         let result = detector.check();
         assert!(result.is_looping);
         assert_eq!(result.loop_type, Some("exact".to_string()));
-        assert_eq!(result.threshold_used, 5);
+        assert_eq!(result.threshold_used, 15);
     }
 
     #[test]
@@ -481,16 +501,23 @@ mod tests {
     #[test]
     fn test_tool_name_repeat_detection() {
         let mut detector = ToolCallLoopDetector::new();
-        // Use write_file (threshold=5) for tool-name-repeat
-        let tc1 = json!({"function": {"name": "write_file", "arguments": "{\"path\": \"a.txt\"}"}});
-        let tc2 = json!({"function": {"name": "write_file", "arguments": "{\"path\": \"b.txt\"}"}});
-        let tc3 = json!({"function": {"name": "write_file", "arguments": "{\"path\": \"c.txt\"}"}});
-        // 5 calls with different args but same tool name
-        detector.record(std::slice::from_ref(&tc1));
-        detector.record(std::slice::from_ref(&tc2));
-        detector.record(std::slice::from_ref(&tc3));
-        detector.record(std::slice::from_ref(&tc1));
-        detector.record(std::slice::from_ref(&tc2));
+        // v1.46.38: Use enough unique args to avoid Strategy 1/2, but <80% diversity
+        // write_file threshold is 15. Use 10 unique args + 5 repeats = 67% diversity
+        let mut tool_calls = Vec::new();
+        for i in 0..10 {
+            tool_calls.push(json!({
+                "function": {
+                    "name": "write_file",
+                    "arguments": format!("{{\"path\": \"file_{}.txt\"}}", i)
+                }
+            }));
+        }
+        for tc in &tool_calls {
+            detector.record(std::slice::from_ref(tc));
+        }
+        for tc in &tool_calls[..5] {
+            detector.record(std::slice::from_ref(tc));
+        }
         let result = detector.check();
         assert!(result.is_looping);
         assert_eq!(result.loop_type, Some("tool-name-repeat".to_string()));
@@ -499,13 +526,14 @@ mod tests {
     #[test]
     fn test_informative_hint_format() {
         let mut detector = ToolCallLoopDetector::new();
+        // v1.46.38: write_file threshold is 15
         let tc = json!({
             "function": {
                 "name": "write_file",
                 "arguments": "{\"path\": \"test.txt\"}"
             }
         });
-        for _ in 0..5 {
+        for _ in 0..15 {
             detector.record(std::slice::from_ref(&tc));
         }
         let result = detector.check();

@@ -4,6 +4,8 @@
 //! - L1: First detection injects a warning hint, allows LLM to continue
 //! - L2: Second detection injects force-summary prompt, allows LLM to produce final answer
 //! - L3: Third detection (after L2) terminates the agent
+//!
+//! v1.46.38: Updated thresholds and added argument diversity check.
 
 use helen_runtime::loop_detector::ToolCallLoopDetector;
 use serde_json::json;
@@ -12,14 +14,14 @@ use serde_json::json;
 fn test_per_tool_thresholds() {
     let detector = ToolCallLoopDetector::new();
 
-    // shell_exec has high tolerance (25)
-    assert_eq!(detector.get_tool_threshold("shell_exec"), 25);
+    // shell_exec has high tolerance (50) — v1.46.38: increased from 25
+    assert_eq!(detector.get_tool_threshold("shell_exec"), 50);
 
-    // write_file has strict threshold (5)
-    assert_eq!(detector.get_tool_threshold("write_file"), 5);
+    // write_file has moderate threshold (15) — v1.46.38: increased from 5
+    assert_eq!(detector.get_tool_threshold("write_file"), 15);
 
-    // Unknown tool uses default (10)
-    assert_eq!(detector.get_tool_threshold("unknown_tool"), 10);
+    // Unknown tool uses default (20) — v1.46.38: increased from 10
+    assert_eq!(detector.get_tool_threshold("unknown_tool"), 20);
 }
 
 #[test]
@@ -27,38 +29,61 @@ fn test_tool_name_repeat_detection() {
     let mut detector = ToolCallLoopDetector::new();
     detector.exact_repeat_threshold = 3;
 
-    // Create tool calls with same name but different arguments
-    let tc1 = json!({
-        "function": {
-            "name": "shell_exec",
-            "arguments": "{\"command\": \"ls\"}"
-        }
-    });
-    let tc2 = json!({
-        "function": {
-            "name": "shell_exec",
-            "arguments": "{\"command\": \"pwd\"}"
-        }
-    });
-    let tc3 = json!({
-        "function": {
-            "name": "shell_exec",
-            "arguments": "{\"command\": \"cat file.txt\"}"
-        }
-    });
+    // v1.46.38: Use enough unique arguments to avoid Strategy 1 (exact) and 
+    // Strategy 2 (window pattern), but keep diversity below 80% to trigger Strategy 3.
+    // Strategy 2 triggers when same call appears 5+ times in window of 10.
+    // We'll use 10 unique args repeated to get 10/15 = 67% diversity (<80%).
+    let mut tool_calls = Vec::new();
+    for i in 0..10 {
+        tool_calls.push(json!({
+            "function": {
+                "name": "write_file",
+                "arguments": format!("{{\"path\": \"file_{}.txt\"}}", i)
+            }
+        }));
+    }
 
-    // Record same tool name with different arguments
-    // shell_exec threshold is 25, so we need 25+ calls to trigger
-    for _ in 0..9 {
-        detector.record(std::slice::from_ref(&tc1));
-        detector.record(std::slice::from_ref(&tc2));
-        detector.record(std::slice::from_ref(&tc3));
+    // write_file threshold is 15. Record each of 10 unique calls, then repeat 5.
+    // This gives 10 unique args in 15 calls = 67% diversity (<80% → triggers)
+    for tc in &tool_calls {
+        detector.record(std::slice::from_ref(tc));
+    }
+    // Repeat first 5 to reach threshold of 15
+    for tc in &tool_calls[..5] {
+        detector.record(std::slice::from_ref(tc));
     }
 
     let result = detector.check();
-    // Should detect tool-name-repeat pattern
+    // Should detect tool-name-repeat pattern (diversity: 10/15 = 67% < 80%)
     assert!(result.is_looping);
     assert_eq!(result.loop_type, Some("tool-name-repeat".to_string()));
+}
+
+#[test]
+fn test_tool_name_repeat_diverse_args_not_loop() {
+    // v1.46.38: Verify that diverse arguments are NOT flagged as a loop.
+    let mut detector = ToolCallLoopDetector::new();
+    detector.exact_repeat_threshold = 3;
+
+    // Create tool calls with same name but ALL different arguments (diverse)
+    let mut tool_calls = Vec::new();
+    for i in 0..50 {
+        tool_calls.push(json!({
+            "function": {
+                "name": "shell_exec",
+                "arguments": format!("{{\"command\": \"cmd_{}\"}}", i)
+            }
+        }));
+    }
+
+    // Record 50 different shell_exec calls (threshold is 50)
+    for tc in &tool_calls {
+        detector.record(std::slice::from_ref(tc));
+    }
+
+    let result = detector.check();
+    // Should NOT detect loop — all arguments are unique (>80% diversity)
+    assert!(!result.is_looping, "Diverse args should not trigger loop detection");
 }
 
 #[test]
@@ -73,8 +98,8 @@ fn test_informative_hint_format() {
         }
     });
 
-    // Record same tool call 15 times (web_search threshold is 15)
-    for _ in 0..15 {
+    // Record same tool call 25 times (web_search threshold is 25) — v1.46.38
+    for _ in 0..25 {
         detector.record(std::slice::from_ref(&tc));
     }
 
@@ -100,12 +125,12 @@ fn test_threshold_used_in_result() {
         }
     });
 
-    // write_file threshold is 5
-    for _ in 0..5 {
+    // write_file threshold is 15 — v1.46.38: increased from 5
+    for _ in 0..15 {
         detector.record(std::slice::from_ref(&tc));
     }
 
     let result = detector.check();
     assert!(result.is_looping);
-    assert_eq!(result.threshold_used, 5);
+    assert_eq!(result.threshold_used, 15);
 }
